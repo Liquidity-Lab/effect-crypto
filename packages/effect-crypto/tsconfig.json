@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "src/**/*",
+    "src/**/*.json",
+    "__tests__/**/*"
+  ],
+  "exclude": [
+    "node_modules/**/*",
+    "dist/**/*"
+  ],
+  "compilerOptions": {
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@liquidity_lab/sol-artifacts/*": [
+        "../../sol-artifacts/dist/*"
+      ],
+      "~/*": [
+        "*"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "../sol-artifacts"
+    }
+  ]
+}

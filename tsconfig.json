@@ -5,10 +5,10 @@
       "path": "packages/sol-artifacts"
     },
     {
-      "path": "packages/uniswap"
+      "path": "packages/effect-crypto"
     },
     {
-      "path": "packages/localnet"
+      "path": "packages/uniswap"
     }
   ]
 }
