@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "src/**/*",
+    "src/**/*.json",
+    "artifacts/**/*.json",
+    "__tests__/**/*"
+  ],
+  "exclude": [
+    "node_modules/**/*",
+    "dist/**/*"
+  ],
+  "compilerOptions": {
+    "rootDir": "./artifacts",
+    "baseUrl": "./artifacts",
+    "outDir": "./dist",
+    "paths": {}
+  },
+  "references": []
+}
