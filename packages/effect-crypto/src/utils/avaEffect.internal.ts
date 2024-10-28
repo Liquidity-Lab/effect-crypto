@@ -1,5 +1,5 @@
 import anyTest, { type ExecutionContext, type Implementation, type TestFn } from "ava";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer, LogLevel, Logger, Option } from "effect";
 
 import * as T from "~/utils/avaEffect.js";
 
@@ -80,6 +80,7 @@ function testEffectInternal<Services, Plugins, A>(
         return Effect.sync(() => t.log(`Error happened during ${label} test execution`, e));
       }),
       Effect.provide(t.context[contextKeySymbol]),
+      Logger.withMinimumLogLevel(LogLevel.Error),
       Effect.scoped,
       Effect.orDie,
     );

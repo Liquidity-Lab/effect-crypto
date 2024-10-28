@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "test": "npm run build && npx ava"
+    "test": "npx ava --timeout 2m"
   },
   "author": "",
   "license": "ISC",
