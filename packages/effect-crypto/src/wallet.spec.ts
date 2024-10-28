@@ -97,7 +97,7 @@ const deps = tokensLayer.pipe(
 const testEffect = AvaCrypto.makeTestEffect(deps, () => ({}));
 
 testEffect("Should transfer all tokens", (t) => {
-  t.timeout(1000 * 60, 'Hardhat tests are slow'); // 1 minute
+  t.timeout(1000 * 60, "Hardhat tests are slow"); // 1 minute
 
   function testToken<T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     token: Token.Token<T>,

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc --build",
+    "codestyle": "node node_modules/prettier/bin/prettier.cjs --check \"packages/**/*.{ts,tsx,js,jsx}\"",
     "start": "npx tsx src/index.ts",
     "start-node": "npx hardhat node --fork https://arbitrum-mainnet.infura.io/v3/f89c7e42fab643f39c457ceeb4d63acd",
     "test": "echo \"Error: no test specified\" && exit 0"
@@ -31,7 +32,7 @@
     "eslint-config-prettier": "9.1.0",
     "fast-check": "3.19.0",
     "jest": "29.7.0",
-    "prettier": "3.2.5",
+    "prettier": "3.3.3",
     "ts-jest": "29.1.4",
     "tslib": "2.6.2",
     "tsx": "4.9.3",

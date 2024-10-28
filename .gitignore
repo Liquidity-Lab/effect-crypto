@@ -95,7 +95,8 @@ node_modules
 .env
 
 # Hardhat files
-/cache
+/packages/localnet/cache
+/packages/sol-artifacts/cache
 /packages/artifacts
 
 # TypeChain files

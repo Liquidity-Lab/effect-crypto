@@ -2,8 +2,8 @@ import { Context, Effect, Layer } from "effect";
 import { Signer } from "ethers";
 
 import * as Adt from "~/adt.js";
-import * as internal from "~/testEnv.internal.js";
 import * as Error from "~/error.js";
+import * as internal from "~/testEnv.internal.js";
 
 export { TestEnvTxTag as TxTag } from "~/testEnv.internal.js";
 export { TestEnvTag as Tag } from "~/testEnv.internal.js";

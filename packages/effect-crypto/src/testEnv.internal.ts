@@ -12,8 +12,8 @@ import {
 
 import * as Adt from "~/adt.js";
 import * as Chain from "~/chain.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
 import * as Error from "~/error.js";
+import * as FunctionUtils from "~/utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/testEvn#privateApi");
 

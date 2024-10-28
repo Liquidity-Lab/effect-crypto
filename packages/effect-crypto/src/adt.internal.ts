@@ -5,10 +5,10 @@ import type * as Adt from "~/adt.js";
 
 export function makeAddress(
   address: string,
-  bypassChecksum: boolean = false
+  bypassChecksum: boolean = false,
 ): Either.Either<Adt.Address, unknown> {
   return Either.try(() =>
-    bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address)
+    bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address),
   ) as Either.Either<Adt.Address, unknown>;
 }
 

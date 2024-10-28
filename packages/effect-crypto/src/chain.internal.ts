@@ -182,7 +182,10 @@ function contractInstanceImpl(
   return Signature.ContractOps(api.provider, (runner) => new Contract(target, abi, runner));
 }
 
-export const connectWallet = FunctionUtils.withOptionalServiceApi(ChainTxTag, connectWalletImpl).value;
+export const connectWallet = FunctionUtils.withOptionalServiceApi(
+  ChainTxTag,
+  connectWalletImpl,
+).value;
 
 function connectWalletImpl(
   { [privateApiSymbol]: api }: ChainTxShape,

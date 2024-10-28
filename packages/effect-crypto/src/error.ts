@@ -1,8 +1,8 @@
 import { Effect, Either } from "effect";
 import { Contract, ErrorDescription } from "ethers";
 
-import * as internal from "~/error.internal.js";
 import * as Adt from "~/adt.js";
+import * as internal from "~/error.internal.js";
 
 export type { ErrorCode } from "~/error.internal.js";
 

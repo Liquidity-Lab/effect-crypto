@@ -13,7 +13,8 @@ export type TestEffectContext<Services> = {
 export type EffectfulExecutionContext<Services, Plugins> = Omit<
   ExecutionContext<TestEffectContext<Services>>,
   "try"
-> & Plugins
+> &
+  Plugins;
 
 export type EffectImplementationFn<Services, Plugins> = (
   t: EffectfulExecutionContext<Services, Plugins>,

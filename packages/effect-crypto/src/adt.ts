@@ -44,8 +44,8 @@ export const Address: {
  * FatalError is a tagged type that represents a fatal error.
  */
 export interface FatalError {
-  readonly _tag: "FatalError"
-  readonly underlying: Error
+  readonly _tag: "FatalError";
+  readonly underlying: Error;
 }
 
 /**

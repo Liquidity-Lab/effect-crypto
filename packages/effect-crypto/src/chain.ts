@@ -7,11 +7,7 @@ import * as Error from "~/error.js";
 import * as Signature from "~/signature.js";
 import * as Token from "~/token.js";
 
-export {
-  ConfigTag,
-  ChainTag as Tag,
-  ChainTxTag as TxTag,
-} from "~/chain.internal.js";
+export { ConfigTag, ChainTag as Tag, ChainTxTag as TxTag } from "~/chain.internal.js";
 
 /**
  * ChainId is a type representing a chain id
