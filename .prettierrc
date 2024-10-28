@@ -1,0 +1,5 @@
+{
+  "experimentalTernaries": true,
+  "printWidth": 100,
+  "parser": "typescript"
+}

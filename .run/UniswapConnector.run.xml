@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="UniswapConnector" type="NodeJSConfigurationType" focusToolWindowBeforeRun="true" path-to-node="node" node-parameters="--import tsx" path-to-js-file="src/index.ts" working-dir="$PROJECT_DIR$">
+    <envs>
+      <env name="APP_CHAIN_NAME" value="arbitrum" />
+      <env name="APP_KAFKA_BOOTSTRAP_SERVERS" value="localhost:9000" />
+      <env name="APP_KAFKA_GROUP_ID" value="uniswap-collector-1" />
+      <env name="APP_KAFKA_OUTPUT_TOPIC" value="uniswap-prices" />
+      <env name="APP_MAINNET_RPC_URL" value="" />
+      <env name="APP_RPC_URL" value="https://arbitrum-mainnet.infura.io/v3/f89c7e42fab643f39c457ceeb4d63acd" />
+    </envs>
+    <method v="2">
+      <option name="TypeScript.Before.Run" enabled="true" FAIL_ON_ERROR="true" CONFIG_PATH="$PROJECT_DIR$/tsconfig.json" />
+    </method>
+  </configuration>
+</component>

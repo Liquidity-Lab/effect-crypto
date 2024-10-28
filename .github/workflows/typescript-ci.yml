@@ -1,0 +1,95 @@
+name: Typescript CI
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  codestyle:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: npm ci # do not use --workspaces here, since we aim main package.json
+
+      - name: Run Prettier check
+        run: npm run codestyle
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: npm ci # do not use --workspaces here, since we aim main package.json
+
+      - name: Run Prettier check
+        run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    needs:
+      - codestyle
+      - lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --workspaces
+
+      - name: Build
+        run: npm run build --workspaces
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --workspaces
+
+      - name: Build
+        run: npm run build --workspaces
+
+      - name: Start Hardhat node
+        run: npm run local-node --prefix packages/sol-artifacts &
+
+      - name: Wait for Hardhat node to be ready
+        run: sleep 10
+
+      - name: Run tests
+        env:
+          HARDHAT_NETWORK: localhost
+        run: npm run test --workspaces

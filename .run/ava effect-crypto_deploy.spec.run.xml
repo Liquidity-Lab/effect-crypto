@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ava effect-crypto/deploy.spec" type="NodeJSConfigurationType" application-parameters="-v src/deploy.spec.ts" node-parameters="--import tsx" path-to-js-file="../../node_modules/ava/entrypoints/cli.mjs" working-dir="$PROJECT_DIR$/packages/effect-crypto">
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="build" run_configuration_type="js.build_tools.npm" />
+    </method>
+  </configuration>
+</component>

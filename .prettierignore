@@ -1,0 +1,24 @@
+# Ignore artifacts:
+build
+dist
+coverage
+node_modules
+
+# Ignore IntelliJ IDEA project files:
+.idea
+
+# Ignore log files:
+*.log
+
+# Ignore TypeScript type declaration files:
+*.d.ts
+
+# Ignore environment variables files:
+.env
+.env.test
+
+# Ignore other unnecessary files:
+*.pid
+*.seed
+*.pid.lock
+*.tgz

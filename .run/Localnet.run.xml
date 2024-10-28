@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Localnet" type="NodeJSConfigurationType" focusToolWindowBeforeRun="true" path-to-node="node" node-parameters="--import tsx" path-to-js-file="src/com/liquidity_lab/crypto/localnet/index.ts" working-dir="$PROJECT_DIR$/packages/localnet">
+    <envs>
+      <env name="APP_CHAIN_NAME" value="mainnet" />
+      <env name="APP_RPC_URL" value="http://127.0.0.1:8545/" />
+    </envs>
+    <method v="2">
+      <option name="TypeScript.Before.Run" enabled="true" FAIL_ON_ERROR="true" CONFIG_PATH="$PROJECT_DIR$/tsconfig.json" />
+    </method>
+  </configuration>
+</component>
