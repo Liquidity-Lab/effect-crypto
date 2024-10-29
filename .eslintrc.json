@@ -6,17 +6,25 @@
   },
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "project": ["./packages/*/tsconfig.json"],
+    "project": [
+      "./packages/*/tsconfig.json"
+    ],
     "sourceType": "module",
     "ecmaVersion": 2020
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": [
+    "@typescript-eslint",
+    "@effect/eslint-plugin"
+  ],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
     "prettier"
   ],
-  "ignorePatterns": ["./packages/*/jest.config.js"],
+  "ignorePatterns": [
+    "./packages/*/jest.config.js"
+  ],
   "rules": {
     // The following rule is enabled only to supplement the inline suppression
     // examples, and because it is not a recommended rule, you should either
@@ -24,6 +32,26 @@
     // https://typescript-eslint.io/rules/explicit-function-return-type/
     "@typescript-eslint/explicit-function-return-type": "warn",
     "no-use-before-define": "off",
-    "@typescript-eslint/no-use-before-define": ["error", { "variables": true, "functions": false }]
-  }
+    "@typescript-eslint/no-use-before-define": [
+      "error",
+      {
+        "variables": true,
+        "functions": false
+      }
+    ],
+    "@typescript-eslint/explicit-function-return-type": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "*.internal.ts",
+        "*.internal.tsx",
+        "*.spec.ts",
+        "*.spec.tsx"
+      ],
+      "rules": {
+        "@typescript-eslint/explicit-function-return-type": "off"
+      }
+    }
+  ]
 }

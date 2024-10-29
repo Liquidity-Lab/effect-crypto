@@ -1,4 +1,4 @@
-import type { AfterFn, BeforeFn, ExecutionContext, TryResult } from "ava";
+import type { AfterFn, BeforeFn, ExecutionContext } from "ava";
 import { Context, Effect, Layer, Option, Scope } from "effect";
 
 import * as internal from "~/utils/avaEffect.internal.js";
@@ -100,7 +100,7 @@ export interface AssertOptionalEqualViaAssertion {
   ): boolean;
 
   /** Skip this assertion. */
-  skip(actual: any, expected: any, message?: string): void;
+  skip(actual: unknown, expected: unknown, message?: string): void;
 }
 
 export type EffectAssertions = {

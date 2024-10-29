@@ -1,7 +1,6 @@
 import { Context, Effect } from "effect";
 import { Contract, ContractRunner, FunctionFragment, Signer } from "ethers";
 
-import * as Adt from "~/adt.js";
 import * as internal from "~/signature.internal.js";
 
 export { SignatureTxTag as TxTag } from "~/signature.internal.js";
@@ -24,6 +23,7 @@ export interface ContractOps {
    */
   readonly withOnChainRunner: Contract;
 }
+
 /**
  * Creates a new ContractOps instance
  *

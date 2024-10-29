@@ -35,6 +35,7 @@ export function withOptionalService<
   (...args: Args): Effect.Effect<A, E, Context.Tag.Identifier<Service> | R>;
   (service: Context.Tag.Service<Service>, ...args: Args): Effect.Effect<A, E, R>;
 } {
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   function overloaded(...args: Args | [Context.Tag.Service<Service>, ...Args]) {
     function isServiceNotProvided(args: unknown[]): args is Args {
       return args.length === fn.length - 1;
@@ -82,6 +83,7 @@ type WithOptionalServiceOps<
     (...args: Args): Effect.Effect<A, E, Context.Tag.Identifier<Service> | R>;
     (service: Context.Tag.Service<Service>, ...args: Args): Effect.Effect<A, E, R>;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   contramapEvalService<NewService extends Context.Tag<any, any>, E1 = never, R1 = never>(
     cF: (
       newService: Context.Tag.Service<NewService>,
@@ -136,6 +138,7 @@ export function withOptionalServiceApi<
     return Effect.succeed(res);
   }
 
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   function overloaded(...args: Args | [Context.Tag.Service<Service>, ...Args]) {
     function isServiceNotProvided(args: unknown[]): args is Args {
       return args.length === fn.length - 1;
@@ -156,11 +159,13 @@ export function withOptionalServiceApi<
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function contramapEvalService<NewService extends Context.Tag<any, any>, E1, R1>(
     cF: (
       newService: Context.Tag.Service<NewService>,
     ) => Effect.Effect<Context.Tag.Service<Service>, E1, R1>,
   ): WithOptionalServiceOps<NewService, Args, A, E | E1, R | R1> {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     function overloaded(...args: Args | [Context.Tag.Service<NewService>, ...Args]) {
       function isServiceNotProvided(args: unknown[]): args is Args {
         return args.length === fn.length - 1;

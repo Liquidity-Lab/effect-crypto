@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "codestyle": "node node_modules/prettier/bin/prettier.cjs --check \"packages/**/*.{ts,tsx,js,jsx}\"",
+    "codestyle": "prettier --check \"packages/**/*.{ts,tsx,js,jsx}\"",
+    "lint": "eslint \"packages/**/*.{ts,tsx,js,jsx}\" --format stylish",
     "start": "npx tsx src/index.ts",
     "start-node": "npx hardhat node --fork https://arbitrum-mainnet.infura.io/v3/f89c7e42fab643f39c457ceeb4d63acd",
     "test": "echo \"Error: no test specified\" && exit 0"
@@ -19,6 +20,7 @@
   "description": "",
   "devDependencies": {
     "@ava/typescript": "5.0.0",
+    "@effect/eslint-plugin": "0.2.0",
     "@eslint/js": "9.2.0",
     "@fast-check/ava": "1.2.1",
     "@trivago/prettier-plugin-sort-imports": "4.3.0",

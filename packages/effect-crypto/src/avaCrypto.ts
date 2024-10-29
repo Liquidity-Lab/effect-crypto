@@ -34,7 +34,7 @@ export type AssertableEqualAssertion = {
   ): boolean;
 
   /** Skip this assertion. */
-  skip(actual: any, expected: any, message?: string): void;
+  skip(actual: unknown, expected: unknown, message?: string): void;
 };
 
 export type Assertions = {
