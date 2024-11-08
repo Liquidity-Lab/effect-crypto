@@ -432,6 +432,8 @@ export const TokenPriceSqrtX96: <T extends internal.TokenType>(
   sqrtX96: BigNumberish,
 ) => TokenPrice<T> = internal.makeTokenPriceFromSqrtX96;
 
+export type AnyTokenPrice = TokenPrice<internal.TokenType>;
+
 /**
  * A layer that provides a TokenTag instance based on a TokensDescriptor
  *
