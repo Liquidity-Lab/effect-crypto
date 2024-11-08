@@ -47,11 +47,11 @@ export const DeployDescriptor: () => DeployDescriptor<never> = internal.emptyDep
  *   });
  */
 export const addDeployable: {
-  readonly dataLast: <R0, Deps extends readonly Context.Tag<any, any>[]>(
+  readonly dataLast: <R0, Deps extends readonly Context.Tag<any, DeployedContract>[]>(
     descriptor: DeployDescriptor<R0>,
     deps: Deps,
   ) => <
-    Tag extends Context.Tag<any, any>,
+    Tag extends Context.Tag<any, DeployedContract>,
     Rf extends internal.DepsToContext<Deps> = internal.DepsToContext<Deps>,
   >(
     tag: [Rf] extends [never] ? Tag
@@ -60,10 +60,10 @@ export const addDeployable: {
     f: internal.DeployFn<Rf>,
   ) => DeployDescriptor<R0 | Context.Tag.Identifier<Tag>>;
 
-  readonly dataFirst: <Deps extends readonly Context.Tag<any, any>[]>(
+  readonly dataFirst: <Deps extends readonly Context.Tag<any, DeployedContract>[]>(
     deps: Deps,
   ) => <
-    Tag extends Context.Tag<any, any>,
+    Tag extends Context.Tag<any, DeployedContract>,
     Rf extends internal.DepsToContext<Deps> = internal.DepsToContext<Deps>,
   >(
     tag: Tag,
