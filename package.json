@@ -55,6 +55,7 @@
   },
   "workspaces": [
     "packages/sol-artifacts",
-    "packages/effect-crypto"
+    "packages/effect-crypto",
+    "packages/effect-crypto-uniswap"
   ]
 }
