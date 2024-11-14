@@ -447,11 +447,6 @@ export const makeTokensFromDescriptor: (
 ) => Layer.Layer<internal.TokensTag, Adt.FatalError, Chain.Tag> = internal.makeTokensFromDescriptor;
 
 /**
- * Deploy arguments for token contracts
- */
-export const deployArgs: typeof internal.deployArgs = internal.deployArgs;
-
-/**
  * Approves token transfer via signature
  *
  * @param volume The token volume to approve the transfer.

@@ -5,8 +5,6 @@ import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from 
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
-// import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
-import USDCLabs from "@liquidity_lab/sol-artifacts/contracts/USDCLabs.sol/USDCLabs.json";
 
 import * as Adt from "~/adt.js";
 import * as Assertable from "~/assertable.js";
@@ -682,17 +680,6 @@ function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
     return transactionRequest;
   });
 }
-
-type NativeTokenKeys<T> = {
-  [K in keyof T]: T[K] extends T.Token<TokenType.Native> ? K : never;
-}[keyof T];
-
-type DeployableTokenKeys = Exclude<keyof T.TokensDescriptor, NativeTokenKeys<T.TokensDescriptor>>;
-
-export const deployArgs: { [K in DeployableTokenKeys]-?: Adt.DeployArgs } = {
-  WETH: [WETH9.abi, WETH9.bytecode, []],
-  USDC: [USDCLabs.abi, USDCLabs.bytecode, []],
-};
 
 /**
  * Ensures the token is a native token on the current chain.
