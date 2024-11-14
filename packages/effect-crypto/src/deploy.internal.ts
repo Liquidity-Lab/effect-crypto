@@ -49,6 +49,7 @@ export function emptyDeployDescriptor(): T.DeployDescriptor<never> {
     unsafeMap: new Map(),
 
     pipe() {
+      // eslint-disable-next-line prefer-rest-params
       return pipeArguments(instance, arguments);
     },
   };
@@ -114,6 +115,7 @@ function addDeployableUnitImplV3<
     unsafeMap: newMap,
 
     pipe() {
+      // eslint-disable-next-line prefer-rest-params
       return pipeArguments(instance, arguments);
     },
   } as T.DeployDescriptor<R0 | Context.Tag.Identifier<Tag>>;
