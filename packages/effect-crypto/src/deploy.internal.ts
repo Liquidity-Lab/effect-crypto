@@ -302,7 +302,7 @@ export function linkLibrary(
 function getModuleDescriptor<R0>(
   descriptor: T.DeployDescriptor<R0>,
   unsafeTagValue: string,
-): Either.Either<T.ModuleDescriptor, Adt.FatalError> {
+): Either.Either<T.ContractDescriptor, Adt.FatalError> {
   const res = descriptor.unsafeMap.get(unsafeTagValue);
 
   return !res ?

@@ -44,7 +44,7 @@ class TestDeploy extends Context.Tag("TestDeploy")<
 
 // NonfungibleTokenPositionDescriptorContractDeploy is missing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const moduleApi2 = Deploy.makeDeployApi(
+const moduleApi2 = Deploy.DeployModuleApi(
   deploy.emptyDeployDescriptor().pipe(
     weth9Descriptor,
     libraryDescriptor,

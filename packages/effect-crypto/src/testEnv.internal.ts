@@ -61,7 +61,7 @@ export type TestEnvDeployContracts = Weth9DeployTag | UsdcLabsDeployTag;
 
 export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
   TestEnvDeployTag,
-  Deploy.DeployShape<TestEnvDeployContracts>
+  Deploy.DeployLayout<TestEnvDeployContracts>
 >() {}
 
 const deployDescriptor = Deploy.DeployDescriptor().pipe(
@@ -73,7 +73,7 @@ const deployDescriptor = Deploy.DeployDescriptor().pipe(
   }),
 );
 
-export const deployApi = Deploy.makeDeployApi(deployDescriptor)(TestEnvDeployTag);
+export const deployApi = Deploy.DeployModuleApi(deployDescriptor)(TestEnvDeployTag);
 
 class NonceState {
   #noncePromise: null | Promise<number>;
