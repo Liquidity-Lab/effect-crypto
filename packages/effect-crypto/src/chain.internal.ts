@@ -56,24 +56,12 @@ export const knownChains = {
   BLAST: asChainId(81457n),
 };
 
-interface ChainTxPrivateApi {
+interface ChainPrivateApi {
   readonly provider: JsonRpcProvider;
 }
 
-interface ChainTxShape {
-  [privateApiSymbol]: ChainTxPrivateApi;
-}
-
-export class ChainTxTag extends Context.Tag("ChainTxTag")<ChainTxTag, ChainTxShape>() {}
-
-interface ChainPrivateApi {
-  readonly toTx: Effect.Effect<ChainTxShape>;
-}
-
 interface ChainShape {
-  [privateApiSymbol]: ChainPrivateApi;
-
-  transact<A, E, R>(fa: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, ChainTxTag>>;
+  readonly [privateApiSymbol]: ChainPrivateApi;
 }
 
 export class ChainTag extends Context.Tag("ChainTag")<ChainTag, ChainShape>() {}
@@ -85,46 +73,13 @@ interface ConfigShape {
 
 export class ConfigTag extends Context.Tag("ChainConfigTag")<ConfigTag, ConfigShape>() {}
 
-class ChainLive implements ChainShape {
-  private readonly provider: JsonRpcProvider;
-
-  constructor(provider: JsonRpcProvider) {
-    this.provider = provider;
-  }
-
-  get [privateApiSymbol](): ChainPrivateApi {
-    return {
-      toTx: this.toChainTx(),
-    };
-  }
-
-  transact<A, E, R>(fa: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, ChainTxTag>> {
-    const chainTxF = this.toChainTx();
-    return Effect.gen(function* () {
-      const chainTx = yield* chainTxF;
-
-      return yield* Effect.provideService(fa, ChainTxTag, chainTx);
-    });
-  }
-
-  private toChainTx(): Effect.Effect<ChainTxShape> {
-    const { provider } = this;
-
-    return Effect.succeed({
-      [privateApiSymbol]: {
-        provider,
-      },
-    });
-  }
-}
-
 export function makeChainFromConfig(): Layer.Layer<ChainTag, never, ConfigTag> {
   return Layer.context<ConfigTag>().pipe(
-    Layer.project(
-      ConfigTag,
-      ChainTag,
-      (config) => new ChainLive(new JsonRpcProvider(config.rpcUrl, config.chain)),
-    ),
+    Layer.project(ConfigTag, ChainTag, (config) => ({
+      [privateApiSymbol]: {
+        provider: new JsonRpcProvider(config.rpcUrl, config.chain),
+      },
+    })),
   );
 }
 
@@ -159,9 +114,9 @@ export function configFromEnv(): Layer.Layer<ConfigTag, ConfigError.ConfigError>
   );
 }
 
-export const getChainId = FunctionUtils.withOptionalServiceApi(ChainTxTag, getChainIdImpl).value;
+export const getChainId = FunctionUtils.withOptionalServiceApi(ChainTag, getChainIdImpl).value;
 
-function getChainIdImpl({ [privateApiSymbol]: api }: ChainTxShape): Effect.Effect<T.ChainId> {
+function getChainIdImpl({ [privateApiSymbol]: api }: ChainShape): Effect.Effect<T.ChainId> {
   return Effect.gen(function* () {
     const network: Network = yield* Effect.promise(() => api.provider.getNetwork());
 
@@ -170,12 +125,12 @@ function getChainIdImpl({ [privateApiSymbol]: api }: ChainTxShape): Effect.Effec
 }
 
 export const contractInstance = FunctionUtils.withOptionalServiceApi(
-  ChainTxTag,
+  ChainTag,
   contractInstanceImpl,
 ).value;
 
 function contractInstanceImpl(
-  { [privateApiSymbol]: api }: ChainTxShape,
+  { [privateApiSymbol]: api }: ChainShape,
   target: string | Addressable,
   abi: Interface | InterfaceAbi,
 ): Signature.ContractOps {
@@ -183,30 +138,30 @@ function contractInstanceImpl(
 }
 
 export const connectWallet = FunctionUtils.withOptionalServiceApi(
-  ChainTxTag,
+  ChainTag,
   connectWalletImpl,
 ).value;
 
 function connectWalletImpl(
-  { [privateApiSymbol]: api }: ChainTxShape,
+  { [privateApiSymbol]: api }: ChainShape,
   wallet: BaseWallet,
 ): BaseWallet {
   return wallet.connect(api.provider);
 }
 
-export const contractOps = FunctionUtils.withOptionalServiceApi(ChainTxTag, contractOpsImpl).value;
+export const contractOps = FunctionUtils.withOptionalServiceApi(ChainTag, contractOpsImpl).value;
 
 function contractOpsImpl(
-  { [privateApiSymbol]: api }: ChainTxShape,
+  { [privateApiSymbol]: api }: ChainShape,
   f: (runner: ContractRunner | null) => Contract,
 ): Signature.ContractOps {
   return Signature.ContractOps(api.provider, f);
 }
 
-export const send = FunctionUtils.withOptionalServiceApi(ChainTxTag, sendImpl).value;
+export const send = FunctionUtils.withOptionalServiceApi(ChainTag, sendImpl).value;
 
 function sendImpl(
-  { [privateApiSymbol]: api }: ChainTxShape,
+  { [privateApiSymbol]: api }: ChainShape,
   method: string,
   params: Array<unknown> | Record<string, unknown>,
 ): Effect.Effect<unknown, Error.BlockchainError> {

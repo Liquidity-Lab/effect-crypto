@@ -33,8 +33,8 @@ export type Address = Tagged<string, "Address">;
  * @constructor
  */
 export const Address: {
-  (address: string, bypassChecksum: boolean): Either.Either<Address, unknown>;
-  (address: string): Either.Either<Address, unknown>;
+  (address: string, bypassChecksum: boolean): Either.Either<Address, FatalError>;
+  (address: string): Either.Either<Address, FatalError>;
   unsafe(address: string, bypassChecksum?: boolean): Address;
 } = Object.assign(internal.makeAddress, {
   unsafe: internal.makeAddressUnsafe,

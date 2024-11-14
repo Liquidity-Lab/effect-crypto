@@ -1,95 +1,33 @@
 import { Context, Effect, Layer, Option } from "effect";
 
-import * as Adt from "~/adt.js";
 import * as AvaCrypto from "~/avaCrypto.js";
 import * as Chain from "~/chain.js";
-import * as Deploy from "~/deploy.js";
-import * as Error from "~/error.js";
 import * as TestEnv from "~/testEnv.js";
 import * as Token from "~/token.js";
 import * as Wallet from "~/wallet.js";
 
 type Services = Chain.Tag | Token.Tag | Wallet.Tag | TestEnv.Tag;
 
-const baseDeps = Layer.mergeAll(
-  Chain.chainLayer().pipe(
-    Layer.provide(
-      Layer.succeed(Chain.ConfigTag, {
-        rpcUrl: "http://127.0.0.1:8545/",
-        chain: "mainnet",
-      }),
-    ),
-  ),
-  TestEnv.testEnvLayer(),
+// Base services for blockchain
+const services = Layer.empty.pipe(
+  Layer.provideMerge(TestEnv.tokensLayer()),
+  Layer.provideMerge(TestEnv.testEnvLayer()),
+  Layer.provideMerge(Chain.defaultLayer()),
 );
 
-function provideTx<A, E, R>(
-  fa: Effect.Effect<A, E, R>,
-): Effect.Effect<
-  A,
-  E | Adt.FatalError,
-  | Chain.Tag
-  | Wallet.Tag
-  | TestEnv.Tag
-  | Exclude<Exclude<Exclude<R, Wallet.TxTag>, TestEnv.TxTag>, Chain.TxTag>
-> {
-  return Effect.gen(function* () {
-    const chain = yield* Chain.Tag;
-    const testEnv = yield* TestEnv.Tag;
-    const wallet = yield* Wallet.Tag;
-
-    return yield* fa.pipe(
-      wallet.transact.bind(wallet),
-      testEnv.transact.bind(testEnv),
-      chain.transact.bind(chain),
-    );
-  });
-}
-
-const tokensLayer: Layer.Layer<
-  Token.Tag,
-  Adt.FatalError | Error.BlockchainError,
-  TestEnv.Tag | Wallet.Tag | Chain.Tag
-> = Layer.unwrapEffect(
-  Effect.context<Chain.Tag | Wallet.Tag>().pipe(
-    Effect.flatMap((ctx) => {
-      const chain = Context.get(ctx, Chain.Tag);
-      const wallet = Context.get(ctx, Wallet.Tag);
-
-      return Deploy.tokensDeploy().pipe(wallet.transact.bind(wallet), chain.transact.bind(chain));
-    }),
-    Effect.map((descriptor) => Token.makeTokensFromDescriptor(descriptor, descriptor.ETH)),
-    provideTx,
-  ),
-);
-
+// This function is used to setup wallets with initial balances
 function setupLayer(ctx: Context.Context<Services>) {
-  const chain = Context.get(ctx, Chain.Tag);
-  const tokens = Context.get(ctx, Token.Tag);
-  const wallet = Context.get(ctx, Wallet.Tag);
-  const testEnv = Context.get(ctx, TestEnv.Tag);
-
   const prog = Effect.gen(function* () {
     const WETH = yield* Token.get("WETH");
 
     yield* Wallet.wrap(Token.TokenVolumeUnits(WETH, "1000"));
-
-    const address = yield* wallet.address; // TODO: add address to Wallet API
-
-    yield* TestEnv.setBalance(address, 1_000_000n * 10n ** 18n);
   });
 
-  return prog.pipe(
-    wallet.transact.bind(wallet),
-    tokens.transact.bind(tokens),
-    testEnv.transact.bind(testEnv),
-    chain.transact.bind(chain),
-  );
+  return Effect.provide(prog, ctx);
 }
 
-const deps = tokensLayer.pipe(
-  Layer.provideMerge(Wallet.predefinedHardhatWallet()),
-  Layer.provideMerge(baseDeps),
+const deps = services.pipe(
+  Layer.tap(TestEnv.setBalance.tapOnLayer(1_000_000n * 10n ** 18n)),
   Layer.tap(setupLayer),
   Layer.orDie,
 );
@@ -105,11 +43,10 @@ testEffect("Should transfer all tokens", (t) => {
     sourceWallet: Wallet.Wallet,
   ) {
     return Effect.gen(function* () {
-      const targetAddress = yield* targetWallet.address;
       const volume = Token.TokenVolumeUnits(token, "1000");
 
       // TODO: Make transferToken work for all tokens including native
-      yield* Wallet.transferToken(sourceWallet, volume, targetAddress);
+      yield* Wallet.transferToken(sourceWallet, volume, targetWallet.address);
 
       const targetBalance = yield* Wallet.getBalance(targetWallet, token);
 
@@ -124,9 +61,7 @@ testEffect("Should transfer all tokens", (t) => {
 
   const prog = Effect.gen(function* () {
     const sourceWallet = yield* Wallet.Tag;
-
-    const targetWalletCtx = yield* Layer.build(Wallet.makeRandom());
-    const targetWallet = Context.get(targetWalletCtx, Wallet.Tag);
+    const targetWallet = yield* Wallet.makeRandom();
 
     const availableTokens = yield* Token.getAvailableTokens();
 
@@ -137,21 +72,7 @@ testEffect("Should transfer all tokens", (t) => {
     );
   });
 
-  const provideWalletTx = Effect.gen(function* () {
-    const chain = yield* Chain.Tag;
-    const testEnv = yield* TestEnv.Tag;
-    const tokens = yield* Token.Tag;
-    const wallet = yield* Wallet.Tag;
-
-    return yield* prog.pipe(
-      wallet.transact.bind(wallet),
-      tokens.transact.bind(tokens),
-      testEnv.transact.bind(testEnv),
-      chain.transact.bind(chain),
-    );
-  });
-
-  return provideWalletTx;
+  return Effect.orDie(prog);
 });
 
 testEffect.skip("Should set balance of native ETH using the hardrhat runtime", (t) => {

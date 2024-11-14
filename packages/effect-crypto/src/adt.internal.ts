@@ -6,10 +6,13 @@ import type * as Adt from "~/adt.js";
 export function makeAddress(
   address: string,
   bypassChecksum: boolean = false,
-): Either.Either<Adt.Address, unknown> {
-  return Either.try(() =>
-    bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address),
-  ) as Either.Either<Adt.Address, unknown>;
+): Either.Either<Adt.Address, Adt.FatalError> {
+  return Either.mapLeft(
+    Either.try(() =>
+      bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address),
+    ) as Either.Either<Adt.Address, unknown>,
+    (e) => makeFatalErrorFromUnknown(e),
+  );
 }
 
 export function makeAddressUnsafe(address: string, bypassChecksum: boolean = false): Adt.Address {

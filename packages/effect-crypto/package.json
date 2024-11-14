@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@uniswap/sdk-core": "5.0.0",
+    "@uniswap/v3-periphery": "1.4.4",
     "@ava/typescript": "5.0.0",
     "@fast-check/ava": "1.2.1",
     "@tsconfig/node22": "22.0.0",
