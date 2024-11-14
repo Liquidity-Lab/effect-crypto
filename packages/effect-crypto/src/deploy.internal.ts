@@ -17,13 +17,28 @@ interface DeployPrivateApi<R0> {
   ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag>;
 }
 
+/** @internal */
 export interface DeployShape<R0> {
   readonly [privateApiSymbol]: DeployPrivateApi<R0>;
 }
 
+/**
+ * This is a type-helper that converts a list of tags to union
+ *
+ * @example
+ *   class MyTag1 extends Context.Tag("MyTag1")<MyTag1, Deploy.DeployedContract>() {}
+ *   class MyTag2 extends Context.Tag("MyTag2")<MyTag2, Deploy.DeployedContract>() {}
+ *   class MyTag3 extends Context.Tag("MyTag3")<MyTag3, Deploy.DeployedContract>() {}
+ *
+ *   type TagList = [MyTag1, MyTag2, MyTag3];
+ *   type MyDeps = DepsToContext<TagList>; // MyTag1 | MyTag2 | MyTag3
+ *
+ * @internal
+ */
 export type DepsToContext<Deps extends readonly Context.Tag<any, any>[]> =
   Deps extends [] ? never : Context.Tag.Identifier<Deps[number]>;
 
+/** @internal */
 export const MTypeId = Symbol("com/liquidity_lab/crypto/blockchain/deploy#TypeId");
 
 export function emptyDeployDescriptor(): T.DeployDescriptor<never> {

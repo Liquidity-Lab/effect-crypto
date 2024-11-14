@@ -62,7 +62,7 @@ export interface DeployDescriptor<in R0> extends Pipeable.Pipeable {
  *
  * @constructor
  */
-export const DeployDescriptor: () => DeployDescriptor<never> = internal.emptyDeployDescriptor;
+export const DeployDescriptorEmpty: () => DeployDescriptor<never> = internal.emptyDeployDescriptor;
 
 /**
  * Adds a deployable contract to the descriptorю

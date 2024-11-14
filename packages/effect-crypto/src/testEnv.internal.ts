@@ -64,7 +64,7 @@ export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
   Deploy.DeployLayout<TestEnvDeployContracts>
 >() {}
 
-const deployDescriptor = Deploy.DeployDescriptor().pipe(
+const deployDescriptor = Deploy.DeployDescriptorEmpty().pipe(
   Deploy.addDeployable.dataFirst([])(Weth9DeployTag, () => {
     return Either.right([WETH9.abi, WETH9.bytecode, []]);
   }),
