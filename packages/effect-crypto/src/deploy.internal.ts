@@ -254,7 +254,7 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
     this.descriptor = descriptor;
     this.moduleTag = moduleTag;
   }
-
+  // TODO: SHOULD INTRODUCE A METHOD TO ATTACH TWO DEPLOY MODULES TOGETHER
   deploy<Tag extends Context.Tag<any, T.DeployedContract>>(
     tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
   ): Effect.Effect<
