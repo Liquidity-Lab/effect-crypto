@@ -23,7 +23,8 @@
     "prettier"
   ],
   "ignorePatterns": [
-    "./packages/*/jest.config.js"
+    "./packages/*/jest.config.js",
+    "./packages/*/ava.config.mjs"
   ],
   "rules": {
     // The following rule is enabled only to supplement the inline suppression

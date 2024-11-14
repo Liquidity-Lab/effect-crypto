@@ -33,15 +33,7 @@
     "typescript": "5.4.5"
   },
   "ava": {
-    "typescript": {
-      "rewritePaths": {
-        "~src/": "dist/"
-      },
-      "compile": false
-    },
-    "nodeArguments": [
-      "--import=tsx"
-    ]
+
   },
   "description": ""
 }
