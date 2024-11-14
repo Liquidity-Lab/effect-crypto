@@ -1,21 +1,21 @@
 import { Context, Either } from "effect";
-import * as Deploy from "~/deploy.js";
-import * as deploy from "~/deploy.internal.js";
-
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
 
+import * as deploy from "~/deploy.internal.js";
+import * as Deploy from "~/deploy.js";
 
 class WETH9ContractDeploy extends Context.Tag("WETH9ContractDeploy")<
   WETH9ContractDeploy,
   Deploy.DeployedContract
 >() {}
 
-class NftDescriptorLibraryContractDeploy extends Context.Tag(
-  "NftDescriptorLibraryContractDeploy",
-)<NftDescriptorLibraryContractDeploy, Deploy.DeployedContract>() {}
+class NftDescriptorLibraryContractDeploy extends Context.Tag("NftDescriptorLibraryContractDeploy")<
+  NftDescriptorLibraryContractDeploy,
+  Deploy.DeployedContract
+>() {}
 
 class NonfungibleTokenPositionDescriptorContractDeploy extends Context.Tag(
   "NonfungibleTokenPositionDescriptorContractDeploy",
@@ -45,8 +45,5 @@ class TestDeploy extends Context.Tag("TestDeploy")<
 // NonfungibleTokenPositionDescriptorContractDeploy is missing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const moduleApi2 = Deploy.DeployModuleApi(
-  deploy.emptyDeployDescriptor().pipe(
-    weth9Descriptor,
-    libraryDescriptor,
-  )
+  deploy.emptyDeployDescriptor().pipe(weth9Descriptor, libraryDescriptor),
 )(TestDeploy);

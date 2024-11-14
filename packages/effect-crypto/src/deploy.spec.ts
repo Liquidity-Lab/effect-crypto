@@ -143,8 +143,5 @@ testEffect("It should correctly deploy complex contract with the library", (t) =
     t.assert(deployedContract.address.startsWith("0x"), "Address should start with 0x");
   });
 
-  return prog.pipe(
-    Effect.provide(moduleApi.layer),
-    Effect.orDie
-  );
+  return prog.pipe(Effect.provide(moduleApi.layer), Effect.orDie);
 });

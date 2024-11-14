@@ -39,11 +39,10 @@ export const setBalance: {
     balance: bigint,
   ): Effect.Effect<void, Adt.FatalError | BError.BlockchainError, Wallet.Tag | Chain.Tag>;
   tapOnLayer: (
-    balance: bigint
-  ) => (ctx: Context.Context<internal.TestEnvTag | Wallet.Tag | Chain.Tag>) => Effect.Effect<
-    void,
-    Adt.FatalError | BError.BlockchainError
-  >;
+    balance: bigint,
+  ) => (
+    ctx: Context.Context<internal.TestEnvTag | Wallet.Tag | Chain.Tag>,
+  ) => Effect.Effect<void, Adt.FatalError | BError.BlockchainError>;
 } = internal.setBalance;
 
 /**

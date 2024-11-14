@@ -8,8 +8,8 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "codestyle": "prettier --check \"packages/**/*.{ts,tsx,js,jsx}\"",
-    "lint": "eslint \"packages/**/*.{ts,tsx,js,jsx}\" --format stylish",
+    "codestyle": "prettier --check \"packages/**/*.{ts,tsx}\"",
+    "lint": "eslint \"packages/**/*.{ts,tsx}\" --format stylish",
     "start": "npx tsx src/index.ts",
     "start-node": "npx hardhat node --fork https://arbitrum-mainnet.infura.io/v3/f89c7e42fab643f39c457ceeb4d63acd",
     "test": "echo \"Error: no test specified\" && exit 0"
