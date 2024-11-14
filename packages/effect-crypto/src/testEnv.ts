@@ -12,7 +12,7 @@ import * as Wallet from "~/wallet.js";
 export { TestEnvTag as Tag } from "~/testEnv.internal.js";
 export { Weth9DeployTag as Weth9DeployTag } from "~/testEnv.internal.js";
 export { UsdcLabsDeployTag as UsdcLabsDeployTag } from "~/testEnv.internal.js";
-export { TestEnvDeployTag as DeployTxTag } from "~/testEnv.internal.js";
+export { TestEnvDeployTag as DeployTag } from "~/testEnv.internal.js";
 
 export const setBalanceFor: {
   (
@@ -94,7 +94,7 @@ export const predefinedHardhatWallet: {
  */
 export const deploy: {
   <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
-    tag: Context.Tag.Identifier<Tag> extends internal.TestEnvDeployContracts ? Tag : never,
+    tag: Context.Tag.Identifier<Tag> extends internal.TestEnvDeployLayout ? Tag : never,
   ): Effect.Effect<
     Deploy.DeployedContract,
     Adt.FatalError | BError.BlockchainError,
@@ -102,7 +102,7 @@ export const deploy: {
   >;
   <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
     service: Context.Tag.Service<internal.TestEnvTag>,
-    tag: Context.Tag.Identifier<Tag> extends internal.TestEnvDeployContracts ? Tag : never,
+    tag: Context.Tag.Identifier<Tag> extends internal.TestEnvDeployLayout ? Tag : never,
   ): Effect.Effect<Deploy.DeployedContract, Adt.FatalError | BError.BlockchainError>;
 } = internal.deploy;
 

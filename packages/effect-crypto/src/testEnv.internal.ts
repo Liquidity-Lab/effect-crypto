@@ -57,11 +57,11 @@ export class UsdcLabsDeployTag extends Context.Tag("UsdcLabsDeployTag")<
   Deploy.DeployedContract
 >() {}
 
-export type TestEnvDeployContracts = Weth9DeployTag | UsdcLabsDeployTag;
+export type TestEnvDeployLayout = Weth9DeployTag | UsdcLabsDeployTag;
 
 export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
   TestEnvDeployTag,
-  Deploy.DeployLayout<TestEnvDeployContracts>
+  Deploy.DeployLayout<TestEnvDeployLayout>
 >() {}
 
 const deployDescriptor = Deploy.DeployDescriptorEmpty().pipe(
@@ -305,7 +305,7 @@ export const deploy = FunctionUtils.withOptionalServiceApi(TestEnvTag, deployImp
 
 function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
   { [privateApiSymbol]: api }: TestEnvShape,
-  tag: Context.Tag.Identifier<Tag> extends TestEnvDeployContracts ? Tag : never,
+  tag: Context.Tag.Identifier<Tag> extends TestEnvDeployLayout ? Tag : never,
 ) {
   return Effect.provide(deployApi.deploy(tag), api.underlying);
 }
