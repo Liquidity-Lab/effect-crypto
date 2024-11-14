@@ -39,7 +39,7 @@ type TestDeployedModules =
 
 class TestDeploy extends Context.Tag("TestDeploy")<
   TestDeploy,
-  deploy.DeployTxShape<TestDeployedModules>
+  deploy.DeployShape<TestDeployedModules>
 >() {}
 
 // NonfungibleTokenPositionDescriptorContractDeploy is missing

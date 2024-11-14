@@ -1,9 +1,6 @@
-import { Context, Effect, Either, Layer, Pipeable, Ref, Types } from "effect";
-import { Tag } from "effect/Context";
-import { descriptor } from "effect/Effect";
+import { Context, Effect, Either, Layer, Ref, Types } from "effect";
 import { pipeArguments } from "effect/Pipeable";
-import { Interface, InterfaceAbi, getAddress, solidityPackedKeccak256 } from "ethers";
-import { Tagged } from "type-fest";
+import { getAddress, solidityPackedKeccak256 } from "ethers";
 
 import * as Adt from "~/adt.js";
 import * as Chain from "~/chain.js";
@@ -11,42 +8,23 @@ import type * as T from "~/deploy.js";
 import * as BError from "~/error.js";
 import * as EffectUtils from "~/utils/effectUtils.js";
 import * as Wallet from "~/wallet.js";
-import { WalletTag } from "~/wallet.internal.js";
-
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/deploy#privateApi");
 
-export type DeployArgs = [
-  abi: Interface | InterfaceAbi,
-  bytecode: string,
-  args: ReadonlyArray<unknown>,
-];
+interface DeployPrivateApi<R0> {
+  deployModule<Tag extends Context.Tag<any, T.DeployedContract>>(
+    tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
+  ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag>;
+}
 
-/**
- * It might return either an args of the contract that will be deployed later
- * or an address of the already deployed contract from context
- */
-export type DeployFn<Rf> = (
-  ctx: Context.Context<Rf>,
-) => Either.Either<DeployArgs, T.DeployedContract>;
-
-type DepsToContextV1<Deps extends readonly Context.Tag<any, any>[]> =
-  Deps extends [] ? never
-  : {
-      [K in keyof Deps]: Deps[K] extends Context.Tag<infer Id, any> ? Id : never;
-    }[number];
+export interface DeployShape<R0> {
+  readonly [privateApiSymbol]: DeployPrivateApi<R0>;
+}
 
 export type DepsToContext<Deps extends readonly Context.Tag<any, any>[]> =
   Deps extends [] ? never : Context.Tag.Identifier<Deps[number]>;
 
-// type DeployDescriptor<R0> = [R0] extends [never] ? DeployDescriptorEmpty : DeployDescriptorForTag<R0>;
-
 export const MTypeId = Symbol("com/liquidity_lab/crypto/blockchain/deploy#TypeId");
-
-// Custom error type
-interface TypeError<Message extends string> {
-  __type_error__: Message;
-}
 
 export function emptyDeployDescriptor(): T.DeployDescriptor<never> {
   const instance: T.DeployDescriptor<never> = {
@@ -63,22 +41,6 @@ export function emptyDeployDescriptor(): T.DeployDescriptor<never> {
   return instance;
 }
 
-type AddDeployableUnitArgs<R0, Deps> = [T.DeployDescriptor<R0>, Deps] | [Deps];
-
-export const addDeployableUnit = <R0, Deps extends readonly Context.Tag<any, any>[]>(
-  ...args: [T.DeployDescriptor<R0>, Deps] | [Deps]
-) => {
-  function isFullArgs(
-    args: [T.DeployDescriptor<R0>, Deps] | [Deps],
-  ): args is [T.DeployDescriptor<R0>, Deps] {
-    return args.length === 2;
-  }
-
-  return isFullArgs(args) ?
-      addDeployableUnitDataLast(args[0], args[1])
-    : addDeployableUnitDataFirst(args[0]);
-};
-
 export function addDeployableUnitDataLast<R0, Deps extends readonly Context.Tag<any, any>[]>(
   descriptor: T.DeployDescriptor<R0>,
   deps: Deps,
@@ -89,7 +51,7 @@ export function addDeployableUnitDataLast<R0, Deps extends readonly Context.Tag<
     tag: [Rf] extends [never] ? Tag
     : DepsIdentifiers extends R0 ? Tag
     : never,
-    f: DeployFn<Rf>,
+    f: T.DeployFn<Rf>,
   ): T.DeployDescriptor<R0 | Context.Tag.Identifier<Tag>> {
     // Update unsafeMap
     return addDeployableUnitImplV3(descriptor, deps, tag, f);
@@ -101,7 +63,7 @@ export function addDeployableUnitDataFirst<Deps extends readonly Context.Tag<any
 ) {
   return <Tag extends Context.Tag<any, any>, Rf extends DepsToContext<Deps> = DepsToContext<Deps>>(
       tag: Tag,
-      f: DeployFn<Rf>,
+      f: T.DeployFn<Rf>,
     ) =>
     <R0>(
       descriptor: [Rf] extends [never] ? T.DeployDescriptor<R0>
@@ -121,7 +83,7 @@ function addDeployableUnitImplV3<
   descriptor: T.DeployDescriptor<R0>,
   deps: Deps,
   tag: Tag,
-  f: DeployFn<Rf>,
+  f: T.DeployFn<Rf>,
 ): T.DeployDescriptor<R0 | Context.Tag.Identifier<Tag>> {
   const newMap = new Map("unsafeMap" in descriptor ? descriptor.unsafeMap : undefined);
 
@@ -144,75 +106,13 @@ function addDeployableUnitImplV3<
   return instance;
 }
 
-function addDeployableUnitImpl<R0, Deps extends readonly Context.Tag<any, any>[]>(
-  descriptor: T.DeployDescriptor<R0>,
-  deps: Deps,
-) {
-  type DepsIdentifiers = DepsToContext<Deps>;
-
-  return function <Tag extends Context.Tag<any, any>, Rf extends DepsIdentifiers = DepsIdentifiers>(
-    tag: [Rf] extends [never] ? Tag
-    : DepsIdentifiers extends R0 ? Tag
-    : never,
-    f: DeployFn<Rf>,
-  ): T.DeployDescriptor<R0 | Context.Tag.Identifier<Tag>> {
-    // Update unsafeMap
-    const newMap = new Map("unsafeMap" in descriptor ? descriptor.unsafeMap : undefined);
-    newMap.set(tag.key, {
-      f,
-      deps: deps,
-    });
-
-    return {
-      [MTypeId]: {
-        _Services: ((_: unknown) => _) as Types.Contravariant<R0 | Context.Tag.Identifier<Tag>>,
-      },
-      unsafeMap: newMap,
-    } as T.DeployDescriptor<R0 | Context.Tag.Identifier<Tag>>;
-  };
-}
-
 interface DeployState {
   readonly unsafeDeployedModules: Map<string, T.DeployedContract>;
 }
 
-interface DeployTxPrivateApi<R0> {
-  deployModule<Tag extends Context.Tag<any, T.DeployedContract>>(
-    tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
-  ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag>;
-}
-
-export interface DeployTxShape<R0> {
-  readonly [privateApiSymbol]: DeployTxPrivateApi<R0>;
-}
-
-export interface DeployShape<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>> {
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | Context.Tag.Identifier<Tag>>,
-  ): Effect.Effect<
-    A,
-    E | BError.BlockchainError,
-    Exclude<R, Context.Tag.Identifier<Tag>> | Wallet.Tag
-  >;
-}
-
-function appendModuleToState(
-  ref: Ref.Ref<DeployState>,
-  unsafeTagValue: string,
-  deployedModule: T.DeployedContract,
-): Effect.Effect<T.DeployedContract> {
-  return ref.modify((state) => {
-    const unsafeDeployedModules = new Map(state.unsafeDeployedModules);
-
-    unsafeDeployedModules.set(unsafeTagValue, deployedModule);
-
-    return [deployedModule, { unsafeDeployedModules } as DeployState];
-  });
-}
-
 function deployContact(
   wallet: Context.Tag.Service<Wallet.Tag>,
-  deployArgs: DeployArgs,
+  deployArgs: T.DeployArgs,
 ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag> {
   return Effect.gen(function* () {
     const contractOps = yield* Wallet.deployContract(wallet, ...deployArgs);
@@ -236,81 +136,51 @@ function deployContact(
   });
 }
 
-class DeployLive<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>>
-  implements DeployShape<R0, Tag>
-{
-  private readonly txTag: Tag;
+class DeployLive<R0> implements DeployShape<R0> {
+  readonly [privateApiSymbol]: DeployPrivateApi<R0>;
+
   private readonly descriptor: T.DeployDescriptor<R0>;
+  private readonly stateRef: Ref.Ref<DeployState>;
+  private readonly wallet: Context.Tag.Service<Wallet.Tag>;
 
-  constructor(txTag: Tag, descriptor: T.DeployDescriptor<R0>) {
-    this.txTag = txTag;
-    this.descriptor = descriptor;
-  }
-
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | Context.Tag.Identifier<Tag>>,
-  ): Effect.Effect<
-    A,
-    E | BError.BlockchainError,
-    Exclude<R, Context.Tag.Identifier<Tag>> | Wallet.Tag
-  > {
-    return Layer.build(this.toTx).pipe(
-      Effect.scoped, // It is essential to scope the effect before flat mapping to fa
-      Effect.flatMap((txCtx) => Effect.provide(fa, txCtx)),
-    );
-  }
-
-  get toTx(): Layer.Layer<Context.Tag.Identifier<Tag>, never, WalletTag> {
-    const makeTx = this.makeTx.bind(this);
-
-    return Layer.effect(
-      this.txTag,
-      Effect.gen(function* () {
-        const wallet = yield* Wallet.Tag;
-
-        const stateRef = yield* Ref.make<DeployState>({
-          unsafeDeployedModules: new Map(),
-        });
-
-        return makeTx(stateRef, wallet);
-      }),
-    );
-  }
-
-  private makeTx(
-    ref: Ref.Ref<DeployState>,
+  constructor(
+    descriptor: T.DeployDescriptor<R0>,
+    stateRef: Ref.Ref<DeployState>,
     wallet: Context.Tag.Service<Wallet.Tag>,
-  ): Context.Tag.Service<Tag> {
+  ) {
+    this.descriptor = descriptor;
+    this.stateRef = stateRef;
+    this.wallet = wallet;
+
     const unsafeDeployModule = this.unsafeDeployModule.bind(this);
 
     function deployModule<Tag extends Context.Tag<any, T.DeployedContract>>(
       tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
     ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag> {
-      return unsafeDeployModule(ref, tag.key, wallet);
+      return unsafeDeployModule(tag.key);
     }
 
-    return {
-      [privateApiSymbol]: {
-        deployModule,
-      },
-    } as Context.Tag.Service<Tag>;
+    this[privateApiSymbol] = {
+      deployModule,
+    };
   }
 
   private unsafeDeployModule(
-    ref: Ref.Ref<DeployState>,
     unsafeTagValue: string,
-    wallet: Context.Tag.Service<Wallet.Tag>,
   ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag> {
-    const { descriptor } = this;
+    const { descriptor, stateRef, wallet } = this;
     const thisFunction = this.unsafeDeployModule.bind(this);
+    const appendModuleToState = this.appendModuleToState.bind(this);
 
     return Effect.gen(function* () {
-      const state = yield* ref.get;
+      const state = yield* stateRef.get;
       const maybeModule = state.unsafeDeployedModules.get(unsafeTagValue);
 
       if (maybeModule) {
         return maybeModule;
       }
+
+      // TODO: Add semaphore
 
       const { f: deployFn, deps: requiredDeps } = yield* EffectUtils.getOrFailEither(
         getModuleDescriptor(descriptor, unsafeTagValue),
@@ -321,7 +191,7 @@ class DeployLive<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>>
         Context.empty() as Context.Context<any>,
         (ctx, tag) =>
           Effect.gen(function* () {
-            const deployedModule = yield* thisFunction(ref, tag.key, wallet);
+            const deployedModule = yield* thisFunction(tag.key);
 
             return Context.add(ctx, tag, deployedModule);
           }),
@@ -330,31 +200,42 @@ class DeployLive<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>>
       const moduleOrDeployArgs = deployFn(context);
 
       return yield* Either.match(moduleOrDeployArgs, {
-        onLeft: (deployedModule) => appendModuleToState(ref, unsafeTagValue, deployedModule),
+        onLeft: (deployedModule) => appendModuleToState(unsafeTagValue, deployedModule),
         onRight: (args) =>
           deployContact(wallet, args).pipe(
             Effect.flatMap((deployedContract) =>
-              appendModuleToState(ref, unsafeTagValue, deployedContract),
+              appendModuleToState(unsafeTagValue, deployedContract),
             ),
           ),
       });
     });
   }
+
+  private appendModuleToState(
+    unsafeTagValue: string,
+    deployedModule: T.DeployedContract,
+  ): Effect.Effect<T.DeployedContract> {
+    const { stateRef } = this;
+
+    return stateRef.modify((state) => {
+      const unsafeDeployedModules = new Map(state.unsafeDeployedModules);
+
+      unsafeDeployedModules.set(unsafeTagValue, deployedModule);
+
+      return [deployedModule, { unsafeDeployedModules } as DeployState];
+    });
+  }
 }
 
-// TODO: this is just a PoC, rename
-class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>>
+class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
   implements T.DeployModuleApi<R0, Tag>
 {
-  readonly txTag: Tag;
+  readonly moduleTag: Tag;
   readonly descriptor: T.DeployDescriptor<R0>;
 
-  constructor(descriptor: T.DeployDescriptor<R0>, txTag: Tag) {
-    // class DeployTxTag extends Context.Tag(id)<Id, DeployTxShape<R0>>() {
-    // }
-
+  constructor(descriptor: T.DeployDescriptor<R0>, moduleTag: Tag) {
     this.descriptor = descriptor;
-    this.txTag = txTag;
+    this.moduleTag = moduleTag;
   }
 
   deploy<Tag extends Context.Tag<any, T.DeployedContract>>(
@@ -364,27 +245,34 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployTxShape<R0>>>
     Adt.FatalError | BError.BlockchainError,
     Context.Tag.Identifier<Tag> | Chain.Tag
   > {
-    const { txTag } = this;
+    const { moduleTag } = this;
 
     return Effect.gen(function* () {
-      const { [privateApiSymbol]: api } = yield* txTag;
+      const { [privateApiSymbol]: api } = yield* moduleTag;
 
       return yield* api.deployModule(tag);
     });
   }
 
-  get service(): DeployShape<R0, Tag> {
-    return new DeployLive(this.txTag, this.descriptor);
-  }
+  get layer(): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
+    const { moduleTag, descriptor } = this;
 
-  get tx(): Layer.Layer<Context.Tag.Identifier<Tag>, never, WalletTag> {
-    return new DeployLive(this.txTag, this.descriptor).toTx;
+    const makeLayer = Effect.gen(function* () {
+      const wallet = yield* Wallet.Tag;
+      const stateRef = yield* Ref.make<DeployState>({
+        unsafeDeployedModules: new Map(),
+      });
+
+      return new DeployLive(descriptor, stateRef, wallet) as Context.Tag.Service<Tag>;
+    });
+
+    return Layer.effect(moduleTag, makeLayer);
   }
 }
 
 export function makeDeployModule<R0>(
   descriptor: T.DeployDescriptor<R0>,
-): <Tag extends Context.Tag<any, DeployTxShape<R0>>>(tag: Tag) => T.DeployModuleApi<R0, Tag> {
+): <Tag extends Context.Tag<any, DeployShape<R0>>>(tag: Tag) => T.DeployModuleApi<R0, Tag> {
   // This is an module API
   return (tag) => new DeployModuleApiLive(descriptor, tag);
 }
@@ -423,7 +311,6 @@ function getModuleDescriptor<R0>(
       )
     : Either.right(res);
 }
-
 
 /*
 function exampleIncorrectFlow() {

@@ -61,7 +61,7 @@ export type TestEnvDeployContracts = Weth9DeployTag | UsdcLabsDeployTag;
 
 export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
   TestEnvDeployTag,
-  Deploy.DeployTxShape<TestEnvDeployContracts>
+  Deploy.DeployShape<TestEnvDeployContracts>
 >() {}
 
 const deployDescriptor = Deploy.DeployDescriptor().pipe(
@@ -247,7 +247,7 @@ export function testEnvLayer(): Layer.Layer<
     const nonceState = new NonceState();
 
     return Layer.context<Chain.Tag>().pipe(
-      Layer.provideMerge(deployApi.tx),
+      Layer.provideMerge(deployApi.layer),
       Layer.provideMerge(predefinedHardhatWalletImpl(nonceState)),
       Layer.map((ctx) => {
         const nonceState = new NonceState();

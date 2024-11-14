@@ -128,7 +128,7 @@ testEffect("It should correctly deploy complex contract with the library", (t) =
 
   class MainDeployTag extends Context.Tag("MainDeployTag")<
     MainDeployTag,
-    deploy.DeployTxShape<DeployedModules>
+    deploy.DeployShape<DeployedModules>
   >() {}
 
   const moduleApi = deploy.makeDeployModule(descriptor)(MainDeployTag);
@@ -143,5 +143,8 @@ testEffect("It should correctly deploy complex contract with the library", (t) =
     t.assert(deployedContract.address.startsWith("0x"), "Address should start with 0x");
   });
 
-  return moduleApi.service.transact(prog).pipe(Effect.orDie);
+  return prog.pipe(
+    Effect.provide(moduleApi.layer),
+    Effect.orDie
+  );
 });
