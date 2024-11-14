@@ -109,6 +109,33 @@ export const addDeployable: {
    *     // It should return the bytecode of the contract
    *     return Either.right([MyContract.abi, MyContract.bytecode, []]);
    *   });
+   *
+   *
+   * @example
+   *   // Please be aware that [[tag]] will be resolved to `never`
+   *   // if some dependencies are missing in the descriptor:
+   *
+   *   import { Deploy } from "@liquidity_lab/effect-crypto";
+   *
+   *   class MyContractLibraryTag extends Context.Tag("MyContractLibraryTag")<MyContractLibraryTag, {}>() {}
+   *   class MyContractTag extends Context.Tag("MyContract")<MyContractTag, {}>() {}
+   *   class MyOtherContractTag extends Context.Tag("MyOtherContract")<MyOtherContractTag, {}>() {}
+   *
+   *   const libraryDescriptor = Deploy.addDeployable.dataLast(
+   *     Deploy.DeployDescriptorEmpty(), // Creates empty descriptor
+   *     [], // <-- This is the list of dependencies
+   *   )(MyContractLibraryTag, () => { // <-- The tag of the contract to deploy
+   *     // This is the factory function that will be called when the descriptor is used
+   *     // It should return the bytecode of the contract
+   *     return Either.right([MyContractLibrary.abi, MyContractLibrary.bytecode, []]);
+   *   });
+   *
+   *   const myOtherContractDescriptor = Deploy.addDeployable.dataLast(
+   *     libraryDescriptor, // <-- The library descriptor
+   *     [MyContractLibraryTag, MyContractTag], // <-- MyContractTag is missing in the descriptor
+   *   )(MyOtherContractTag, () => { // <-- Compile error: MuOtherContractTag expected to be never
+   *     return Either.right([MyOtherContract.abi, MyOtherContract.bytecode, []]);
+   *   });
    */
   readonly dataLast: <R0, Deps extends readonly Context.Tag<any, DeployedContract>[]>(
     descriptor: DeployDescriptor<R0>,
@@ -138,6 +165,30 @@ export const addDeployable: {
    *     }),
    *     Deploy.addDeployable.dataFirst([MyContractLibraryTag])(MyContractTag, (ctx) => {
    *       const bytecode = linkLibrary(MyContractLibrary.bytecode, {
+   *         "contracts/libraries/MyContractLibrary.sol": Context.get(ctx, MyContractLibraryTag).address,
+   *       });
+   *
+   *       return Either.right([MyContract.abi, bytecode, []]);
+   *     }),
+   *   );
+   *
+   * @example
+   *   // Please be aware that [[descriptor]] will be resolved to `never`
+   *   // if some dependencies are missing in the descriptor:
+   *
+   *   import { Deploy } from "@liquidity_lab/effect-crypto";
+   *
+   *   class MyContractLibraryTag extends Context.Tag("MyContractLibraryTag")<MyContractLibraryTag, {}>() {}
+   *   class MyContractTag extends Context.Tag("MyContract")<MyContractTag, {}>() {}
+   *   class MyOtherContractTag extends Context.Tag("MyOtherContract")<MyOtherContractTag, {}>() {}
+   *
+   *   const descriptor = Deploy.DeployDescriptorEmpty().pipe(
+   *     Deploy.addDeployable.dataFirst([])(MyContractLibraryTag, () => {
+   *       return Either.right([MyContractLibrary.abi, MyContractLibrary.bytecode, []]);
+   *     }),
+   *     // Type error: descriptor: `DeployDescriptor<MyContractLibraryTag>` expected to be `never`
+   *     Deploy.addDeployable.dataFirst([MyContractLibraryTag, MyContractTag])(MyOtherContractTag, (ctx) => {
+   *       const bytecode = linkLibrary(MyOtherContractTag.bytecode, {
    *         "contracts/libraries/MyContractLibrary.sol": Context.get(ctx, MyContractLibraryTag).address,
    *       });
    *
