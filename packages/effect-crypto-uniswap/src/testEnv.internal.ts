@@ -1,13 +1,14 @@
 import { Context, Either } from "effect";
 import { encodeBytes32String } from "ethers";
 
-import { Deploy } from "@liquidity_lab/effect-crypto";
+import { Deploy, TestEnv } from "@liquidity_lab/effect-crypto";
 import UniswapV3Factory from "@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json";
 import NonfungiblePositionManager from "@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json";
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
 import SwapRouter from "@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
 import QuoterV2 from "@uniswap/v3-periphery/artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
+
 
 export class PoolFactoryDeploy extends Context.Tag("PoolFactoryDeploy")<
   PoolFactoryDeploy,
@@ -23,12 +24,6 @@ export class NonfungiblePositionManagerDeploy extends Context.Tag(
   "NonfungiblePositionManagerDeploy",
 )<NonfungiblePositionManagerDeploy, Deploy.DeployedContract>() {}
 
-// TODO: Move it the core package
-export class WETH9Deploy extends Context.Tag("WETH9Deploy")<
-  WETH9Deploy,
-  Deploy.DeployedContract
->() {}
-
 export class NftDescriptorLibraryDeploy extends Context.Tag("NftDescriptorLibraryDeploy")<
   NftDescriptorLibraryDeploy,
   Deploy.DeployedContract
@@ -42,8 +37,6 @@ export class UniswapQuoterV2Deploy extends Context.Tag("UniswapQuoterV2Deploy")<
 export class NonfungibleTokenPositionDescriptorDeploy extends Context.Tag(
   "NonfungibleTokenPositionDescriptorDeploy",
 )<NonfungibleTokenPositionDescriptorDeploy, Deploy.DeployedContract>() {}
-
-const tmp = Deploy.addDeployable.dataFirst([])(WETH9Deploy, () => null as any);
 
 const tmp0 = Deploy.addDeployable.dataFirst([])(PoolFactoryDeploy, () => {
   return Either.right([UniswapV3Factory.abi, UniswapV3Factory.bytecode, []]);
@@ -119,7 +112,14 @@ const descriptor: Deploy.DeployDescriptor<
   | NftDescriptorLibraryDeploy
   | UniswapQuoterV2Deploy
   | NonfungibleTokenPositionDescriptorDeploy
-> = Deploy.DeployDescriptor().pipe(tmp, tmp0, tmp1, tmp2, tmp3, tmp4, tmp5);
+> = Deploy.DeployDescriptorEmpty().pipe(
+  tmp0,
+  tmp1,
+  tmp2,
+  tmp3,
+  tmp4,
+  tmp5
+);
 
 export const deployApi: Deploy.DeployModuleApi<
   | PoolFactoryDeploy
