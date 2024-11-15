@@ -8,6 +8,7 @@ import * as BError from "~/error.js";
 import * as internal from "~/testEnv.internal.js";
 import * as Token from "~/token.js";
 import * as Wallet from "~/wallet.js";
+import { DeployLayout } from "~/deploy.js";
 
 export { TestEnvTag as Tag } from "~/testEnv.internal.js";
 export { Weth9DeployTag as Weth9DeployTag } from "~/testEnv.internal.js";
@@ -77,6 +78,10 @@ export const predefinedHardhatWallet: {
   (): Layer.Layer<Wallet.Tag, ConfigError.ConfigError | Adt.FatalError, internal.TestEnvTag>;
 } = internal.predefinedHardhatWallet;
 
+// TODO: ADD DOCS
+export const deployApi: Deploy.DeployModuleApi<internal.TestEnvDeployLayout, typeof internal.TestEnvDeployTag> =
+  internal.deployApi;
+
 /**
  * Use this function to deploy contracts for testing purposes
  *
@@ -129,3 +134,12 @@ export const tokensLayer: () => Layer.Layer<
   Adt.FatalError | BError.BlockchainError,
   internal.TestEnvTag | Chain.Tag
 > = internal.tokensLayer;
+
+/**
+ * Use this function to wire a state of your deploy module to the TestEnv's underlying deploy module
+ */
+export const sharedDeploy: {
+  <R0, Tag extends Context.Tag<any, DeployLayout<R0>>>(
+    module: Deploy.DeployModuleApi<R0, Tag>,
+  ): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag | internal.TestEnvTag>;
+} = internal.sharedDeploy;

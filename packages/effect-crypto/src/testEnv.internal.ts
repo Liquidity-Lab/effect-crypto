@@ -50,12 +50,20 @@ export class TestEnvTag extends Context.Tag("TestEnvTag")<TestEnvTag, TestEnvSha
 export class Weth9DeployTag extends Context.Tag("Weth9DeployTag")<
   Weth9DeployTag,
   Deploy.DeployedContract
->() {}
+>() {
+  static descriptor = Deploy.addDeployable.dataFirst([])(Weth9DeployTag, () => {
+    return Either.right([WETH9.abi, WETH9.bytecode, []]);
+  });
+}
 
 export class UsdcLabsDeployTag extends Context.Tag("UsdcLabsDeployTag")<
   UsdcLabsDeployTag,
   Deploy.DeployedContract
->() {}
+>() {
+  static descriptor = Deploy.addDeployable.dataFirst([])(UsdcLabsDeployTag, () => {
+    return Either.right([USDCLabs.abi, USDCLabs.bytecode, []]);
+  });
+}
 
 export type TestEnvDeployLayout = Weth9DeployTag | UsdcLabsDeployTag;
 
@@ -65,12 +73,8 @@ export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
 >() {}
 
 const deployDescriptor = Deploy.DeployDescriptorEmpty().pipe(
-  Deploy.addDeployable.dataFirst([])(Weth9DeployTag, () => {
-    return Either.right([WETH9.abi, WETH9.bytecode, []]);
-  }),
-  Deploy.addDeployable.dataFirst([])(UsdcLabsDeployTag, () => {
-    return Either.right([USDCLabs.abi, USDCLabs.bytecode, []]);
-  }),
+  Weth9DeployTag.descriptor,
+  UsdcLabsDeployTag.descriptor,
 );
 
 export const deployApi = Deploy.DeployModuleApi(deployDescriptor)(TestEnvDeployTag);
@@ -385,4 +389,16 @@ export function tokensLayer(): Layer.Layer<
   });
 
   return Layer.unwrapEffect(effect);
+}
+
+export function sharedDeploy<R0, Tag extends Context.Tag<any, Deploy.DeployLayout<R0>>>(
+  module: Deploy.DeployModuleApi<R0, Tag>,
+) {
+  return Layer.service(TestEnvTag).pipe(
+    Layer.flatMap((ctx) => {
+      const { [privateApiSymbol]: api } = Context.get(ctx, TestEnvTag);
+
+      return module.sharedLayer(Context.get(api.underlying, TestEnvDeployTag));
+    }),
+  );
 }

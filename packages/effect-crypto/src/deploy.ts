@@ -265,6 +265,10 @@ export interface DeployModuleApi<R0, Tag extends Context.Tag<any, DeployLayout<R
    */
   readonly layer: Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag>;
 
+  sharedLayer<R1>(
+    underlying: DeployLayout<R1>,
+  ): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag>;
+
   /**
    * Use this function to deploy any contract from your layout.
    * You don't need to care about dependencies, they will be resolved and deployed automatically

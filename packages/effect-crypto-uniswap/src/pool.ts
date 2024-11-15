@@ -47,7 +47,7 @@ export const fetch: {
     tokenB: Token.AnyToken,
     fee: Adt.FeeAmount,
   ): Effect.Effect<Pool, Error.BlockchainError, internal.PoolTxTag>;
-} = internal.fetchPool;
+} = null as any;//internal.fetchPool;
 
 /**
  * Creates and initializes a new pool if necessary.
@@ -57,14 +57,14 @@ export const initialize: {
     price: Token.AnyTokenPrice,
     fee: Adt.FeeAmount,
   ): Effect.Effect<Pool, Error.BlockchainError, internal.PoolTxTag>;
-} = internal.createAndInitializePoolIfNecessary;
+} = null as any;//internal.createAndInitializePoolIfNecessary;
 
 /**
  * Fetches slot0 data from the given pool.
  */
 export const slot0: {
   (pool: Pool): Effect.Effect<Slot0, Error.BlockchainError, internal.PoolTxTag>;
-} = internal.fetchSlot0;
+} = null as any;//internal.fetchSlot0;
 
 export type PoolFactoryContractAddress = Tagged<string, "POOL_FACTORY_CONTRACT_ADDRESS">;
 export type PoolInitializerAddress = Tagged<Address, "POOL_INITIALIZER_ADDRESS">;

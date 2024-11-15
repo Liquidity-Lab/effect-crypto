@@ -3,13 +3,13 @@ import { Layer } from "effect";
 
 import * as internal from "~/avaCrypto.internal.js";
 import * as AvaEffect from "~/utils/avaEffect.js";
-import { Assertable } from "~/assertable.js";
+import * as Assertable from "~/assertable.js";
 
 export type AssertableEqualAssertion = {
   /**
    * Assert that `actual` is deeply equal to `expected` after they converted to AssertableEntity
    * using `Assertable.asAssertableEntity`, returning `true` if the assertion passed and throwing otherwise.
-   */ <Actual extends Assertable, Expected extends Actual>(
+   */ <Actual extends Assertable.Assertable, Expected extends Actual>(
     actual: Actual,
     expected: Expected,
     message?: string,
@@ -18,7 +18,7 @@ export type AssertableEqualAssertion = {
   /**
    * Assert that `actual` is deeply equal to `expected` after they converted to AssertableEntity
    * using `Assertable.asAssertableEntity`, returning `true` if the assertion passed and throwing otherwise.
-   */ <Actual extends Expected, Expected extends Assertable>(
+   */ <Actual extends Expected, Expected extends Assertable.Assertable>(
     actual: Actual,
     expected: Expected,
     message?: string,
@@ -27,7 +27,7 @@ export type AssertableEqualAssertion = {
   /**
    * Assert that `actual` is deeply equal to `expected` after they converted to AssertableEntity
    * using `Assertable.asAssertableEntity`, returning `true` if the assertion passed and throwing otherwise.
-   */ <Actual extends Assertable, Expected extends Assertable>(
+   */ <Actual extends Assertable.Assertable, Expected extends Assertable.Assertable>(
     actual: Actual,
     expected: Expected,
     message?: string,
