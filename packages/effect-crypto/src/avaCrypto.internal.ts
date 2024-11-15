@@ -1,9 +1,9 @@
 import type { ExecutionContext } from "ava";
 import { Layer } from "effect";
 
-import * as Assertable from "~/assertable.js";
-import type * as T from "~/avaCrypto.js";
-import * as AvaEffect from "~/utils/avaEffect.js";
+import * as Assertable from "./assertable.js";
+import type * as T from "./avaCrypto.js";
+import * as AvaEffect from "./utils/avaEffect.js";
 
 function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.AssertableEqualAssertion {
   function assertableEqual<

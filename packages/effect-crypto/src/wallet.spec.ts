@@ -1,10 +1,10 @@
 import { Context, Effect, Layer, Option } from "effect";
 
-import * as AvaCrypto from "~/avaCrypto.js";
-import * as Chain from "~/chain.js";
-import * as TestEnv from "~/testEnv.js";
-import * as Token from "~/token.js";
-import * as Wallet from "~/wallet.js";
+import * as AvaCrypto from "./avaCrypto.js";
+import * as Chain from "./chain.js";
+import * as TestEnv from "./testEnv.js";
+import * as Token from "./token.js";
+import * as Wallet from "./wallet.js";
 
 type Services = Chain.Tag | Token.Tag | Wallet.Tag | TestEnv.Tag;
 

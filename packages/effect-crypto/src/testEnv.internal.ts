@@ -22,17 +22,17 @@ import {
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 // import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
 // import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
-import USDCLabs from "@liquidity_lab/sol-artifacts/contracts/USDCLabs.sol/USDCLabs.json";
+import USDCLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDCLabs.sol/USDCLabs.json";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as Deploy from "~/deploy.js";
-import * as Error from "~/error.js";
-import * as BError from "~/error.js";
-import * as TestEnv from "~/testEnv.js";
-import * as Token from "~/token.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as Deploy from "./deploy.js";
+import * as Error from "./error.js";
+import * as BError from "./error.js";
+import * as TestEnv from "./testEnv.js";
+import * as Token from "./token.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
+import * as Wallet from "./wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/testEvn#privateApi");
 

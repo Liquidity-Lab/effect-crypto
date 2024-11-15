@@ -1,5 +1,8 @@
 {
   "files": [],
+  "compilerOptions": {
+    "baseUrl": "./packages"
+  },
   "references": [
     {
       "path": "packages/sol-artifacts"

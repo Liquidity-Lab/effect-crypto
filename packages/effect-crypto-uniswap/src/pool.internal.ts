@@ -8,7 +8,7 @@ import { Address } from "@liquidity_lab/effect-crypto";
 
 
 
-import type * as T from "~/pool.js";
+import type * as T from "./pool.js";
 
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/uniswap#privateApi");

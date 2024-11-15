@@ -4,16 +4,16 @@ import { RuntimeException } from "effect/Cause";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
-import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
+import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
 
-import * as Adt from "~/adt.js";
-import * as Assertable from "~/assertable.js";
-import * as Chain from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import type * as T from "~/token.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
+import * as Adt from "./adt.js";
+import * as Assertable from "./assertable.js";
+import * as Chain from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import type * as T from "./token.js";
+import * as EffectUtils from "./utils/effectUtils.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/token#privateApi");
 
@@ -477,7 +477,7 @@ interface TokensShape {
  *
  * @example
  *   import { Context, Effect, Layer } from "effect";
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const descriptor: Token.TokensDescriptor
  *   const tokensLayer: Layer.Layer<Token.Tag> = Token.makeTokensFromDescriptor(descriptor);

@@ -1,9 +1,9 @@
 import { Effect, Layer } from "effect";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as Token from "~/token.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
+import * as Adt from "../adt.js";
+import * as Chain from "../chain.js";
+import * as Token from "../token.js";
+import * as EffectUtils from "../utils/effectUtils.js";
 
 export default function arbitrumMainnetOps(): Layer.Layer<Token.Tag, Adt.FatalError, Chain.Tag> {
   // const blockchainConfig: BlockchainConfig = {

@@ -1,18 +1,27 @@
 import { Context, Effect, Either, Layer } from "effect";
 import { encodeBytes32String } from "ethers";
 
-import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils/index.js";
-import { Deploy, TestEnv, Chain, Wallet } from "@liquidity_lab/effect-crypto";
+import {
+  Error as BError,
+  Chain,
+  Deploy,
+  FatalError,
+  TestEnv,
+  Wallet,
+} from "@liquidity_lab/effect-crypto";
+import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
 import UniswapV3Factory from "@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json";
 import NonfungiblePositionManager from "@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json";
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
 import SwapRouter from "@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
 import QuoterV2 from "@uniswap/v3-periphery/artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
-import { ChainTag } from "@liquidity_lab/effect-crypto/chain.internal.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/uniswap/testEnv#privateApi");
 
+/**
+ * @see @see https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol
+ */
 export class PoolFactoryDeploy extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#PoolFactoryDeploy",
 )<PoolFactoryDeploy, Deploy.DeployedContract>() {
@@ -21,6 +30,9 @@ export class PoolFactoryDeploy extends Context.Tag(
   });
 }
 
+/**
+ * @see @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/SwapRouter.sol
+ */
 export class RouterDeploy extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#RouterDeploy",
 )<RouterDeploy, Deploy.DeployedContract>() {
@@ -35,6 +47,9 @@ export class RouterDeploy extends Context.Tag(
   );
 }
 
+/**
+ * @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungibleTokenPositionDescriptor.sol
+ */
 export class NftDescriptorLibraryDeploy extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#NftDescriptorLibraryDeploy",
 )<NftDescriptorLibraryDeploy, Deploy.DeployedContract>() {
@@ -43,6 +58,9 @@ export class NftDescriptorLibraryDeploy extends Context.Tag(
   });
 }
 
+/**
+ * @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungibleTokenPositionDescriptor.sol
+ */
 export class NonfungibleTokenPositionDescriptorDeploy extends Context.Tag(
   "NonfungibleTokenPositionDescriptorDeploy",
 )<NonfungibleTokenPositionDescriptorDeploy, Deploy.DeployedContract>() {
@@ -66,6 +84,9 @@ export class NonfungibleTokenPositionDescriptorDeploy extends Context.Tag(
   });
 }
 
+/**
+ * @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol
+ */
 export class NonfungiblePositionManagerDeploy extends Context.Tag(
   "NonfungiblePositionManagerDeploy",
 )<NonfungiblePositionManagerDeploy, Deploy.DeployedContract>() {
@@ -76,7 +97,10 @@ export class NonfungiblePositionManagerDeploy extends Context.Tag(
   ])(NonfungiblePositionManagerDeploy, (ctx) => {
     const factoryAddress = Context.get(ctx, PoolFactoryDeploy).address;
     const weth9Address = Context.get(ctx, TestEnv.Weth9DeployTag).address;
-    const positionDescriptorAddress = Context.get(ctx, NonfungibleTokenPositionDescriptorDeploy);
+    const positionDescriptorAddress = Context.get(
+      ctx,
+      NonfungibleTokenPositionDescriptorDeploy,
+    ).address;
 
     return Either.right([
       NonfungiblePositionManager.abi,
@@ -86,6 +110,25 @@ export class NonfungiblePositionManagerDeploy extends Context.Tag(
   });
 }
 
+/**
+ * @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/interfaces/IPoolInitializer.sol
+ */
+export class PoolInitializerDeploy extends Context.Tag(
+  "com/liquidity_lab/crypto/uniswap/testEnv#PoolInitializerDeploy",
+)<PoolInitializerDeploy, Deploy.DeployedContract>() {
+  static descriptor = Deploy.addDeployable.dataFirst([NonfungiblePositionManagerDeploy])(
+    PoolInitializerDeploy,
+    (ctx) => {
+      // NonfungiblePositionManager implements IPoolInitializer contract
+      // @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/NonfungiblePositionManager.sol
+      return Either.left(Context.get(ctx, NonfungiblePositionManagerDeploy));
+    },
+  );
+}
+
+/**
+ * @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/lens/QuoterV2.sol
+ */
 export class UniswapQuoterV2Deploy extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#UniswapQuoterV2Deploy",
 )<UniswapQuoterV2Deploy, Deploy.DeployedContract>() {
@@ -106,6 +149,7 @@ export type DeployLayout =
   | PoolFactoryDeploy
   | RouterDeploy
   | NonfungiblePositionManagerDeploy
+  | PoolInitializerDeploy
   | NftDescriptorLibraryDeploy
   | UniswapQuoterV2Deploy
   | NonfungibleTokenPositionDescriptorDeploy;
@@ -116,6 +160,7 @@ const descriptor: Deploy.DeployDescriptor<DeployLayout> = Deploy.DeployDescripto
   NftDescriptorLibraryDeploy.descriptor,
   NonfungibleTokenPositionDescriptorDeploy.descriptor,
   NonfungiblePositionManagerDeploy.descriptor,
+  PoolInitializerDeploy.descriptor,
   UniswapQuoterV2Deploy.descriptor,
   RouterDeploy.descriptor,
 );
@@ -139,7 +184,16 @@ export class UniswapTestEnvTag extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#UniswapTestEnv",
 )<UniswapTestEnvTag, UniswapTestEnvShape>() {}
 
-export const deploy = FunctionUtils.withOptionalServiceApi(UniswapTestEnvTag, deployImpl).value;
+export const deploy: {
+  <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
+    tag: Context.Tag.Identifier<Tag> extends DeployLayout ? Tag : never,
+  ): Effect.Effect<Deploy.DeployedContract, FatalError | BError.BlockchainError, UniswapTestEnvTag>;
+
+  <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
+    service: Context.Tag.Service<UniswapTestEnvTag>,
+    tag: Context.Tag.Identifier<Tag> extends DeployLayout ? Tag : never,
+  ): Effect.Effect<Deploy.DeployedContract, FatalError | BError.BlockchainError>;
+} = FunctionUtils.withOptionalServiceApi(UniswapTestEnvTag, deployImpl).value;
 
 function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
   { [privateApiSymbol]: api }: UniswapTestEnvShape,
@@ -148,14 +202,18 @@ function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
   return Effect.provide(deployApi.deploy(tag), api.underlying);
 }
 
-export function uniswapTestEnvLayer(): Layer.Layer<UniswapTestEnvTag, never, TestEnv.Tag | Chain.Tag | Wallet.Tag> {
+export function uniswapTestEnvLayer(): Layer.Layer<
+  UniswapTestEnvTag,
+  never,
+  TestEnv.Tag | Chain.Tag | Wallet.Tag
+> {
   return Layer.context<TestEnv.Tag | Chain.Tag | Wallet.Tag>().pipe(
     Layer.provideMerge(TestEnv.sharedDeploy(deployApi)),
     Layer.map((ctx) => {
       const instance: UniswapTestEnvShape = {
         [privateApiSymbol]: {
           underlying: ctx, // TODO: Context.pick(DeployTag, Chain.Tag)(ctx),
-        }
+        },
       };
 
       return Context.make(UniswapTestEnvTag, instance);

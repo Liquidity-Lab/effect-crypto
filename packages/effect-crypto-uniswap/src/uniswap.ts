@@ -1,10 +1,10 @@
 
 import { Tagged } from "type-fest";
 
-import * as internal from "~/uniswap.internal.js";
+import * as internal from "./uniswap.internal.js";
 
-export { UniswapTxTag as TxTag } from "~/uniswap.internal.js";
-export { UniswapTag as Tag } from "~/uniswap.internal.js";
+export { UniswapTxTag as TxTag } from "./uniswap.internal.js";
+export { UniswapTag as Tag } from "./uniswap.internal.js";
 
 export type PoolFactoryContractAddress = Tagged<string, "POOL_FACTORY_CONTRACT_ADDRESS">;
 export type QuoterContractAddress = Tagged<string, "QUOTER_CONTRACT_ADDRESS">;

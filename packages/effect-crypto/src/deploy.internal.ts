@@ -2,12 +2,12 @@ import { Context, Effect, Either, Layer, Ref, Types } from "effect";
 import { pipeArguments } from "effect/Pipeable";
 import { getAddress, solidityPackedKeccak256 } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import type * as T from "~/deploy.js";
-import * as BError from "~/error.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import type * as T from "./deploy.js";
+import * as BError from "./error.js";
+import * as EffectUtils from "./utils/effectUtils.js";
+import * as Wallet from "./wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/deploy#privateApi");
 

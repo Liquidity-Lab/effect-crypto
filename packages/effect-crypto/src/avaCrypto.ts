@@ -1,9 +1,9 @@
 import type { ExecutionContext } from "ava";
 import { Layer } from "effect";
 
-import * as internal from "~/avaCrypto.internal.js";
-import * as AvaEffect from "~/utils/avaEffect.js";
-import * as Assertable from "~/assertable.js";
+import * as internal from "./avaCrypto.internal.js";
+import * as AvaEffect from "./utils/avaEffect.js";
+import * as Assertable from "./assertable.js";
 
 export type AssertableEqualAssertion = {
   /**

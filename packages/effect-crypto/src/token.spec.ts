@@ -3,8 +3,8 @@ import { Option } from "effect";
 
 import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
 
-import * as Adt from "~/adt.js";
-import * as Token from "~/token.js";
+import * as Adt from "./adt.js";
+import * as Token from "./token.js";
 
 const WETH = Token.Erc20Token(
   Adt.Address.unsafe("0x0000000000000000000000000000000000000001"),

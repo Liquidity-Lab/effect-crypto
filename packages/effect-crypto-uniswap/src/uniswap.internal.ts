@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import { Error } from "@liquidity_lab/effect-crypto";
-import type * as T from "~/uniswap.js";
+import type * as T from "./uniswap.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/uniswap#privateApi");
 

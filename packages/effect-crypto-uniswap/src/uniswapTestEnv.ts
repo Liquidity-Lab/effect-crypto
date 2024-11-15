@@ -9,15 +9,16 @@ import {
   Wallet,
 } from "@liquidity_lab/effect-crypto";
 
-import * as internal from "~/uniswapTestEnv.internal.js";
+import * as internal from "./uniswapTestEnv.internal.js";
 
-export { UniswapTestEnvTag as Tag } from "~/uniswapTestEnv.internal.js";
-export { PoolFactoryDeploy } from "~/uniswapTestEnv.internal.js";
-export { RouterDeploy } from "~/uniswapTestEnv.internal.js";
-export { NftDescriptorLibraryDeploy } from "~/uniswapTestEnv.internal.js";
-export { NonfungibleTokenPositionDescriptorDeploy } from "~/uniswapTestEnv.internal.js";
-export { NonfungiblePositionManagerDeploy } from "~/uniswapTestEnv.internal.js";
-export { UniswapQuoterV2Deploy } from "~/uniswapTestEnv.internal.js";
+export { UniswapTestEnvTag as Tag } from "./uniswapTestEnv.internal.js";
+export { PoolFactoryDeploy } from "./uniswapTestEnv.internal.js";
+export { RouterDeploy } from "./uniswapTestEnv.internal.js";
+export { NftDescriptorLibraryDeploy } from "./uniswapTestEnv.internal.js";
+export { NonfungibleTokenPositionDescriptorDeploy } from "./uniswapTestEnv.internal.js";
+export { NonfungiblePositionManagerDeploy } from "./uniswapTestEnv.internal.js";
+export { PoolInitializerDeploy } from "./uniswapTestEnv.internal.js";
+export { UniswapQuoterV2Deploy } from "./uniswapTestEnv.internal.js";
 
 export const deploy: {
   <Tag extends Context.Tag<any, Deploy.DeployedContract>>(

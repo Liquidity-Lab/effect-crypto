@@ -11,22 +11,7 @@
   ],
   "compilerOptions": {
     "rootDir": "./src",
-    "baseUrl": "./src",
-    "outDir": "./dist",
-    "paths": {
-      "@liquidity_lab/sol-artifacts/*": [
-        "../../sol-artifacts/dist/*"
-      ],
-      "@liquidity_lab/effect-crypto": [
-        "../../effect-crypto/src/index.js"
-      ],
-      "@liquidity_lab/effect-crypto/*": [
-        "../../effect-crypto/src/*"
-      ],
-      "~/*": [
-        "./*"
-      ]
-    }
+    "outDir": "./dist"
   },
   "references": [
     {

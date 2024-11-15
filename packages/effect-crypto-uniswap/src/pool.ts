@@ -3,10 +3,10 @@ import { Tagged } from "type-fest";
 
 import { Address, Error, Token } from "@liquidity_lab/effect-crypto";
 
-import * as Adt from "~/adt.js";
-import * as internal from "~/pool.internal.js";
+import * as Adt from "./adt.js";
+import * as internal from "./pool.internal.js";
 
-export { PoolTxTag as TxTag } from "~/pool.internal.js";
+export { PoolTxTag as TxTag } from "./pool.internal.js";
 
 /**
  * Slot0 represents the first slot of the pool state.

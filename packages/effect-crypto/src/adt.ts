@@ -5,7 +5,7 @@ import { Either } from "effect";
 import { Interface, InterfaceAbi } from "ethers";
 import { Tagged } from "type-fest";
 
-import * as internal from "~/adt.internal.js";
+import * as internal from "./adt.internal.js";
 
 export type DeployArgs = [
   abi: Interface | InterfaceAbi,
@@ -22,7 +22,7 @@ export type Address = Tagged<string, "Address">;
  * Creates a new address instance
  *
  * @example
- *   import { Address } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Address } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const address: Either.Right<Address, unknown> = Address("0x0000000000000000000000000000000000000001");
  *   const failedAddress: Either.Left<Address, unknown> = Address("0xzzz");

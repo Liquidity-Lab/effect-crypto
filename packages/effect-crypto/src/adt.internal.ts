@@ -1,7 +1,7 @@
 import { Either } from "effect";
 import { getAddress } from "ethers";
 
-import type * as Adt from "~/adt.js";
+import type * as Adt from "./adt.js";
 
 export function makeAddress(
   address: string,

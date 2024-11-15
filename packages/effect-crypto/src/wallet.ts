@@ -9,15 +9,15 @@ import {
   TransactionReceipt,
 } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import * as Token from "~/token.js";
-import * as internal from "~/wallet.internal.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import * as Token from "./token.js";
+import * as internal from "./wallet.internal.js";
 
-export { WalletTag as Tag } from "~/wallet.internal.js";
-export { WalletTag as TxTag } from "~/wallet.internal.js";
+export { WalletTag as Tag } from "./wallet.internal.js";
+export { WalletTag as TxTag } from "./wallet.internal.js";
 
 export type DeployedContractOps = Signature.ContractOps & {
   readonly withWalletRunner: BaseContract;
@@ -27,7 +27,7 @@ export type DeployedContractOps = Signature.ContractOps & {
  * Wallet Service implementation.
  * You can create it or\and store in your program state.
  * @example
- *   import { Wallet } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Wallet } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const wallet: Wallet.Wallet = yield* Wallet.makeRandom();
  */
@@ -211,7 +211,7 @@ export const deployContract: {
 /**
  * Error is a sum type of all errors thrown by the Wallet module.
  * @example
- *   import { Wallet } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Wallet } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const effect: Effect.Effect<any, Wallet.Error, Wallet.TxTag> = ...
  */

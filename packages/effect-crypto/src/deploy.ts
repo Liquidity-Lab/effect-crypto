@@ -1,11 +1,11 @@
 import { Context, Effect, Either, Layer, Pipeable, Types } from "effect";
 import { Interface, InterfaceAbi } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as internal from "~/deploy.internal.js";
-import * as BError from "~/error.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as internal from "./deploy.internal.js";
+import * as BError from "./error.js";
+import * as Wallet from "./wallet.js";
 
 /** This type represents low level arguments that will be passed to the contract factory
  *  to deploy new contract instance to the blockchain

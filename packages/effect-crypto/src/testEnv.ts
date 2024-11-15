@@ -1,19 +1,19 @@
 import { ConfigError, Context, Effect, Layer } from "effect";
 import { Signer } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as Deploy from "~/deploy.js";
-import * as BError from "~/error.js";
-import * as internal from "~/testEnv.internal.js";
-import * as Token from "~/token.js";
-import * as Wallet from "~/wallet.js";
-import { DeployLayout } from "~/deploy.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as Deploy from "./deploy.js";
+import * as BError from "./error.js";
+import * as internal from "./testEnv.internal.js";
+import * as Token from "./token.js";
+import * as Wallet from "./wallet.js";
+import { DeployLayout } from "./deploy.js";
 
-export { TestEnvTag as Tag } from "~/testEnv.internal.js";
-export { Weth9DeployTag as Weth9DeployTag } from "~/testEnv.internal.js";
-export { UsdcLabsDeployTag as UsdcLabsDeployTag } from "~/testEnv.internal.js";
-export { TestEnvDeployTag as DeployTag } from "~/testEnv.internal.js";
+export { TestEnvTag as Tag } from "./testEnv.internal.js";
+export { Weth9DeployTag as Weth9DeployTag } from "./testEnv.internal.js";
+export { UsdcLabsDeployTag as UsdcLabsDeployTag } from "./testEnv.internal.js";
+export { TestEnvDeployTag as DeployTag } from "./testEnv.internal.js";
 
 export const setBalanceFor: {
   (
@@ -59,7 +59,7 @@ export const withNonceManagement: {
  *
  * @example
  *   import { Context, Effect, Layer } from "effect";
- *   import { TestEnv } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { TestEnv } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const testEnv: Context.Tag.Service<TestEnv.Tag> = ???;
  *   const effect: Effect.Effect<any, never, TestEnv.TxTag> = ???;
