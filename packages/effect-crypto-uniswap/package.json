@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "main": "index.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "engines": {
     "node": ">= 22"
   },

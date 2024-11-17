@@ -111,6 +111,21 @@ function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrappe
   });
 }
 
+export const transact = FunctionUtils.withOptionalServiceApi(WalletTag, transactImpl).value;
+
+function transactImpl(
+  { [privateApiSymbol]: api }: WalletShape,
+  transactionRequest: TransactionRequest,
+): Effect.Effect<TransactionReceipt, Error.BlockchainError | Error.TransactionFailedError> {
+  return Effect.gen(function* () {
+    const transactionResponse: TransactionResponse = yield* Error.catchBlockchainErrors(
+      Effect.promise(() => api.signer.sendTransaction(transactionRequest)),
+    );
+
+    return yield* awaitForTransaction(transactionResponse);
+  });
+}
+
 /**
  * This is a wrapped version of transferTokenImpl it allows to use it with Wallet
  */

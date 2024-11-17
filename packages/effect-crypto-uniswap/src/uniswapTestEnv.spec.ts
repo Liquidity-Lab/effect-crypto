@@ -26,7 +26,7 @@ testEffect("Should deploy Uniswap stack", (t) => {
     const poolFactory = yield* UniswapTestEnv.deploy(UniswapTestEnv.PoolFactoryDeploy);
     t.assert(poolFactory.address.startsWith("0x"), "Address should start with 0x");
 
-    const router = yield* UniswapTestEnv.deploy(UniswapTestEnv.RouterDeploy);
+    const router = yield* UniswapTestEnv.deploy(UniswapTestEnv.SwapRouterDeploy);
     t.assert(router.address.startsWith("0x"), "Address should start with 0x");
 
     const quoter = yield* UniswapTestEnv.deploy(UniswapTestEnv.UniswapQuoterV2Deploy);

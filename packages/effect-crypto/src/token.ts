@@ -226,6 +226,7 @@ export declare type TokensDescriptor = {
   readonly ETH: Token<internal.TokenType.Native>;
   readonly WETH: Token<internal.TokenType.Wrapped>;
   readonly USDC: Token<internal.TokenType.ERC20>;
+  readonly USDT: Token<internal.TokenType.ERC20>;
 };
 
 export interface TokenVolume<T extends internal.TokenType> extends Assertable.Assertable {
@@ -317,7 +318,7 @@ export const TokenVolumeUnscaled: <T extends internal.TokenType>(
 export const TokenVolumeZero: <T extends internal.TokenType>(token: Token<T>) => TokenVolume<T> =
   internal.makeTokenVolumeZero;
 
-export interface TokenPrice<T extends internal.TokenType> {
+export interface TokenPrice<T extends internal.TokenType> extends Assertable.Assertable {
   readonly baseCurrency: Token<T>;
   readonly quoteCurrency: Token<T>;
 
@@ -371,6 +372,11 @@ export interface TokenPrice<T extends internal.TokenType> {
    * Returns flipped value token0 / token1
    */
   readonly asFlippedSqrtX96: Option.Option<bigint>;
+
+  /**
+   * Returns unscaled price
+   */
+  readonly asUnscaled: bigint;
 
   /**
    * Returns amount of another token, based on the price ratio

@@ -374,6 +374,10 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
     );
   }
 
+  get asUnscaled(): bigint {
+    return this.value.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
+  }
+
   contains(token: T.Token<T.TokenType>): boolean {
     return token.address == this.token0.address || token.address == this.token1.address;
   }
@@ -412,6 +416,15 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
   map(f: (a: BigDecimal) => BigDecimal): TokenPriceLive<T> {
     return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.value));
   }
+
+  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
+    return Assertable.AssertableEntity({
+      baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
+      quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
+      units: this.asUnits,
+    });
+  }
+
 
   static convertToQ64x96(underlying: BigDecimal): Option.Option<bigint> {
     const scaledValue = (underlying.unscaledValue() * 2n ** 96n) / BigInt(10 ** underlying.scale());

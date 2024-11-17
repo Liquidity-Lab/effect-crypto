@@ -17,6 +17,8 @@ import SwapRouter from "@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol
 import QuoterV2 from "@uniswap/v3-periphery/artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
 
+import * as Pool from "./pool.js";
+
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/uniswap/testEnv#privateApi");
 
 /**
@@ -33,11 +35,11 @@ export class PoolFactoryDeploy extends Context.Tag(
 /**
  * @see @see https://github.com/Uniswap/v3-periphery/blob/main/contracts/SwapRouter.sol
  */
-export class RouterDeploy extends Context.Tag(
-  "com/liquidity_lab/crypto/uniswap/testEnv#RouterDeploy",
-)<RouterDeploy, Deploy.DeployedContract>() {
+export class SwapRouterDeploy extends Context.Tag(
+  "com/liquidity_lab/crypto/uniswap/testEnv#SwapRouterDeploy",
+)<SwapRouterDeploy, Deploy.DeployedContract>() {
   static descriptor = Deploy.addDeployable.dataFirst([TestEnv.Weth9DeployTag, PoolFactoryDeploy])(
-    RouterDeploy,
+    SwapRouterDeploy,
     (ctx) => {
       const factoryAddress = Context.get(ctx, PoolFactoryDeploy).address;
       const weth9Address = Context.get(ctx, TestEnv.Weth9DeployTag).address;
@@ -147,7 +149,7 @@ export class UniswapQuoterV2Deploy extends Context.Tag(
 export type DeployLayout =
   | TestEnv.Weth9DeployTag
   | PoolFactoryDeploy
-  | RouterDeploy
+  | SwapRouterDeploy
   | NonfungiblePositionManagerDeploy
   | PoolInitializerDeploy
   | NftDescriptorLibraryDeploy
@@ -162,7 +164,7 @@ const descriptor: Deploy.DeployDescriptor<DeployLayout> = Deploy.DeployDescripto
   NonfungiblePositionManagerDeploy.descriptor,
   PoolInitializerDeploy.descriptor,
   UniswapQuoterV2Deploy.descriptor,
-  RouterDeploy.descriptor,
+  SwapRouterDeploy.descriptor,
 );
 
 export class DeployTag extends Context.Tag("com/liquidity_lab/crypto/uniswap/testEnv#DeployTag")<
@@ -184,18 +186,7 @@ export class UniswapTestEnvTag extends Context.Tag(
   "com/liquidity_lab/crypto/uniswap/testEnv#UniswapTestEnv",
 )<UniswapTestEnvTag, UniswapTestEnvShape>() {}
 
-export const deploy: {
-  <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
-    tag: Context.Tag.Identifier<Tag> extends DeployLayout ? Tag : never,
-  ): Effect.Effect<Deploy.DeployedContract, FatalError | BError.BlockchainError, UniswapTestEnvTag>;
-
-  <Tag extends Context.Tag<any, Deploy.DeployedContract>>(
-    service: Context.Tag.Service<UniswapTestEnvTag>,
-    tag: Context.Tag.Identifier<Tag> extends DeployLayout ? Tag : never,
-  ): Effect.Effect<Deploy.DeployedContract, FatalError | BError.BlockchainError>;
-} = FunctionUtils.withOptionalServiceApi(UniswapTestEnvTag, deployImpl).value;
-
-function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
+export function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
   { [privateApiSymbol]: api }: UniswapTestEnvShape,
   tag: Context.Tag.Identifier<Tag> extends DeployLayout ? Tag : never,
 ) {
@@ -217,6 +208,32 @@ export function uniswapTestEnvLayer(): Layer.Layer<
       };
 
       return Context.make(UniswapTestEnvTag, instance);
+    }),
+  );
+}
+
+export function poolDeployLayer() {
+  return Layer.unwrapEffect(
+    Effect.gen(function* () {
+      const uniswapTestEnv = yield* UniswapTestEnvTag;
+
+      const poolFactoryAddress = Pool.PoolFactoryAddress(
+        (yield* deployImpl(uniswapTestEnv, PoolFactoryDeploy)).address,
+      );
+
+      const poolInitializerAddress = Pool.PoolInitializerAddress(
+        (yield* deployImpl(uniswapTestEnv, PoolInitializerDeploy)).address,
+      );
+
+      const swapRouterAddress = Pool.SwapRouterAddress(
+        (yield* deployImpl(uniswapTestEnv, SwapRouterDeploy)).address,
+      );
+
+      return Pool.poolsLayer({
+        poolFactoryAddress,
+        poolInitializerAddress,
+        swapRouterAddress,
+      });
     }),
   );
 }

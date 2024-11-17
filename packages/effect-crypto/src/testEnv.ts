@@ -7,12 +7,14 @@ import * as Deploy from "./deploy.js";
 import * as BError from "./error.js";
 import * as internal from "./testEnv.internal.js";
 import * as Token from "./token.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 import * as Wallet from "./wallet.js";
 import { DeployLayout } from "./deploy.js";
 
 export { TestEnvTag as Tag } from "./testEnv.internal.js";
 export { Weth9DeployTag as Weth9DeployTag } from "./testEnv.internal.js";
-export { UsdcLabsDeployTag as UsdcLabsDeployTag } from "./testEnv.internal.js";
+export { UsdcLabsDeployTag as UsdcDeployTag } from "./testEnv.internal.js";
+export { UsdtLabsDeployTag as UsdtDeployTag } from "./testEnv.internal.js";
 export { TestEnvDeployTag as DeployTag } from "./testEnv.internal.js";
 
 export const setBalanceFor: {
@@ -79,8 +81,10 @@ export const predefinedHardhatWallet: {
 } = internal.predefinedHardhatWallet;
 
 // TODO: ADD DOCS
-export const deployApi: Deploy.DeployModuleApi<internal.TestEnvDeployLayout, typeof internal.TestEnvDeployTag> =
-  internal.deployApi;
+export const deployApi: Deploy.DeployModuleApi<
+  internal.TestEnvDeployLayout,
+  typeof internal.TestEnvDeployTag
+> = internal.deployApi;
 
 /**
  * Use this function to deploy contracts for testing purposes
@@ -109,7 +113,7 @@ export const deploy: {
     service: Context.Tag.Service<internal.TestEnvTag>,
     tag: Context.Tag.Identifier<Tag> extends internal.TestEnvDeployLayout ? Tag : never,
   ): Effect.Effect<Deploy.DeployedContract, Adt.FatalError | BError.BlockchainError>;
-} = internal.deploy;
+} = FunctionUtils.withOptionalServiceApi(internal.TestEnvTag, internal.deployImpl).value;
 
 /**
  * Use this function to deploy tokens for testing purposes

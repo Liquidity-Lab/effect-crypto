@@ -7,6 +7,7 @@ import {
   InterfaceAbi,
   Signer,
   TransactionReceipt,
+  TransactionRequest,
 } from "ethers";
 
 import * as Adt from "./adt.js";
@@ -73,6 +74,20 @@ export const makeFromPrivateKeyWithNonceManagement: (
   makeNonceManager: (signer: Signer) => NonceManager,
 ) => Layer.Layer<internal.WalletTag, Adt.FatalError, Chain.Tag> =
   internal.makeFromPrivateKeyWithNonceManagement;
+
+export const transact: {
+  (
+    transactionRequest: TransactionRequest,
+  ): Effect.Effect<
+    TransactionReceipt,
+    Error.BlockchainError | Error.TransactionFailedError,
+    internal.WalletTag
+  >;
+  (
+    wallet: Wallet,
+    transactionRequest: TransactionRequest,
+  ): Effect.Effect<TransactionReceipt, Error.BlockchainError | Error.TransactionFailedError>;
+} = internal.transact;
 
 /**
  * Transfers specified token volume to a target address.

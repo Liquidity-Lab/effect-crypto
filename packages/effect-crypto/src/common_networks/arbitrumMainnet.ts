@@ -32,9 +32,15 @@ export default function arbitrumMainnetOps(): Layer.Layer<Token.Tag, Adt.FatalEr
     );
     const USDC = Token.Erc20Token(addressUSDC, 6, "USDC", "USD Coin", Token.Erc20TokenMeta());
 
+    const addressUSDT = yield* EffectUtils.getOrDieEither(
+      Adt.Address("0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"),
+    );
+    const USDT = Token.Erc20Token(addressUSDT, 6, "USDT", "Tether USD", Token.Erc20TokenMeta());
+
     const tokens: Token.TokensDescriptor = {
       WETH,
       USDC,
+      USDT,
       ETH,
     };
 

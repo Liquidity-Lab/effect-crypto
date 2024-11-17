@@ -1,13 +1,4 @@
-import {
-  Config,
-  ConfigError,
-  Context,
-  Effect,
-  Function as EffectFunction,
-  Either,
-  Layer,
-  Option,
-} from "effect";
+import { Config, ConfigError, Context, Effect, Either, Function, Layer, Option } from "effect";
 import {
   AbstractSigner,
   type BlockTag,
@@ -19,10 +10,11 @@ import {
   type TypedDataField,
 } from "ethers";
 
-import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
+// import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 // import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
-// import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
+import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
 import USDCLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDCLabs.sol/USDCLabs.json";
+import USDTLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDTLabs.sol/USDTLabs.json";
 
 import * as Adt from "./adt.js";
 import * as Chain from "./chain.js";
@@ -52,7 +44,7 @@ export class Weth9DeployTag extends Context.Tag("Weth9DeployTag")<
   Deploy.DeployedContract
 >() {
   static descriptor = Deploy.addDeployable.dataFirst([])(Weth9DeployTag, () => {
-    return Either.right([WETH9.abi, WETH9.bytecode, []]);
+    return Either.right([ETHLabs.abi, ETHLabs.bytecode, []]);
   });
 }
 
@@ -65,7 +57,16 @@ export class UsdcLabsDeployTag extends Context.Tag("UsdcLabsDeployTag")<
   });
 }
 
-export type TestEnvDeployLayout = Weth9DeployTag | UsdcLabsDeployTag;
+export class UsdtLabsDeployTag extends Context.Tag("UsdtLabsDeployTag")<
+  UsdtLabsDeployTag,
+  Deploy.DeployedContract
+>() {
+  static descriptor = Deploy.addDeployable.dataFirst([])(UsdtLabsDeployTag, () => {
+    return Either.right([USDTLabs.abi, USDTLabs.bytecode, []]);
+  });
+}
+
+export type TestEnvDeployLayout = Weth9DeployTag | UsdcLabsDeployTag | UsdtLabsDeployTag;
 
 export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
   TestEnvDeployTag,
@@ -75,6 +76,7 @@ export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
 const deployDescriptor = Deploy.DeployDescriptorEmpty().pipe(
   Weth9DeployTag.descriptor,
   UsdcLabsDeployTag.descriptor,
+  UsdtLabsDeployTag.descriptor,
 );
 
 export const deployApi = Deploy.DeployModuleApi(deployDescriptor)(TestEnvDeployTag);
@@ -286,7 +288,7 @@ function predefinedHardhatWalletImpl(
   const config = Config.map(
     Config.all([Config.option(Config.string("APP_WALLET_HARDHAT_PRIVATE_KEY"))]),
     ([privateKeyOpt]) => {
-      const DEFAULT_PRIVATE_KEY = EffectFunction.constant(
+      const DEFAULT_PRIVATE_KEY = Function.constant(
         "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       );
 
@@ -305,9 +307,7 @@ function predefinedHardhatWalletImpl(
   return Layer.unwrapEffect(makeLayer);
 }
 
-export const deploy = FunctionUtils.withOptionalServiceApi(TestEnvTag, deployImpl).value;
-
-function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
+export function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
   { [privateApiSymbol]: api }: TestEnvShape,
   tag: Context.Tag.Identifier<Tag> extends TestEnvDeployLayout ? Tag : never,
 ) {
@@ -360,18 +360,23 @@ function tokensDeployImpl(
 
     const weth9 = yield* deployHelper<Token.TokenType.Wrapped>(
       Token.WrappedTokenMeta(eth),
-      yield* deploy(service, Weth9DeployTag),
+      yield* deployImpl(service, Weth9DeployTag),
     );
     // const ethLabs = yield* deployHelper(deployETHLabs());
     const usdcLabs = yield* deployHelper<Token.TokenType.ERC20>(
       Token.Erc20TokenMeta(),
-      yield* deploy(service, UsdcLabsDeployTag),
+      yield* deployImpl(service, UsdcLabsDeployTag),
+    );
+    const usdtLabs = yield* deployHelper<Token.TokenType.ERC20>(
+      Token.Erc20TokenMeta(),
+      yield* deployImpl(service, UsdtLabsDeployTag),
     );
 
     return {
       ETH: eth,
       WETH: weth9,
       USDC: usdcLabs,
+      USDT: usdtLabs,
     };
   });
 }
