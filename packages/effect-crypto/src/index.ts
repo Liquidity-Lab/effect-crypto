@@ -1,6 +1,7 @@
 export * from "./adt.js";
 export * as Assertable from "./assertable.js";
 export * as AvaCrypto from "./avaCrypto.js";
+export * as BigMath from "./bigMath.js";
 export * as Chain from "./chain.js";
 export * as Deploy from "./deploy.js";
 export * as Error from "./error.js";
