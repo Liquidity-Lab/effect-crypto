@@ -1,4 +1,5 @@
-import { Big, BigDecimal, MathContext } from "bigdecimal.js";
+import { ExecutionContext } from "ava";
+import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
 
 // Constants
 const ONE = Big(1);
@@ -12,7 +13,7 @@ const LN2 = Big("0.6931471805599453094172321214581765680755001343602552541206800
  * @returns The natural logarithm of x.
  */
 export function lnImpl(x: BigDecimal, mc: MathContext): BigDecimal {
-  const epsilon = Big('1e-' + mc.precision);
+  const epsilon = Big("1e-" + mc.precision);
 
   let n = 0;
 
@@ -75,3 +76,54 @@ export function logImpl(base: BigDecimal, x: BigDecimal, mc: MathContext): BigDe
 export function log2Impl(x: BigDecimal, mc: MathContext): BigDecimal {
   return logImpl(TWO, x, mc);
 }
+
+export function assertEqualWithPrecisionImpl(
+  t: ExecutionContext<unknown>,
+  precision?: number,
+): (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean {
+  return (actual, expected, msg) => {
+    function isInteger(value: number | undefined): value is number {
+      return Number.isInteger(value);
+    }
+
+    const targetScale = Math.min(
+      actual.scale(),
+      expected.scale(),
+      isInteger(precision) && precision > 0 ? precision : Number.MAX_VALUE,
+    );
+
+    return t.deepEqual(
+      actual.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
+      expected.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
+      msg,
+    );
+  };
+}
+
+export function assertEqualWithPercentage(
+  t: ExecutionContext<unknown>,
+  percents: BigDecimal,
+  mc: MathContext,
+): (actual: BigDecimal, expected: BigDecimal, msg?: string) =>boolean {
+  return (actual, expected, msg) => {
+    const diffPercent = ONE.subtract(
+      actual.divideWithMathContext(expected, mc)
+    ).abs();
+
+    if (diffPercent.lowerThanOrEquals(percents)) {
+      return t.pass();
+    }
+
+    const targetScale = Math.min(
+      actual.scale(),
+      expected.scale(),
+    )
+
+    return t.deepEqual(
+      actual.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
+      expected.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
+      msg,
+    );
+  };
+}
+

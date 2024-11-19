@@ -16,7 +16,7 @@ test("It should correctly calculate Log[1.0001, 1.5102563224]", (t) => {
   // @see https://www.wolframalpha.com/input?i2d=true&i=Log%5B1.0001%0A%2C1.5102563224%5D
   const expected = Big(expectedRaw);
 
-  compareWithPrecision(t, expected.scale() - 1)(result, expected, "Should be equal");
+  BigMath.assertEqualWithPrecision(t, expected.scale() - 1)(result, expected, "Should be equal");
 });
 
 const doubleWithLimitedPrecision = (scale: number) =>
@@ -33,20 +33,7 @@ const doubleWithLimitedPrecision = (scale: number) =>
       return Number(Big(value).setScale(scale, RoundingMode.CEILING).toPlainString());
     });
 
-function compareWithPrecision(
-  t: ExecutionContext<unknown>,
-  precision?: number,
-): (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean {
-  return (actual, expected, msg) => {
-    const targetScale = Math.min(actual.scale(), expected.scale(), precision ?? Number.MAX_VALUE);
 
-    return t.deepEqual(
-      actual.setScale(targetScale, RoundingMode.HALF_UP).toPlainString(),
-      expected.setScale(targetScale, RoundingMode.HALF_UP).toPlainString(),
-      msg,
-    );
-  };
-}
 
 testProp(
   "It should correctly calculate ln(x) for",
@@ -57,7 +44,7 @@ testProp(
     const expected = Big(Math.log(x));
     const actual = BigMath.ln(Big(x), mc);
 
-    compareWithPrecision(t, 8)(actual, expected);
+    BigMath.assertEqualWithPrecision(t)(actual, expected);
   },
   { numRuns: 1024 },
 );
@@ -71,7 +58,7 @@ testProp(
     const expected = Big(Math.log2(x));
     const actual = BigMath.log2(Big(x), mc);
 
-    compareWithPrecision(t, 8)(actual, expected);
+    BigMath.assertEqualWithPrecision(t, 8)(actual, expected);
   },
   { numRuns: 1024 },
 );
