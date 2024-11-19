@@ -1,6 +1,8 @@
-import { Branded } from "effect/Brand";
 import { Brand } from "effect";
+import { Branded } from "effect/Brand";
+import { Arbitrary } from "fast-check";
 
+import * as internal from "./adt.internal.js";
 
 export { FeeAmount } from "./adt.internal.js";
 
@@ -27,7 +29,4 @@ function isTickValid(tickIdx: number, fee: number): boolean {
   return tickIdx % tickSpacing === 0;
 }
 
-// Example usage
-const tickIdx = 60;  // Example tick index
-const fee = 0.003;   // Example fee tier (0.3%)
-console.log(isTickValid(tickIdx, fee));  // Should print true if tickIdx is correct
+export const feeAmountGen: Arbitrary<internal.FeeAmount> = internal.feeAmountGen;

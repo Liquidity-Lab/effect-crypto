@@ -50,5 +50,14 @@ testEffect("Should create and initialize pool", (t) => {
       Option.some(expectedPrice),
       t.priceEqualsWithPrecision(0.00001),
     );
+
+    const existingPoolPriceOpt = yield* Pool.createAndInitialize(
+      Token.TokenPriceUnits(WETH, USDC, "5000"),
+      feeAmount
+    );
+    t.assert(
+      Option.isNone(existingPoolPriceOpt),
+      "Pool should not be created if it already exists"
+    );
   });
 });
