@@ -1,4 +1,13 @@
-import { Context, Effect, Layer } from "effect";
+import {
+  Config,
+  ConfigError,
+  Context,
+  Effect,
+  Function as EffectFunction,
+  Either,
+  Layer,
+  Option,
+} from "effect";
 import {
   AbstractSigner,
   type BlockTag,
@@ -10,31 +19,61 @@ import {
   type TypedDataField,
 } from "ethers";
 
+import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
+// import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
+// import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
+import USDCLabs from "@liquidity_lab/sol-artifacts/contracts/USDCLabs.sol/USDCLabs.json";
+
 import * as Adt from "~/adt.js";
 import * as Chain from "~/chain.js";
+import * as Deploy from "~/deploy.js";
 import * as Error from "~/error.js";
+import * as BError from "~/error.js";
+import * as TestEnv from "~/testEnv.js";
+import * as Token from "~/token.js";
 import * as FunctionUtils from "~/utils/functionUtils.js";
+import * as Wallet from "~/wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/testEvn#privateApi");
 
-interface TestEnvTxPrivateApi {
+interface TestEnvPrivateApi {
   readonly nonceState: NonceState;
-  readonly underlyingChain: Context.Tag.Service<Chain.TxTag>;
+  readonly underlying: Context.Context<Chain.Tag | TestEnvDeployTag>;
 }
-
-interface TestEnvTxShape {
-  [privateApiSymbol]: TestEnvTxPrivateApi;
-}
-
-export class TestEnvTxTag extends Context.Tag("TestEnvTxTag")<TestEnvTxTag, TestEnvTxShape>() {}
 
 interface TestEnvShape {
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | TestEnvTxTag>,
-  ): Effect.Effect<A, E, Exclude<R, TestEnvTxTag> | Chain.TxTag>;
+  readonly [privateApiSymbol]: TestEnvPrivateApi;
 }
 
 export class TestEnvTag extends Context.Tag("TestEnvTag")<TestEnvTag, TestEnvShape>() {}
+
+export class Weth9DeployTag extends Context.Tag("Weth9DeployTag")<
+  Weth9DeployTag,
+  Deploy.DeployedContract
+>() {}
+
+export class UsdcLabsDeployTag extends Context.Tag("UsdcLabsDeployTag")<
+  UsdcLabsDeployTag,
+  Deploy.DeployedContract
+>() {}
+
+export type TestEnvDeployLayout = Weth9DeployTag | UsdcLabsDeployTag;
+
+export class TestEnvDeployTag extends Context.Tag("TestEnvDeployTxTag")<
+  TestEnvDeployTag,
+  Deploy.DeployLayout<TestEnvDeployLayout>
+>() {}
+
+const deployDescriptor = Deploy.DeployDescriptorEmpty().pipe(
+  Deploy.addDeployable.dataFirst([])(Weth9DeployTag, () => {
+    return Either.right([WETH9.abi, WETH9.bytecode, []]);
+  }),
+  Deploy.addDeployable.dataFirst([])(UsdcLabsDeployTag, () => {
+    return Either.right([USDCLabs.abi, USDCLabs.bytecode, []]);
+  }),
+);
+
+export const deployApi = Deploy.DeployModuleApi(deployDescriptor)(TestEnvDeployTag);
 
 class NonceState {
   #noncePromise: null | Promise<number>;
@@ -70,7 +109,7 @@ class NonceState {
   }
 
   /**
-   *  Resets the nonce, causing the **NonceManager** to reload the current
+   *  Resets the nonce, causing the **NonceManagerLive** to reload the current
    *  nonce from the blockchain on the next transaction.
    */
   reset(): void {
@@ -80,11 +119,11 @@ class NonceState {
 }
 
 /**
- *  A **NonceManager** wraps another [[Signer]] and automatically manages
+ *  A **NonceManagerLive** wraps another [[Signer]] and automatically manages
  *  the nonce, ensuring serialized and sequential nonces are used during
  *  transaction.
  */
-class NonceManager extends AbstractSigner {
+class NonceManagerLive extends AbstractSigner implements Wallet.NonceManager {
   /**
    *  The Signer being managed.
    */
@@ -93,7 +132,7 @@ class NonceManager extends AbstractSigner {
   private readonly nonceState: NonceState;
 
   /**
-   *  Creates a new **NonceManager** to manage %%signer%%.
+   *  Creates a new **NonceManagerLive** to manage %%signer%%.
    */
   constructor(signer: Signer, nonceState: NonceState) {
     super(signer.provider);
@@ -106,8 +145,8 @@ class NonceManager extends AbstractSigner {
     return this.signer.getAddress();
   }
 
-  connect(provider: null | Provider): NonceManager {
-    return new NonceManager(this.signer.connect(provider), this.nonceState);
+  connect(provider: null | Provider): NonceManagerLive {
+    return new NonceManagerLive(this.signer.connect(provider), this.nonceState);
   }
 
   async getNonce(blockTag?: BlockTag): Promise<number> {
@@ -143,57 +182,207 @@ class NonceManager extends AbstractSigner {
   }
 }
 
-export const setBalance = FunctionUtils.withOptionalServiceApi(TestEnvTxTag, setBalanceImpl).value;
+export const setBalanceFor = FunctionUtils.withOptionalServiceApi(
+  TestEnvTag,
+  setBalanceForImpl,
+).value;
 
-function setBalanceImpl(
-  { [privateApiSymbol]: api }: TestEnvTxShape,
+function setBalanceForImpl(
+  { [privateApiSymbol]: api }: TestEnvShape,
   address: Adt.Address,
   balance: bigint,
 ): Effect.Effect<void, Error.BlockchainError> {
   return Effect.as(
-    Chain.send(api.underlyingChain, "hardhat_setBalance", [address, `0x${balance.toString(16)}`]),
+    Chain.send(Context.get(api.underlying, Chain.Tag), "hardhat_setBalance", [
+      address,
+      `0x${balance.toString(16)}`,
+    ]),
     void 0,
   );
 }
 
+export const setBalance = Object.assign(
+  FunctionUtils.withOptionalServiceApi(TestEnvTag, setBalanceImpl).value,
+  {
+    tapOnLayer(
+      balance: bigint,
+    ): (
+      ctx: Context.Context<TestEnvTag | Wallet.Tag | Chain.Tag>,
+    ) => Effect.Effect<void, Adt.FatalError | BError.BlockchainError> {
+      return (ctx: Context.Context<TestEnvTag | Wallet.Tag | Chain.Tag>) =>
+        TestEnv.setBalance(balance).pipe(Effect.provide(ctx));
+    },
+  },
+);
+
+function setBalanceImpl(
+  service: TestEnvShape,
+  balance: bigint,
+): Effect.Effect<void, Adt.FatalError | BError.BlockchainError, Chain.Tag | Wallet.Tag> {
+  return Effect.gen(function* () {
+    const wallet = yield* Wallet.Tag;
+
+    yield* setBalanceForImpl(service, wallet.address, balance);
+  });
+}
+
 export const withNonceManagement = FunctionUtils.withOptionalServiceApi(
-  TestEnvTxTag,
+  TestEnvTag,
   withNonceManagementImpl,
 ).value;
 
 function withNonceManagementImpl(
-  { [privateApiSymbol]: api }: TestEnvTxShape,
+  { [privateApiSymbol]: api }: TestEnvShape,
   signer: Signer,
 ): Signer {
-  return new NonceManager(signer, api.nonceState);
+  return new NonceManagerLive(signer, api.nonceState);
 }
 
-class TestEnvLive implements TestEnvShape {
-  private readonly nonceState: NonceState;
+export function testEnvLayer(): Layer.Layer<
+  TestEnvTag | Wallet.Tag,
+  ConfigError.ConfigError | Adt.FatalError,
+  Chain.Tag
+> {
+  return Layer.suspend(() => {
+    const nonceState = new NonceState();
 
-  constructor(nonceState: NonceState) {
-    this.nonceState = nonceState;
-  }
+    return Layer.context<Chain.Tag>().pipe(
+      Layer.provideMerge(deployApi.layer),
+      Layer.provideMerge(predefinedHardhatWalletImpl(nonceState)),
+      Layer.map((ctx) => {
+        const nonceState = new NonceState();
+        const instance = {
+          [privateApiSymbol]: {
+            nonceState,
+            underlying: ctx,
+          },
+        };
 
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E, Exclude<R, TestEnvTxTag> | Chain.TxTag> {
-    const { nonceState } = this;
+        return ctx.pipe(Context.pick(Wallet.Tag), Context.add(TestEnvTag, instance));
+      }),
+    );
+  });
+}
 
+export const predefinedHardhatWallet = () =>
+  Layer.service(TestEnvTag).pipe(
+    Layer.flatMap((ctx) => {
+      const testEnv = Context.get(ctx, TestEnvTag);
+      const { [privateApiSymbol]: api } = testEnv;
+
+      return predefinedHardhatWalletImpl(api.nonceState).pipe(
+        Layer.provide(Layer.succeedContext(api.underlying)),
+      );
+    }),
+  );
+
+function predefinedHardhatWalletImpl(
+  nonceState: NonceState,
+): Layer.Layer<Wallet.Tag, ConfigError.ConfigError | Adt.FatalError, Chain.Tag> {
+  const config = Config.map(
+    Config.all([Config.option(Config.string("APP_WALLET_HARDHAT_PRIVATE_KEY"))]),
+    ([privateKeyOpt]) => {
+      const DEFAULT_PRIVATE_KEY = EffectFunction.constant(
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      );
+
+      return Option.getOrElse(privateKeyOpt, DEFAULT_PRIVATE_KEY);
+    },
+  );
+  const makeLayer = Effect.gen(function* () {
+    const privateKey = yield* config;
+
+    return Wallet.makeFromPrivateKeyWithNonceManagement(
+      privateKey,
+      (signer) => new NonceManagerLive(signer, nonceState),
+    );
+  });
+
+  return Layer.unwrapEffect(makeLayer);
+}
+
+export const deploy = FunctionUtils.withOptionalServiceApi(TestEnvTag, deployImpl).value;
+
+function deployImpl<Tag extends Context.Tag<any, Deploy.DeployedContract>>(
+  { [privateApiSymbol]: api }: TestEnvShape,
+  tag: Context.Tag.Identifier<Tag> extends TestEnvDeployLayout ? Tag : never,
+) {
+  return Effect.provide(deployApi.deploy(tag), api.underlying);
+}
+
+export const tokensDeploy = FunctionUtils.withOptionalServiceApi(
+  TestEnvTag,
+  tokensDeployImpl,
+).value;
+
+function tokensDeployImpl(
+  service: TestEnvShape,
+): Effect.Effect<Token.TokensDescriptor, Adt.FatalError | BError.BlockchainError> {
+  const { [privateApiSymbol]: api } = service;
+
+  function deployHelper<T extends Token.TokenType.Wrapped | Token.TokenType.ERC20>(
+    meta: Token.TokenMetaShape<T>,
+    deployedContract: Deploy.DeployedContract,
+  ): Effect.Effect<Token.Token<T>, Adt.FatalError | BError.BlockchainError> {
     return Effect.gen(function* () {
-      const underlyingChain = yield* Chain.TxTag;
-      const tx = {
-        [privateApiSymbol]: {
-          nonceState,
-          underlyingChain,
-        },
-      };
+      const erc20TokenOpt = yield* Token.fetchErc20Token(deployedContract.address).pipe(
+        Effect.provide(api.underlying),
+      );
 
-      return yield* Effect.provideService(fa, TestEnvTxTag, tx);
+      if (Option.isNone(erc20TokenOpt)) {
+        return yield* Effect.fail(
+          Adt.FatalErrorString(
+            `Unable to fetch ERC20 token from the contract address [${deployedContract.address}]`,
+          ),
+        );
+      }
+
+      const erc20Token = erc20TokenOpt.value;
+
+      yield* Effect.logDebug(`Deployed [${erc20Token.symbol}] at [${erc20Token.address}]`);
+
+      return Token.Token(
+        erc20Token.address,
+        erc20Token.decimals,
+        erc20Token.symbol,
+        erc20Token.name,
+        meta,
+      );
     });
   }
+
+  return Effect.gen(function* () {
+    const eth = Token.nativeETHToken;
+
+    const weth9 = yield* deployHelper<Token.TokenType.Wrapped>(
+      Token.WrappedTokenMeta(eth),
+      yield* deploy(service, Weth9DeployTag),
+    );
+    // const ethLabs = yield* deployHelper(deployETHLabs());
+    const usdcLabs = yield* deployHelper<Token.TokenType.ERC20>(
+      Token.Erc20TokenMeta(),
+      yield* deploy(service, UsdcLabsDeployTag),
+    );
+
+    return {
+      ETH: eth,
+      WETH: weth9,
+      USDC: usdcLabs,
+    };
+  });
 }
 
-export function testEnvLayer(): Layer.Layer<TestEnvTag> {
-  return Layer.succeed(TestEnvTag, new TestEnvLive(new NonceState()));
+export function tokensLayer(): Layer.Layer<
+  Token.Tag,
+  Adt.FatalError | Error.BlockchainError,
+  TestEnvTag | Chain.Tag
+> {
+  const effect = Effect.gen(function* () {
+    const service = yield* TestEnvTag;
+    const descriptor = yield* tokensDeployImpl(service);
+
+    return Token.makeTokensFromDescriptor(descriptor, descriptor.ETH);
+  });
+
+  return Layer.unwrapEffect(effect);
 }

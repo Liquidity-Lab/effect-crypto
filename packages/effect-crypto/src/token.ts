@@ -10,7 +10,7 @@ import * as internal from "~/token.internal.js";
 
 export {
   TokenType, // TODO: rename to Type
-  TokenTxTag as TxTag,
+  TokensTag as TxTag,
   TokensTag as Tag,
 } from "~/token.internal.js";
 
@@ -56,13 +56,14 @@ export const Token: <T extends internal.TokenType>(
  * @returns a token
  */
 export const get: {
+  // TODO: Perhaps we have to get rid of this and leave tokens module to be agnostic, so it doesn't really know what tokens are available
   <T extends keyof TokensDescriptor>(
     symbol: T,
-  ): Effect.Effect<TokensDescriptor[T], Adt.FatalError, internal.TokenTxTag>;
+  ): Effect.Effect<TokensDescriptor[T], Adt.FatalError, internal.TokensTag>;
   <T extends keyof TokensDescriptor>(
     tokens: Context.Tag.Service<internal.TokensTag>,
     symbol: T,
-  ): Effect.Effect<TokensDescriptor[T], Adt.FatalError, Chain.TxTag>;
+  ): Effect.Effect<TokensDescriptor[T], Adt.FatalError, Chain.Tag>;
 } = internal.getToken;
 
 export type AnyToken = Token<internal.TokenType>;
@@ -76,10 +77,10 @@ export const order: Order.Order<AnyToken> = internal.tokenOrder;
  * Get all available tokens on this chain
  */
 export const getAvailableTokens: {
-  (): Effect.Effect<ReadonlyArray<AnyToken>, Adt.FatalError, internal.TokenTxTag>;
+  (): Effect.Effect<ReadonlyArray<AnyToken>, Adt.FatalError, internal.TokensTag>;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
-  ): Effect.Effect<ReadonlyArray<AnyToken>, Adt.FatalError, Chain.TxTag>;
+  ): Effect.Effect<ReadonlyArray<AnyToken>, Adt.FatalError, Chain.Tag>;
 } = internal.getAvailableTokens;
 
 export type Erc20Token = Token<internal.TokenType.ERC20>;
@@ -103,7 +104,7 @@ export const isERC20Token: (a: Token<internal.TokenType>) => a is Erc20Token =
  */
 export const fetchErc20Token: (
   address: Adt.Address,
-) => Effect.Effect<Option.Option<Erc20Token>, Error.BlockchainError, Chain.TxTag> =
+) => Effect.Effect<Option.Option<Erc20Token>, Error.BlockchainError, Chain.Tag> =
   internal.fetchErc20Token;
 
 /**
@@ -432,21 +433,18 @@ export const TokenPriceSqrtX96: <T extends internal.TokenType>(
   sqrtX96: BigNumberish,
 ) => TokenPrice<T> = internal.makeTokenPriceFromSqrtX96;
 
+export type AnyTokenPrice = TokenPrice<internal.TokenType>;
+
 /**
- * A layer that provides a TokenTag instance based on a TokensDescriptor
+ * A layer that provides a TokensTag instance based on a TokensDescriptor
  *
- * @returns A layer that provides a TokenTag instance based on a TokensDescriptor.
+ * @returns A layer that provides a TokensTag instance based on a TokensDescriptor.
  *          If the native token is not found in the descriptor, it will fail with a Adt.FatalError.
  */
 export const makeTokensFromDescriptor: (
   config: TokensDescriptor,
   nativeToken: NativeToken,
-) => Layer.Layer<internal.TokensTag, Adt.FatalError> = internal.makeTokensFromDescriptor;
-
-/**
- * Deploy arguments for token contracts
- */
-export const deployArgs: typeof internal.deployArgs = internal.deployArgs;
+) => Layer.Layer<internal.TokensTag, Adt.FatalError, Chain.Tag> = internal.makeTokensFromDescriptor;
 
 /**
  * Approves token transfer via signature
@@ -462,7 +460,7 @@ export const approveTransfer: {
   ): Effect.Effect<
     TransactionResponse,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | internal.TokenTxTag
+    Signature.TxTag | internal.TokensTag
   >;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
@@ -471,7 +469,7 @@ export const approveTransfer: {
   ): Effect.Effect<
     TransactionResponse,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | Chain.TxTag
+    Signature.TxTag | Chain.Tag
   >;
 } = internal.approveTransfer;
 
@@ -486,12 +484,12 @@ export const deposit: {
   ): Effect.Effect<
     TransactionRequest,
     Adt.FatalError,
-    Chain.TxTag | Signature.TxTag | internal.TokenTxTag
+    Chain.Tag | Signature.TxTag | internal.TokensTag
   >;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
     volume: WrappedTokenVolume,
-  ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.TxTag>;
+  ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.Tag>;
 } = internal.deposit;
 
 /**
@@ -504,12 +502,12 @@ export const transferNative: {
   (
     volume: NativeTokenVolume,
     to: Adt.Address,
-  ): Effect.Effect<TransactionRequest, Adt.FatalError, internal.TokenTxTag | Signature.TxTag>;
+  ): Effect.Effect<TransactionRequest, Adt.FatalError, internal.TokensTag | Signature.TxTag>;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
     volume: NativeTokenVolume,
     to: Adt.Address,
-  ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.TxTag>;
+  ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.Tag>;
 } = internal.transferNative;
 
 /**
@@ -525,7 +523,7 @@ export const balanceOfErc20Like: {
   ): Effect.Effect<
     Option.Option<TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | internal.TokenTxTag
+    Signature.TxTag | internal.TokensTag
   >;
   <T extends internal.TokenType.ERC20 | internal.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.TokensTag>,
@@ -534,7 +532,7 @@ export const balanceOfErc20Like: {
   ): Effect.Effect<
     Option.Option<TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | Chain.TxTag
+    Signature.TxTag | Chain.Tag
   >;
 } = internal.balanceOfErc20Like;
 
@@ -552,7 +550,7 @@ export const transferErc20Like: {
   ): Effect.Effect<
     TransactionRequest,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | internal.TokenTxTag
+    Signature.TxTag | internal.TokensTag
   >;
   <T extends internal.TokenType.ERC20 | internal.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.TokensTag>,
@@ -562,6 +560,6 @@ export const transferErc20Like: {
   ): Effect.Effect<
     TransactionRequest,
     Adt.FatalError | Error.BlockchainError,
-    Signature.TxTag | Chain.TxTag
+    Signature.TxTag | Chain.Tag
   >;
 } = internal.transferErc20Like;

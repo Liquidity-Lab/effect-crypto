@@ -6,9 +6,6 @@
     },
     {
       "path": "packages/effect-crypto"
-    },
-    {
-      "path": "packages/uniswap"
     }
   ]
 }

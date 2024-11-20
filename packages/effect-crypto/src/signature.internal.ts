@@ -9,7 +9,7 @@ const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/signature#P
 
 interface SignatureTxPrivateApi {
   readonly signer: Signer;
-  // readonly toTx: Effect.Effect<SignatureTxShape, FatalError, Chain.TxTag>;
+  // readonly toTx: Effect.Effect<SignatureTxShape, FatalError, Chain.Tag>;
 }
 
 interface SignatureTxShape {

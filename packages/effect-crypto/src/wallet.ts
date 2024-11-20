@@ -1,16 +1,23 @@
-import { ConfigError, Context, Effect, Layer, Option } from "effect";
-import { BaseContract, Interface, InterfaceAbi, TransactionReceipt } from "ethers";
+import { Context, Effect, Layer, Option } from "effect";
+import {
+  AbstractSigner,
+  BaseContract,
+  type BlockTag,
+  Interface,
+  InterfaceAbi,
+  Signer,
+  TransactionReceipt,
+} from "ethers";
 
 import * as Adt from "~/adt.js";
 import * as Chain from "~/chain.js";
 import * as Error from "~/error.js";
 import * as Signature from "~/signature.js";
-import * as TestEnv from "~/testEnv.js";
 import * as Token from "~/token.js";
 import * as internal from "~/wallet.internal.js";
 
 export { WalletTag as Tag } from "~/wallet.internal.js";
-export { WalletTxTag as TxTag } from "~/wallet.internal.js";
+export { WalletTag as TxTag } from "~/wallet.internal.js";
 
 export type DeployedContractOps = Signature.ContractOps & {
   readonly withWalletRunner: BaseContract;
@@ -32,15 +39,16 @@ export type Wallet = Context.Tag.Service<internal.WalletTag>;
  * @param privateKey The private key for the wallet.
  * @returns A layer containing the initialized wallet.
  */
-export const makeFromPrivateKey: (privateKey: string) => Layer.Layer<internal.WalletTag> =
-  internal.makeFromPrivateKey;
+export const makeFromPrivateKey: (
+  privateKey: string,
+) => Layer.Layer<internal.WalletTag, Adt.FatalError, Chain.Tag> = internal.makeFromPrivateKey;
 
 /**
  * Creates a random wallet instance.
  *
  * @returns A layer for an initialized random wallet.
  */
-export const makeRandom: () => Layer.Layer<internal.WalletTag, never, TestEnv.TxTag> =
+export const makeRandom: () => Effect.Effect<Wallet, Adt.FatalError, Chain.Tag> =
   internal.makeRandom;
 
 /**
@@ -49,11 +57,10 @@ export const makeRandom: () => Layer.Layer<internal.WalletTag, never, TestEnv.Tx
  *
  * @returns A layer for the initialized wallet with nonce management.
  */
-export const makeRandomWithNonceManagement: () => Layer.Layer<
-  internal.WalletTag,
-  never,
-  TestEnv.TxTag
-> = internal.makeRandomWithNonceManagement;
+export const makeRandomWithNonceManagement: (
+  makeNonceManager: (signer: Signer) => NonceManager,
+) => Layer.Layer<internal.WalletTag, Adt.FatalError, Chain.Tag> =
+  internal.makeRandomWithNonceManagement;
 
 /**
  * Creates a wallet from a private key with nonce management. It uses Hardhat Runtime to manage nonce.
@@ -63,17 +70,9 @@ export const makeRandomWithNonceManagement: () => Layer.Layer<
  */
 export const makeFromPrivateKeyWithNonceManagement: (
   privateKey: string,
-) => Layer.Layer<internal.WalletTag, never, TestEnv.Tag> =
+  makeNonceManager: (signer: Signer) => NonceManager,
+) => Layer.Layer<internal.WalletTag, Adt.FatalError, Chain.Tag> =
   internal.makeFromPrivateKeyWithNonceManagement;
-
-/** Use this function to get a wallet for on-hardhat testing purposes.
- * The resulting wallet will contain nonce management feature
- */
-export const predefinedHardhatWallet: () => Layer.Layer<
-  internal.WalletTag,
-  ConfigError.ConfigError,
-  TestEnv.Tag
-> = internal.predefinedHardhatWallet;
 
 /**
  * Transfers specified token volume to a target address.
@@ -89,7 +88,7 @@ export const transferToken: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
-    internal.WalletTxTag | Token.TxTag
+    internal.WalletTag | Token.TxTag
   >;
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.WalletTag>,
@@ -98,7 +97,7 @@ export const transferToken: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
-    Token.TxTag | Chain.TxTag
+    Token.TxTag | Chain.Tag
   >;
 } = internal.transferToken;
 
@@ -120,7 +119,7 @@ export const wrap: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
-    Token.TxTag | Chain.TxTag
+    Token.TxTag | internal.WalletTag
   >;
   (
     wallet: Context.Tag.Service<internal.WalletTag>,
@@ -128,7 +127,7 @@ export const wrap: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
-    Chain.TxTag | Token.TxTag
+    Token.TxTag
   >;
 } = internal.wrap;
 
@@ -144,7 +143,7 @@ export const getBalance: {
   ): Effect.Effect<
     Option.Option<Token.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
-    Token.TxTag | internal.WalletTxTag
+    Token.TxTag | internal.WalletTag
   >;
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.WalletTag>,
@@ -152,7 +151,7 @@ export const getBalance: {
   ): Effect.Effect<
     Option.Option<Token.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
-    Token.TxTag | Chain.TxTag
+    Token.TxTag | Chain.Tag
   >;
 } = internal.getBalance;
 
@@ -171,7 +170,7 @@ export const transferNative: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
-    internal.WalletTxTag | Chain.TxTag | Token.TxTag
+    internal.WalletTag | Chain.Tag | Token.TxTag
   >;
   (
     wallet: Context.Tag.Service<internal.WalletTag>,
@@ -180,7 +179,7 @@ export const transferNative: {
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
-    Chain.TxTag | Token.TxTag
+    Chain.Tag | Token.TxTag
   >;
 } = internal.transferNative;
 
@@ -199,14 +198,14 @@ export const deployContract: {
   ): Effect.Effect<
     DeployedContractOps,
     Adt.FatalError | Error.BlockchainError,
-    internal.WalletTxTag | Chain.TxTag
+    internal.WalletTag | Chain.Tag
   >;
   (
     wallet: Context.Tag.Service<internal.WalletTag>,
     abi: Interface | InterfaceAbi,
     bytecode: string,
     args: ReadonlyArray<unknown>,
-  ): Effect.Effect<DeployedContractOps, Adt.FatalError | Error.BlockchainError, Chain.TxTag>;
+  ): Effect.Effect<DeployedContractOps, Adt.FatalError | Error.BlockchainError, Chain.Tag>;
 } = internal.deployContract;
 
 /**
@@ -256,3 +255,15 @@ export const InsufficientFundsError = (
 ): InsufficientFundsError => {
   return new internal.InsufficientFundsErrorLive(requiredVolume, walletAddress);
 };
+
+/**
+ * This is a wrapper NonceManager from ethers
+ */
+export interface NonceManager extends AbstractSigner {
+  /**
+   *  The Signer being managed.
+   */
+  readonly signer: Signer;
+
+  getNonce(blockTag?: BlockTag): Promise<number>;
+}

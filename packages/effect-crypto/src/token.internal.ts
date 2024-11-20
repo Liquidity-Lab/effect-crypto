@@ -5,8 +5,6 @@ import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from 
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
-// import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
-import USDCLabs from "@liquidity_lab/sol-artifacts/contracts/USDCLabs.sol/USDCLabs.json";
 
 import * as Adt from "~/adt.js";
 import * as Assertable from "~/assertable.js";
@@ -162,7 +160,7 @@ export function isErc20LikeToken(a: T.Token<TokenType>): a is T.Erc20LikeToken {
 
 export function fetchErc20Token(
   address: Adt.Address,
-): Effect.Effect<Option.Option<T.Erc20Token>, Error.BlockchainError, Chain.TxTag> {
+): Effect.Effect<Option.Option<T.Erc20Token>, Error.BlockchainError, Chain.Tag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(address, ERC20.abi);
     const contract = contractOps.withOnChainRunner;
@@ -464,47 +462,18 @@ export function makeTokenPriceFromSqrtX96<TBase extends TokenType, TQuote extend
   ) as T.TokenPrice<TBase | TQuote>;
 }
 
-interface TokenTxPrivateApi {
+interface TokensPrivateApi {
   readonly config: T.TokensDescriptor;
   readonly nativeToken: T.NativeToken;
-  readonly underlyingChain: Context.Tag.Service<Chain.TxTag>;
-}
-
-interface TokenTxShape {
-  readonly [privateApiSymbol]: TokenTxPrivateApi;
-}
-
-/**
- * Any effect that interacts with token can be described with this tag
- *
- * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
- *
- *   const effect: Effect.Effect<any, never, Token.TxTag> = Effect.gen(function* () {
- *     const USDC: Token.Erc20Token = yield* Token.get("USDC");
- *   });
- */
-export class TokenTxTag extends Context.Tag("TokenTxTag")<TokenTxTag, TokenTxShape>() {}
-
-interface TokensPrivateApi {
-  readonly toTx: Effect.Effect<TokenTxShape, Adt.FatalError, Chain.TxTag>;
+  readonly underlyingChain: Context.Tag.Service<Chain.Tag>;
 }
 
 interface TokensShape {
   readonly [privateApiSymbol]: TokensPrivateApi;
-
-  /**
-   * Provides a TokenTxTag instance based on a TokensDescriptor
-   *
-   * @param fa
-   */
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | TokenTxTag>,
-  ): Effect.Effect<A, E | Adt.FatalError, Exclude<R, TokenTxTag> | Chain.TxTag>;
 }
 
 /**
- * Use this tag to layer Tokens module. It is used to provide a TokenTxTag instance:
+ * Use this tag to layer Tokens module. It is used to provide a TokensTag instance:
  *
  * @example
  *   import { Context, Effect, Layer } from "effect";
@@ -512,69 +481,35 @@ interface TokensShape {
  *
  *   const descriptor: Token.TokensDescriptor
  *   const tokensLayer: Layer.Layer<Token.Tag> = Token.makeTokensFromDescriptor(descriptor);
- *   const effect: Effect.Effect<any, never, Token.TxTag>
- *   const prog: Effect.Effect<any, never, Token.Tag> = Effect.gen(function* () {
- *     const tokens: Context.Tag = yield* Token.Tag;
+ *   const effect: Effect.Effect<any, never, Token.Tag> = Effect.gen(function* () {
+ *     const tokens: readonly AnyToken[] = yield* Token.getAvailableTokens();
  *
- *     return yield* tokens.transact(effect);
  *   });
  *
  *   prog.provideLayer(tokensLayer);
  */
 export class TokensTag extends Context.Tag("TokensTag")<TokensTag, TokensShape>() {}
 
-class TokensLive implements TokensShape {
-  readonly config: T.TokensDescriptor;
-  readonly nativeToken: T.NativeToken;
-
-  constructor(config: T.TokensDescriptor, nativeToken: T.NativeToken) {
-    this.config = config;
-    this.nativeToken = nativeToken;
-  }
-
-  get [privateApiSymbol](): TokensPrivateApi {
-    return {
-      toTx: this.toTokenTx(),
-    };
-  }
-
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | TokenTxTag>,
-  ): Effect.Effect<A, E | Adt.FatalError, Exclude<R, TokenTxTag> | Chain.TxTag> {
-    const tokenTxF = this.toTokenTx();
-
-    return Effect.gen(this, function* () {
-      const tokenTx = yield* tokenTxF;
-
-      return yield* Effect.provideService(fa, TokenTxTag, tokenTx);
-    });
-  }
-
-  private toTokenTx(): Effect.Effect<TokenTxShape, never, Chain.TxTag> {
-    const { config, nativeToken } = this;
-
-    return Effect.gen(this, function* () {
-      const underlyingChain = yield* Chain.TxTag;
-
-      return {
-        [privateApiSymbol]: {
-          config,
-          nativeToken: nativeToken,
-          underlyingChain,
-        },
-      };
-    });
-  }
-}
-
 export function makeTokensFromDescriptor(
   config: T.TokensDescriptor,
   nativeToken: T.NativeToken,
-): Layer.Layer<TokensTag, Adt.FatalError> {
+): Layer.Layer<TokensTag, Adt.FatalError, Chain.Tag> {
   const maybeToken = Object.values(config).find((token) => token === nativeToken);
 
   if (maybeToken !== undefined) {
-    return Layer.succeed(TokensTag, new TokensLive(config, nativeToken));
+    return Layer.service(Chain.Tag).pipe(
+      Layer.map((ctx) => {
+        const instance: TokensShape = {
+          [privateApiSymbol]: {
+            config,
+            nativeToken,
+            underlyingChain: Context.get(ctx, Chain.Tag),
+          },
+        };
+
+        return Context.make(TokensTag, instance);
+      }),
+    );
   }
 
   return Layer.fail(
@@ -582,43 +517,33 @@ export function makeTokensFromDescriptor(
   );
 }
 
-export const getToken = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
-  getTokenImpl,
-).contramapEvalService(
-  // TODO: support pure functions
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
-).value;
+export const getToken = FunctionUtils.withOptionalServiceApi(TokensTag, getTokenImpl).value;
 
 function getTokenImpl<T extends keyof T.TokensDescriptor>(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   symbol: T,
 ): T.TokensDescriptor[T] {
   return api.config[symbol];
 }
 
 export const getAvailableTokens = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
+  TokensTag,
   getAvailableTokensImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
 ).value;
 
 function getAvailableTokensImpl({
   [privateApiSymbol]: api,
-}: TokenTxShape): ReadonlyArray<T.AnyToken> {
+}: TokensShape): ReadonlyArray<T.AnyToken> {
   return Object.values(api.config);
 }
 
 export const approveTransfer = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
+  TokensTag,
   approveTransferImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
 ).value;
 
 function approveTransferImpl(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   volume: T.Erc20LikeTokenVolume,
   to: Adt.Address,
 ): Effect.Effect<TransactionResponse, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
@@ -637,15 +562,10 @@ function approveTransferImpl(
   });
 }
 
-export const deposit = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
-  depositImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
-).value;
+export const deposit = FunctionUtils.withOptionalServiceApi(TokensTag, depositImpl).value;
 
 function depositImpl(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   volume: T.WrappedTokenVolume,
 ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag> {
   const originalToken = volume.token.meta.originalToken;
@@ -679,14 +599,12 @@ function depositImpl(
 }
 
 export const transferNative = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
+  TokensTag,
   transferNativeImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
 ).value;
 
 function transferNativeImpl(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   volume: T.NativeTokenVolume,
   to: Adt.Address,
 ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag> {
@@ -701,14 +619,12 @@ function transferNativeImpl(
 }
 
 export const balanceOfErc20Like = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
+  TokensTag,
   balanceOfErc20LikeImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
 ).value;
 
 function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   token: T.Token<T>,
   address: Adt.Address,
 ): Effect.Effect<
@@ -734,14 +650,12 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
 }
 
 export const transferErc20Like = FunctionUtils.withOptionalServiceApi(
-  TokenTxTag,
+  TokensTag,
   transferErc20LikeImpl,
-).contramapEvalService(
-  (tokens: Context.Tag.Service<TokensTag>) => tokens[privateApiSymbol].toTx,
 ).value;
 
 function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
-  { [privateApiSymbol]: api }: TokenTxShape,
+  { [privateApiSymbol]: api }: TokensShape,
   volume: T.TokenVolume<T>,
   to: Adt.Address,
   from: Adt.Address,
@@ -767,17 +681,6 @@ function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   });
 }
 
-type NativeTokenKeys<T> = {
-  [K in keyof T]: T[K] extends T.Token<TokenType.Native> ? K : never;
-}[keyof T];
-
-type DeployableTokenKeys = Exclude<keyof T.TokensDescriptor, NativeTokenKeys<T.TokensDescriptor>>;
-
-export const deployArgs: { [K in DeployableTokenKeys]-?: Adt.DeployArgs } = {
-  WETH: [WETH9.abi, WETH9.bytecode, []],
-  USDC: [USDCLabs.abi, USDCLabs.bytecode, []],
-};
-
 /**
  * Ensures the token is a native token on the current chain.
  *
@@ -786,7 +689,7 @@ export const deployArgs: { [K in DeployableTokenKeys]-?: Adt.DeployArgs } = {
  * @returns An effect that verifies token compatibility.
  */
 function invariantNativeToken(
-  api: TokenTxPrivateApi,
+  api: TokensPrivateApi,
   token: T.NativeToken,
 ): Effect.Effect<void, Adt.FatalError> {
   return Effect.gen(function* () {

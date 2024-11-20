@@ -1,16 +1,6 @@
-import {
-  Config,
-  ConfigError,
-  Context,
-  Effect,
-  Function as EffectFunction,
-  Exit,
-  Layer,
-  Option,
-} from "effect";
+import { Context, Effect, Exit, Layer, Option } from "effect";
 import {
   BaseContract,
-  BaseWallet,
   Contract,
   ContractFactory,
   HDNodeWallet,
@@ -28,7 +18,6 @@ import * as Adt from "~/adt.js";
 import * as Chain from "~/chain.js";
 import * as Error from "~/error.js";
 import * as Signature from "~/signature.js";
-import * as TestEnv from "~/testEnv.js";
 import * as Token from "~/token.js";
 import * as EffectUtils from "~/utils/effectUtils.js";
 import * as FunctionUtils from "~/utils/functionUtils.js";
@@ -46,37 +35,14 @@ const RefinedSigner = {
   },
 };
 
-interface WalletTxPrivateApi {
-  readonly signer: RefinedSigner;
-
-  readonly address: Effect.Effect<Adt.Address, Adt.FatalError>;
-}
-
-interface WalletTxShape {
-  readonly [privateApiSymbol]: WalletTxPrivateApi;
-}
-
 interface WalletPrivateApi {
-  readonly toTx: Effect.Effect<WalletTxShape, Adt.FatalError, Chain.TxTag>;
+  readonly signer: RefinedSigner;
+  readonly underlyingChain: Context.Tag.Service<Chain.Tag>;
 }
-
-/**
- * WalletTx Tag to be used in the context:
- * @example
- *   import { Wallet } from "~/com/liquidity_lab/crypto/blockchain";
- *
- *   const effect: Effect.Effect<any, never, Wallet.TxTag> = ...
- */
-export class WalletTxTag extends Effect.Tag("WalletTx")<WalletTxTag, WalletTxShape>() {}
 
 interface WalletShape {
-  readonly address: Effect.Effect<Adt.Address, Adt.FatalError, Chain.TxTag>;
-
-  transact<A, E, R>(
-    fa: Effect.Effect<A, E, R | WalletTxTag>,
-  ): Effect.Effect<A, E | Adt.FatalError, Exclude<R, WalletTxTag> | Chain.TxTag>;
-
   readonly [privateApiSymbol]: WalletPrivateApi;
+  readonly address: Adt.Address;
 }
 
 /**
@@ -125,15 +91,10 @@ export function isInsufficientFundsError(err: unknown): err is W.InsufficientFun
 /**
  * This is a wrapped version of getBalanceImpl it allows to use it with Wallet as one of overloaded functions
  */
-export const getBalance = FunctionUtils.withOptionalServiceApi(
-  WalletTxTag,
-  getBalanceImpl,
-).contramapEvalService(
-  (wallet: Context.Tag.Service<WalletTag>) => wallet[privateApiSymbol].toTx,
-).value;
+export const getBalance = FunctionUtils.withOptionalServiceApi(WalletTag, getBalanceImpl).value;
 
 function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
-  { [privateApiSymbol]: api }: WalletTxShape,
+  { [privateApiSymbol]: api, address }: WalletShape,
   token: Token.Token<T>,
 ): Effect.Effect<
   Option.Option<Token.TokenVolume<T>>,
@@ -141,7 +102,6 @@ function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrappe
   Token.TxTag
 > {
   return Effect.gen(function* () {
-    const address = yield* api.address;
     const balance: Option.Option<Token.TokenVolume<T>> = yield* Token.balanceOfErc20Like(
       token,
       address,
@@ -155,14 +115,12 @@ function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrappe
  * This is a wrapped version of transferTokenImpl it allows to use it with Wallet
  */
 export const transferToken = FunctionUtils.withOptionalServiceApi(
-  WalletTxTag,
+  WalletTag,
   transferTokenImpl,
-).contramapEvalService(
-  (wallet: Context.Tag.Service<WalletTag>) => wallet[privateApiSymbol].toTx,
 ).value;
 
 function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
-  { [privateApiSymbol]: api }: WalletTxShape,
+  service: WalletShape,
   volume: Token.TokenVolume<T>,
   to: Adt.Address,
 ): Effect.Effect<
@@ -170,6 +128,7 @@ function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wra
   Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
   Token.TxTag
 > {
+  const { [privateApiSymbol]: api } = service;
   const prog = Effect.gen(function* () {
     yield* Effect.annotateLogsScoped({
       to,
@@ -195,7 +154,7 @@ function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wra
         return transferRequest;
       });
     // TODO: we're lacking of refinedBlockchainError here
-    const transferReceipt: TransactionReceipt = yield* withApproval(api, volume, to, transfer);
+    const transferReceipt: TransactionReceipt = yield* withApproval(service, volume, to, transfer);
 
     return transferReceipt;
   });
@@ -207,24 +166,20 @@ function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wra
  * This is a wrapped version of transferNativeImpl it allows to use it with Wallet as one of overloaded functions
  */
 export const transferNative = FunctionUtils.withOptionalServiceApi(
-  WalletTxTag,
+  WalletTag,
   transferNativeImpl,
-).contramapEvalService(
-  (wallet: Context.Tag.Service<WalletTag>) => wallet[privateApiSymbol].toTx,
 ).value;
 
 function transferNativeImpl(
-  { [privateApiSymbol]: api }: WalletTxShape,
+  { [privateApiSymbol]: api, address: fromAddress }: WalletShape,
   volume: Token.TokenVolume<Token.TokenType.Native>,
   to: Adt.Address,
 ): Effect.Effect<
   TransactionReceipt,
   Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
-  Chain.TxTag | Token.TxTag
+  Token.TxTag
 > {
   const prog = Effect.gen(function* () {
-    const fromAddress = yield* api.address;
-
     yield* Effect.annotateLogsScoped({
       to,
       token: {
@@ -257,24 +212,23 @@ function transferNativeImpl(
  * It allows using it with Wallet as one of overloaded functions
  */
 export const deployContract = FunctionUtils.withOptionalServiceApi(
-  WalletTxTag,
+  WalletTag,
   deployContractImpl,
-).contramapEvalService(
-  (wallet: Context.Tag.Service<WalletTag>) => wallet[privateApiSymbol].toTx,
 ).value;
 
 function deployContractImpl(
-  { [privateApiSymbol]: api }: WalletTxShape,
+  { [privateApiSymbol]: api }: WalletShape,
   abi: Interface | InterfaceAbi,
   bytecode: string,
   args: ReadonlyArray<unknown>,
-): Effect.Effect<W.DeployedContractOps, Adt.FatalError | Error.BlockchainError, Chain.TxTag> {
+): Effect.Effect<W.DeployedContractOps, Adt.FatalError | Error.BlockchainError> {
   return Effect.gen(function* () {
     const factory = new ContractFactory(abi, bytecode, api.signer);
 
     const contractRaw = yield* Effect.promise(() => factory.deploy(...args));
     const contract: BaseContract = yield* Effect.promise(() => contractRaw.waitForDeployment());
     const contractOps = yield* Chain.contractOps(
+      api.underlyingChain,
       (runner) => new Contract(contract, contract.interface, runner),
     );
 
@@ -285,23 +239,19 @@ function deployContractImpl(
 /**
  * This is a wrapped version of the [[transferToken]] function. It allows to use it with Wallet as one of overloaded functions
  */
-export const wrap = FunctionUtils.withOptionalServiceApi(
-  WalletTxTag,
-  wrapImpl,
-).contramapEvalService(
-  (wallet: Context.Tag.Service<WalletTag>) => wallet[privateApiSymbol].toTx,
-).value;
+export const wrap = FunctionUtils.withOptionalServiceApi(WalletTag, wrapImpl).value;
 
 function wrapImpl(
-  { [privateApiSymbol]: api }: WalletTxShape,
+  { [privateApiSymbol]: api }: WalletShape,
   volume: Token.TokenVolume<Token.TokenType.Wrapped>,
 ): Effect.Effect<
   TransactionReceipt,
   Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
-  Token.TxTag | Chain.TxTag
+  Token.TxTag
 > {
   return Effect.gen(function* () {
     const transactionRequest: TransactionRequest = yield* Token.deposit(volume).pipe(
+      Effect.provideService(Chain.Tag, api.underlyingChain),
       Signature.signVia(api.signer),
     );
     const transactionResponse: TransactionResponse = yield* Error.catchBlockchainErrors(
@@ -313,147 +263,93 @@ function wrapImpl(
   });
 }
 
-type MakeWallet = (
-  connect: (w: BaseWallet) => Effect.Effect<BaseWallet, Adt.FatalError, Chain.TxTag>,
-) => Effect.Effect<RefinedSigner, Adt.FatalError, Chain.TxTag>;
-
-class WalletLive implements WalletShape {
-  private readonly make: MakeWallet;
-
-  constructor(make: MakeWallet) {
-    this.make = make;
-  }
-
-  get address(): Effect.Effect<Adt.Address, Adt.FatalError, Chain.TxTag> {
-    return Effect.flatMap(this.toWalletTx(), (tx) => tx[privateApiSymbol].address);
-  }
-
-  get [privateApiSymbol](): WalletPrivateApi {
-    return {
-      toTx: this.toWalletTx(),
-    };
-  }
-
-  transact<A, E, R extends WalletTxTag>(
-    fa: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E | Adt.FatalError, Exclude<R, WalletTxTag> | Chain.TxTag> {
-    return Effect.gen(this, function* () {
-      const walletTx = yield* this.toWalletTx();
-
-      return yield* Effect.provideService(fa, WalletTxTag, walletTx);
-    });
-  }
-
-  private toWalletTx(): Effect.Effect<WalletTxShape, Adt.FatalError, Chain.TxTag> {
-    const { make } = this;
-
-    return Effect.gen(function* () {
-      const chainTx = yield* Chain.TxTag;
-      const signer: RefinedSigner = yield* make((w) => Chain.connectWallet(chainTx, w));
-      const addressF = Effect.promise(() => signer.getAddress()).pipe(
-        Effect.flatMap((rawAddress) => EffectUtils.getOrFailSimpleEither(Adt.Address(rawAddress))),
+export function makeFromPrivateKey(
+  privateKey: string,
+): Layer.Layer<WalletTag, Adt.FatalError, Chain.Tag> {
+  return Layer.effect(
+    WalletTag,
+    Effect.gen(function* () {
+      const underlyingChain = yield* Chain.Tag;
+      const wallet = yield* Chain.connectWallet(
+        underlyingChain,
+        new UnderlyingWallet(privateKey, null),
       );
+      const address = yield* EffectUtils.getOrFailEither(Adt.Address(wallet.address));
+      const signer = yield* refinedSignerInvariant(wallet);
 
       return {
         [privateApiSymbol]: {
           signer,
-          address: addressF,
+          underlyingChain,
         },
+        address,
       };
-    });
-  }
-}
-
-export function makeFromPrivateKey(privateKey: string): Layer.Layer<WalletTag> {
-  const wallet = new UnderlyingWallet(privateKey, null);
-
-  return Layer.succeed(
-    WalletTag,
-    new WalletLive((connect) =>
-      Effect.gen(function* () {
-        const signer = yield* connect(wallet);
-
-        return yield* refinedSignerInvariant(signer);
-      }),
-    ),
-  );
-}
-
-export function makeRandom(): Layer.Layer<WalletTag> {
-  return Layer.effect(
-    WalletTag,
-    Effect.gen(function* () {
-      const wallet: HDNodeWallet = yield* Effect.sync(() => UnderlyingWallet.createRandom(null));
-
-      return new WalletLive((connect) =>
-        Effect.gen(function* () {
-          const signer = yield* connect(wallet);
-
-          return yield* refinedSignerInvariant(signer);
-        }),
-      );
     }),
   );
 }
 
-export function makeRandomWithNonceManagement(): Layer.Layer<WalletTag, never, TestEnv.TxTag> {
+export function makeRandom(): Effect.Effect<WalletShape, Adt.FatalError, Chain.Tag> {
+  return Effect.gen(function* () {
+    const wallet: HDNodeWallet = yield* Effect.sync(() => UnderlyingWallet.createRandom(null));
+    const underlyingChain = yield* Chain.Tag;
+    const signer = yield* Chain.connectWallet(underlyingChain, wallet);
+    const address = yield* EffectUtils.getOrFailEither(Adt.Address(wallet.address));
+    const refinedSigner = yield* refinedSignerInvariant(signer);
+
+    return {
+      [privateApiSymbol]: {
+        signer: refinedSigner,
+        underlyingChain,
+      },
+      address,
+    };
+  });
+}
+
+export function makeRandomWithNonceManagement(
+  makeNonceManager: (signer: Signer) => W.NonceManager,
+): Layer.Layer<WalletTag, Adt.FatalError, Chain.Tag> {
   return Layer.effect(
     WalletTag,
     Effect.gen(function* () {
       const wallet: HDNodeWallet = yield* Effect.sync(() => UnderlyingWallet.createRandom(null));
-      const testEnvTx = yield* TestEnv.TxTag;
+      const underlyingChain = yield* Chain.Tag;
+      const signer = makeNonceManager(yield* Chain.connectWallet(underlyingChain, wallet));
+      const address = yield* EffectUtils.getOrFailEither(Adt.Address(wallet.address));
+      const refinedSigner = yield* refinedSignerInvariant(signer);
 
-      return new WalletLive((connect) =>
-        Effect.gen(function* () {
-          const signer = yield* TestEnv.withNonceManagement(testEnvTx, yield* connect(wallet));
-
-          return yield* refinedSignerInvariant(signer);
-        }),
-      );
+      return {
+        [privateApiSymbol]: {
+          signer: refinedSigner,
+          underlyingChain,
+        },
+        address,
+      };
     }),
   );
 }
 
 export function makeFromPrivateKeyWithNonceManagement(
   privateKey: string,
-): Layer.Layer<WalletTag, never, TestEnv.Tag> {
+  makeNonceManager: (signer: Signer) => W.NonceManager,
+): Layer.Layer<WalletTag, Adt.FatalError, Chain.Tag> {
   return Layer.effect(
     WalletTag,
     Effect.gen(function* () {
-      const testEnv = yield* TestEnv.Tag;
       const wallet = new UnderlyingWallet(privateKey, null);
+      const underlyingChain = yield* Chain.Tag;
+      const signer = makeNonceManager(yield* Chain.connectWallet(underlyingChain, wallet));
+      const address = yield* EffectUtils.getOrFailEither(Adt.Address(wallet.address));
+      const refinedSigner = yield* refinedSignerInvariant(signer);
 
-      return new WalletLive((connect) =>
-        Effect.gen(function* () {
-          const signer = yield* testEnv.transact(
-            TestEnv.withNonceManagement(yield* connect(wallet)),
-          );
-
-          return yield* refinedSignerInvariant(signer);
-        }),
-      );
+      return {
+        [privateApiSymbol]: {
+          signer: refinedSigner,
+          underlyingChain,
+        },
+        address,
+      };
     }),
-  );
-}
-
-export function predefinedHardhatWallet(): Layer.Layer<
-  WalletTag,
-  ConfigError.ConfigError,
-  TestEnv.Tag
-> {
-  return Layer.unwrapEffect(
-    Config.map(
-      Config.all([Config.option(Config.string("APP_WALLET_HARDHAT_PRIVATE_KEY"))]),
-      ([privateKeyOpt]) => {
-        const DEFAULT_PRIVATE_KEY = EffectFunction.constant(
-          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        );
-
-        return makeFromPrivateKeyWithNonceManagement(
-          Option.getOrElse(privateKeyOpt, DEFAULT_PRIVATE_KEY),
-        );
-      },
-    ),
   );
 }
 
@@ -482,7 +378,7 @@ function refinedSignerInvariant(signer: Signer): Effect.Effect<RefinedSigner, Ad
  * @returns An effect that resolves with the transaction receipt.
  */
 function withApproval<E, R>(
-  api: WalletTxPrivateApi,
+  service: WalletShape,
   volume: Token.TokenVolume<Token.TokenType.ERC20 | Token.TokenType.Wrapped>,
   to: Adt.Address,
   f: (address: Adt.Address) => Effect.Effect<TransactionRequest, E, R>,
@@ -491,10 +387,9 @@ function withApproval<E, R>(
   E | Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
   R | Token.TxTag
 > {
+  const { address, [privateApiSymbol]: api } = service;
   const prog = Effect.gen(function* () {
     const tokenOp = yield* Token.TxTag;
-
-    const address = yield* api.address;
 
     yield* Effect.annotateLogsScoped({
       to,
