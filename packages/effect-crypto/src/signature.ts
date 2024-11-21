@@ -1,9 +1,9 @@
 import { Context, Effect } from "effect";
 import { Contract, ContractRunner, FunctionFragment, Signer } from "ethers";
 
-import * as internal from "~/signature.internal.js";
+import * as internal from "./signature.internal.js";
 
-export { SignatureTxTag as TxTag } from "~/signature.internal.js";
+export { SignatureTxTag as TxTag } from "./signature.internal.js";
 
 /**
  * A wrapper for contract factory.
@@ -55,7 +55,7 @@ export const signed: {
  *
  * @example
  *   import { Context, Effect, Layer } from "effect";
- *   import { Signature } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Signature } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const signer: Signer = ???;
  *   const effect: Effect.Effect<any, never, Signature.TxTag> = ???;

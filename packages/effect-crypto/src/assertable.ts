@@ -1,7 +1,7 @@
 import type * as Types from "effect/Types";
 import { ReadonlyRecord } from "effect/Record";
 
-import * as internal from "~/assertable.internal.js";
+import * as internal from "./assertable.internal.js";
 
 /**
  * This is used as a key for Assertable instances within the entity
@@ -13,7 +13,7 @@ export const instanceSymbol: typeof internal.assertableInstanceSymbol =
  * Extend this interface to allow the entity to be used with assert methods
  *
  * @example
- *   import { Assertable } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Assertable } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   class MyEntity implements Assertable {
  *     [Assertable.instanceSymbol]: AssertMe<MyEntity>;
@@ -41,7 +41,7 @@ export interface AssertableEntity<out A> {
  *
  * @example
  *   import Big from "bigdecimal.js";
- *   import { Assertable } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Assertable } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   class MyEntity implements Assertable {
  *     private readonly someValue: Big;

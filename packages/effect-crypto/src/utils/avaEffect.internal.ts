@@ -1,7 +1,7 @@
 import anyTest, { type ExecutionContext, type Implementation, type TestFn } from "ava";
 import { Context, Effect, Layer, LogLevel, Logger, Option } from "effect";
 
-import * as T from "~/utils/avaEffect.js";
+import * as T from "./avaEffect.js";
 
 export const contextKeySymbol = Symbol("com/liquidity_lab/crypto/utils/ava#context");
 

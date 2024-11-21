@@ -3,7 +3,6 @@
   "include": [
     "src/**/*",
     "src/**/*.json",
-    "artifacts/**/*.json",
     "__tests__/**/*"
   ],
   "exclude": [
@@ -11,9 +10,15 @@
     "dist/**/*"
   ],
   "compilerOptions": {
-    "rootDir": "./artifacts",
-    "outDir": "./dist",
-    "paths": {}
+    "rootDir": "./src",
+    "outDir": "./dist"
   },
-  "references": []
+  "references": [
+    {
+      "path": "../sol-artifacts"
+    },
+    {
+      "path": "../effect-crypto"
+    }
+  ]
 }
