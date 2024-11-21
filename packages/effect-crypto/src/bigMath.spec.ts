@@ -5,6 +5,9 @@ import { fc, testProp } from "@fast-check/ava";
 
 import * as BigMath from "./bigMath.js";
 
+const errorTolerance = Big("0.00000000000001");
+const mathContext = new MathContext(96, RoundingMode.HALF_UP);
+
 test("It should correctly calculate Log[1.0001, 1.5102563224]", (t) => {
   const base = Big("1.0001");
   const x = Big("1.5102563224");
@@ -16,7 +19,11 @@ test("It should correctly calculate Log[1.0001, 1.5102563224]", (t) => {
   // @see https://www.wolframalpha.com/input?i2d=true&i=Log%5B1.0001%0A%2C1.5102563224%5D
   const expected = Big(expectedRaw);
 
-  BigMath.assertEqualWithPrecision(t, expected.scale() - 1)(result, expected, "Should be equal");
+  BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(
+    result,
+    expected,
+    "Should be equal",
+  );
 });
 
 const doubleWithLimitedPrecision = (scale: number) =>
@@ -33,8 +40,6 @@ const doubleWithLimitedPrecision = (scale: number) =>
       return Number(Big(value).setScale(scale, RoundingMode.CEILING).toPlainString());
     });
 
-
-
 testProp(
   "It should correctly calculate ln(x) for",
   [doubleWithLimitedPrecision(10)],
@@ -44,7 +49,7 @@ testProp(
     const expected = Big(Math.log(x));
     const actual = BigMath.ln(Big(x), mc);
 
-    BigMath.assertEqualWithPrecision(t)(actual, expected);
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(actual, expected);
   },
   { numRuns: 1024 },
 );
@@ -58,7 +63,7 @@ testProp(
     const expected = Big(Math.log2(x));
     const actual = BigMath.log2(Big(x), mc);
 
-    BigMath.assertEqualWithPrecision(t, 8)(actual, expected);
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(actual, expected);
   },
   { numRuns: 1024 },
 );
