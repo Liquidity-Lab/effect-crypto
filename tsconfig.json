@@ -1,11 +1,17 @@
 {
   "files": [],
+  "compilerOptions": {
+    "baseUrl": "./packages"
+  },
   "references": [
     {
       "path": "packages/sol-artifacts"
     },
     {
       "path": "packages/effect-crypto"
+    },
+    {
+      "path": "packages/effect-crypto-uniswap"
     }
   ]
 }

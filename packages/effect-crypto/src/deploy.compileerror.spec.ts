@@ -4,8 +4,8 @@ import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/to
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
 
-import * as deploy from "~/deploy.internal.js";
-import * as Deploy from "~/deploy.js";
+import * as deploy from "./deploy.internal.js";
+import * as Deploy from "./deploy.js";
 
 class WETH9ContractDeploy extends Context.Tag("WETH9ContractDeploy")<
   WETH9ContractDeploy,
