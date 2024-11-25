@@ -16,17 +16,35 @@ export const log2: (x: BigDecimal, mc: MathContext) => BigDecimal = internal.log
 /**
  * Returns the logarithm of a given x with a given base
  */
-export const log: (x: BigDecimal, base: BigDecimal, mc: MathContext) => BigDecimal =
+export const log: (base: BigDecimal, x: BigDecimal, mc: MathContext) => BigDecimal =
   internal.logImpl;
 
-export const assertEqualWithPrecision: (
-  t: ExecutionContext<unknown>,
-  precision?: number,
-) => (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean =
-  internal.assertEqualWithPrecisionImpl;
-
+/**
+ * Asserts that two BigDecimals are equal with given precision
+ *
+ * @example
+ *   import { BigDecimal, MathContext } from "bigdecimal.js";
+ *   import { BigMath } from "@liquidity_lab/effect-crypto";
+ *
+ *   const actual = BigDecimal("1.11");
+ *   const expected = BigDecimal("1.1");
+ *   const errorTolerance = BigDecimal("0.01");
+ *
+ *   BigMath.assertEqualWithPrecision(t, errorTolerance, MathContext.DECIMAL128)(
+ *     actual,
+ *     expected,
+ *     "Should be equal",
+ *   );
+ *
+ * @param t ava test function
+ * @param precision percents of precision (0.01 means 1%)
+ * @param mc MathContext
+ */
 export const assertEqualWithPercentage: (
   t: ExecutionContext<unknown>,
   percents: BigDecimal,
   mc: MathContext,
-) => (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean = internal.assertEqualWithPercentage;
+) => {
+    (actual: BigDecimal, expected: BigDecimal, msg?: string): boolean;
+    trimToExpectedScale: (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean;
+} = internal.assertEqualWithPercentage;

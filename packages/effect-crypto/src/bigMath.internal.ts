@@ -77,53 +77,26 @@ export function log2Impl(x: BigDecimal, mc: MathContext): BigDecimal {
   return logImpl(TWO, x, mc);
 }
 
-export function assertEqualWithPrecisionImpl(
-  t: ExecutionContext<unknown>,
-  precision?: number,
-): (actual: BigDecimal, expected: BigDecimal, msg?: string) => boolean {
-  return (actual, expected, msg) => {
-    function isInteger(value: number | undefined): value is number {
-      return Number.isInteger(value);
-    }
-
-    const targetScale = Math.min(
-      actual.scale(),
-      expected.scale(),
-      isInteger(precision) && precision > 0 ? precision : Number.MAX_VALUE,
-    );
-
-    return t.deepEqual(
-      actual.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
-      expected.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
-      msg,
-    );
-  };
-}
-
 export function assertEqualWithPercentage(
   t: ExecutionContext<unknown>,
   percents: BigDecimal,
   mc: MathContext,
-): (actual: BigDecimal, expected: BigDecimal, msg?: string) =>boolean {
-  return (actual, expected, msg) => {
-    const diffPercent = ONE.subtract(
-      actual.divideWithMathContext(expected, mc)
-    ).abs();
+) {
+  const go = (trimScale: boolean) => (actual: BigDecimal, expected: BigDecimal, msg?: string) => {
+    const [min, max] = [
+      expected.multiply(ONE.add(percents), mc),
+      expected.multiply(ONE.subtract(percents), mc),
+    ].sort((a, b) => a.compareTo(b));
 
-    if (diffPercent.lowerThanOrEquals(percents)) {
+    if (actual.greaterThanOrEquals(min) && actual.lowerThanOrEquals(max)) {
       return t.pass();
     }
+    const scaledActual = trimScale ? actual.setScale(expected.scale(), RoundingMode.DOWN) : actual;
 
-    const targetScale = Math.min(
-      actual.scale(),
-      expected.scale(),
-    )
-
-    return t.deepEqual(
-      actual.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
-      expected.setScale(targetScale, RoundingMode.DOWN).toPlainString(),
-      msg,
-    );
+    return t.deepEqual(scaledActual.toPlainString(), expected.toPlainString(), msg);
   };
-}
 
+  return Object.assign(go(false), {
+    trimToExpectedScale: go(true),
+  });
+}

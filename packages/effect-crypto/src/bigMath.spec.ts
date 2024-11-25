@@ -1,5 +1,5 @@
-import test, { ExecutionContext } from "ava";
-import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
+import test from "ava";
+import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 
 import { fc, testProp } from "@fast-check/ava";
 
@@ -67,3 +67,92 @@ testProp(
   },
   { numRuns: 1024 },
 );
+
+test("assertEqualWithPercentage should correctly compare two zeros", async (t) => {
+    const percents = Big("0.01");
+
+    const expected = Big("0");
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(expected, expected);
+    });
+
+    result.passed && result.commit();
+
+    t.assert(result.passed, "Zero values should be equal");
+});
+
+test("assertEqualWithPercentage should correctly compare same values", async (t) => {
+    const percents = Big("0.01");
+    const value = Big("1");
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(value, value);
+    });
+    result.passed && result.commit();
+    t.assert(result.passed, "Same values should be equal");
+});
+
+test("assertEqualWithPercentage should correctly compare values on upper boundary", async (t) => {
+    const percents = Big("0.01");
+    const expected = Big("1");
+    const actual = expected.multiply(percents.add(1), mathContext);
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
+    });
+    result.passed && result.commit();
+    t.assert(result.passed, "Values on the upper boundary of the range should be considered equal");
+});
+
+test("assertEqualWithPercentage should correctly compare values on lower boundary", async (t) => {
+    const percents = Big("0.01");
+    const expected = Big("1");
+    const actual = expected.multiply(Big(1).subtract(percents), mathContext);
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
+    });
+    result.passed && result.commit();
+    t.assert(result.passed, "Values on the lower boundary of the range should be considered equal");
+});
+
+test("assertEqualWithPercentage should reject values above upper boundary", async (t) => {
+    const percents = Big("0.01");
+    const expected = Big("1");
+    const actual = expected.multiply(percents.add(1.1), mathContext);
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
+    });
+    result.discard();
+    t.assert(!result.passed, "Values above the upper boundary of the range should not be considered equal");
+});
+
+test("assertEqualWithPercentage should reject values below lower boundary", async (t) => {
+    const percents = Big("0.01");
+    const expected = Big("1");
+    const actual = expected.multiply(Big(1).subtract(percents.add(1.1)), mathContext);
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
+    });
+    result.discard();
+    t.assert(!result.passed, "Values below the lower boundary of the range should not be considered equal");
+});
+
+test("assertEqualWithPercentage should trim scale when requested", async (t) => {
+    const percents = Big("0.01");
+    const actual = Big("1.1234567897");
+    const expected = Big("1.123456789");
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext).trimToExpectedScale(actual, expected);
+    });
+    result.passed && result.commit();
+    t.assert(result.passed, ".trimToExpectedScale should trim the scale");
+});
+
+test("assertEqualWithPercentage should reject negative values", async (t) => {
+    const percents = Big("0.01");
+    const expected = Big("1");
+    const actual = expected.multiply(-1, mathContext);
+    const result = await t.try((t) => {
+        BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
+    });
+    result.discard();
+    t.assert(!result.passed, "Negative values should not be considered equal");
+});
