@@ -2,7 +2,6 @@
  * This module MUST NOT depend on any other module from this package.
  */
 import { Brand, Either } from "effect";
-import { Interface, InterfaceAbi } from "ethers";
 
 import * as internal from "./adt.internal.js";
 
