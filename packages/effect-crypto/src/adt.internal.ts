@@ -1,10 +1,10 @@
 import { Brand, Either } from "effect";
 import { ZeroAddress, getAddress } from "ethers";
 
-import type * as Adt from "./adt.js";
+import type * as T from "./adt.js";
 
-class FatalErrorLive implements Adt.FatalError {
-  readonly _tag = "FatalError";
+class FatalErrorLive implements T.FatalError {
+  readonly _tag = "@liquidity_lab/effect-crypto/adt#FatalError";
   readonly underlying: Error;
 
   constructor(underlying: Error) {
@@ -12,19 +12,23 @@ class FatalErrorLive implements Adt.FatalError {
   }
 }
 
-export function isFatalError(err: unknown): err is Adt.FatalError {
+/** @internal */
+export function isFatalError(err: unknown): err is T.FatalError {
   return typeof err === "object" && err !== null && "_tag" in err && err["_tag"] === "FatalError";
 }
 
-export function makeFatalError(underlying: Error): Adt.FatalError {
+/** @internal */
+export function makeFatalError(underlying: Error): T.FatalError {
   return new FatalErrorLive(underlying);
 }
 
-export function makeFatalErrorFromString(message: string): Adt.FatalError {
+/** @internal */
+export function makeFatalErrorFromString(message: string): T.FatalError {
   return new FatalErrorLive(new Error(message));
 }
 
-export function makeFatalErrorFromUnknown(cause: unknown): Adt.FatalError {
+/** @internal */
+export function makeFatalErrorFromUnknown(cause: unknown): T.FatalError {
   if (typeof cause === "string") {
     return makeFatalErrorFromString(cause);
   }
@@ -36,29 +40,36 @@ export function makeFatalErrorFromUnknown(cause: unknown): Adt.FatalError {
   return makeFatalErrorFromString(`Unknown error happened: ${JSON.stringify(cause)}`);
 }
 
-const addressConstructor = Brand.nominal<Adt.Address>();
+const addressTypeIdSymbol = Symbol("com/liquidity_lab/effect-crypto/adt#Address");
+export type AddressTypeId = typeof addressTypeIdSymbol;
 
+const addressConstructor = Brand.nominal<T.Address>();
+
+/** @internal */
 export function makeAddress(
   address: string,
   bypassChecksum: boolean = false,
-): Either.Either<Adt.Address, Adt.FatalError> {
+): Either.Either<T.Address, T.FatalError> {
   return Either.mapLeft(
     Either.try(() =>
       addressConstructor(
         bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address),
       ),
-    ) as Either.Either<Adt.Address, unknown>,
+    ) as Either.Either<T.Address, unknown>,
     (e) => makeFatalErrorFromUnknown(e),
   );
 }
 
-export function makeAddressUnsafe(address: string, bypassChecksum: boolean = false): Adt.Address {
+/** @internal */
+export function makeAddressUnsafe(address: string, bypassChecksum: boolean = false): T.Address {
   return Either.getOrThrow(makeAddress(address, bypassChecksum));
 }
 
+/** @internal */
 export const zeroAddress = makeAddressUnsafe(ZeroAddress);
 
-export function isZeroAddress(address: Adt.Address): boolean {
+/** @internal */
+export function isZeroAddress(address: T.Address): boolean {
   return address === zeroAddress;
 }
 
@@ -85,6 +96,7 @@ function checkValidAddress(address: string): string {
   throw new Error(address + " is not a valid address.");
 }
 
+/** @internal */
 export function toHex(value: bigint): string {
   const hex = value.toString(16);
 

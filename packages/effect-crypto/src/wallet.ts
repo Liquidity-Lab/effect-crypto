@@ -75,6 +75,25 @@ export const makeFromPrivateKeyWithNonceManagement: (
 ) => Layer.Layer<internal.WalletTag, Adt.FatalError, Chain.Tag> =
   internal.makeFromPrivateKeyWithNonceManagement;
 
+/**
+ * Sends a raw transaction using the wallet's signer.
+ *
+ * @example
+ *   const tx = {
+ *     to: "0x...",
+ *     value: parseEther("1.0"),
+ *     data: "0x..."
+ *   };
+ *
+ *   // Using wallet from context
+ *   const receipt = yield* Wallet.transact(tx);
+ *
+ *   // Or with explicit wallet
+ *   const receipt = yield* Wallet.transact(wallet, tx);
+ *
+ * @param transactionRequest The transaction request to send
+ * @returns An effect that resolves with the transaction receipt
+ */
 export const transact: {
   (
     transactionRequest: TransactionRequest,

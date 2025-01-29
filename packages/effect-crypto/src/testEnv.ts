@@ -9,7 +9,6 @@ import * as internal from "./testEnv.internal.js";
 import * as Token from "./token.js";
 import * as FunctionUtils from "./utils/functionUtils.js";
 import * as Wallet from "./wallet.js";
-import { DeployLayout } from "./deploy.js";
 
 export { TestEnvTag as Tag } from "./testEnv.internal.js";
 export { Weth9DeployTag as Weth9DeployTag } from "./testEnv.internal.js";
@@ -80,7 +79,27 @@ export const predefinedHardhatWallet: {
   (): Layer.Layer<Wallet.Tag, ConfigError.ConfigError | Adt.FatalError, internal.TestEnvTag>;
 } = internal.predefinedHardhatWallet;
 
-// TODO: ADD DOCS
+/**
+ * Provides low-level access to the deployment API for test environments.
+ * Use this to access deployment-related functionality directly or create custom deployment flows.
+ *
+ * @example
+ *   import { TestEnv } from "@liquidity_lab/effect-crypto";
+ *
+ *   // Access deployment capabilities
+ *   const program = Effect.gen(function*() {
+ *     const api = TestEnv.deployApi;
+ *
+ *     // Deploy using the shared deployment state
+ *     yield* api.deploy(TestEnv.Weth9DeployTag);
+ *
+ *     // Create a new deployment layer
+ *     const layer = api.layer;
+ *
+ *     // Share deployment state with another module
+ *     yield* api.shareDeployState(otherModule);
+ *   });
+ */
 export const deployApi: Deploy.DeployModuleApi<
   internal.TestEnvDeployLayout,
   typeof internal.TestEnvDeployTag
@@ -143,7 +162,7 @@ export const tokensLayer: () => Layer.Layer<
  * Use this function to wire a state of your deploy module to the TestEnv's underlying deploy module
  */
 export const sharedDeploy: {
-  <R0, Tag extends Context.Tag<any, DeployLayout<R0>>>(
+  <R0, Tag extends Context.Tag<any, Deploy.DeployLayout<R0>>>(
     module: Deploy.DeployModuleApi<R0, Tag>,
   ): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag | internal.TestEnvTag>;
 } = internal.sharedDeploy;

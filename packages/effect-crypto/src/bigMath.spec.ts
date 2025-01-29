@@ -45,7 +45,7 @@ testProp(
   [BigMath.ratioGen()],
   (t, expected) => {
     const [numerator, denominator] = BigMath.asNumeratorAndDenominator(expected);
-    const actual = Big(`${numerator}.${denominator}`);
+    const actual = Big(numerator).divideWithMathContext(denominator, mathContext);
 
     BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(actual, expected);
   },
@@ -177,3 +177,45 @@ test("assertEqualWithPercentage should reject negative values", async (t) => {
   result.discard();
   t.assert(!result.passed, "Negative values should not be considered equal");
 });
+
+testProp(
+  "bigDecimalGen with min constraint should generate values >= min",
+  [BigMath.bigDecimalGen({ min: Big(100) })],
+  (t, generated) => {
+    t.true(
+      generated.greaterThanOrEquals(Big(100)),
+      `Generated value ${generated} should be >= 100`,
+    );
+  },
+  { numRuns: 1024 },
+);
+
+testProp(
+  "bigDecimalGen with max constraint should generate values <= max",
+  [BigMath.bigDecimalGen({ max: Big(100) })],
+  (t, generated) => {
+    t.true(generated.lowerThanOrEquals(Big(100)), `Generated value ${generated} should be <= 100`);
+  },
+  { numRuns: 1024 },
+);
+
+testProp(
+  "bigDecimalGen with min and max constraints should generate values within range",
+  [BigMath.bigDecimalGen({ min: Big(100), max: Big(200) })],
+  (t, generated) => {
+    t.true(
+      generated.greaterThanOrEquals(Big(100)) && generated.lowerThanOrEquals(Big(200)),
+      `Generated value ${generated} should be within [100, 200]`,
+    );
+  },
+  { numRuns: 1024 },
+);
+
+testProp(
+  "bigDecimalGen with scale constraint should generate values with correct scale",
+  [BigMath.bigDecimalGen({ scale: 2 })],
+  (t, generated) => {
+    t.true(generated.scale() <= 2, `Generated value ${generated} should have scale <= 2`);
+  },
+  { numRuns: 64 },
+);

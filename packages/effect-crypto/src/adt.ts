@@ -10,12 +10,17 @@ import * as internal from "./adt.internal.js";
  * FatalError is a tagged type that represents a fatal error.
  */
 export interface FatalError {
-  readonly _tag: "FatalError";
+  readonly _tag: "@liquidity_lab/effect-crypto/adt#FatalError";
   readonly underlying: Error;
 }
 
 /**
  * Creates a new FatalError instance
+ *
+ * @example
+ *   import { FatalError } from "effect-crypto";
+ *
+ *   const error = FatalError(new Error("Something went wrong"));
  *
  * @constructor
  */
@@ -24,6 +29,11 @@ export const FatalError: (underlying: Error) => FatalError = internal.makeFatalE
 /**
  * Creates a new FatalError instance from a string
  *
+ * @example
+ *   import { FatalErrorString } from "effect-crypto";
+ *
+ *   const error = FatalErrorString("Something went wrong");
+ *
  * @constructor
  */
 export const FatalErrorString: (message: string) => FatalError = internal.makeFatalErrorFromString;
@@ -31,35 +41,54 @@ export const FatalErrorString: (message: string) => FatalError = internal.makeFa
 /**
  * Creates a new FatalError instance from an unknown
  *
+ * @example
+ *   import { FatalErrorUnknown } from "effect-crypto";
+ *
+ *   try {
+ *     throw new Error("Something went wrong");
+ *   } catch (e) {
+ *     const error = FatalErrorUnknown(e);
+ *   }
+ *
  * @constructor
  */
 export const FatalErrorUnknown: (cause: unknown) => FatalError = internal.makeFatalErrorFromUnknown;
 
 /**
  * Type guard for FatalError
+ *
+ * @example
+ *   import { FatalError, isFatalError } from "effect-crypto";
+ *
+ *   const error = FatalError(new Error("Something went wrong"));
+ *   if (isFatalError(error)) {
+ *     console.log(error.underlying);
+ *   }
  */
 export const isFatalError: (err: unknown) => err is FatalError = internal.isFatalError;
-
-export type DeployArgs = [
-  abi: Interface | InterfaceAbi,
-  bytecode: string,
-  args: ReadonlyArray<unknown>,
-];
 
 /**
  * Address is a tagged type that represents a blockchain address.
  */
-export type Address = Brand.Branded<string, "Address">; // TODO: proper ID
+export type Address = Brand.Branded<string, internal.AddressTypeId>;
 
 /**
  * Creates a new address instance
  *
  * @example
- *   import { Address } from "./com/liquidity_lab/crypto/blockchain";
+ *   import { Address } from "effect-crypto";
  *
- *   const address: Either.Right<Address, unknown> = Address("0x0000000000000000000000000000000000000001");
- *   const failedAddress: Either.Left<Address, unknown> = Address("0xzzz");
- *   const unsafeAddress: Address = Address.unsafe("0x0000000000000000000000000000000000000001");
+ *   // Standard usage
+ *   const address = Address("0x0000000000000000000000000000000000000001");
+ *
+ *   // With checksum bypass
+ *   const unchecked = Address("0x0000000000000000000000000000000000000001", true);
+ *
+ *   // Using unsafe constructor
+ *   const unsafe = Address.unsafe("0x0000000000000000000000000000000000000001");
+ *
+ *   // Zero address
+ *   const zero = Address.zero;
  *
  * @param address
  * @param bypassChecksum
@@ -75,10 +104,24 @@ export const Address: {
   zero: internal.zeroAddress,
 });
 
+/**
+ * Checks if the given address is a zero address
+ *
+ * @example
+ *   import { Address, isZeroAddress } from "effect-crypto";
+ *
+ *   const address = Address.unsafe("0x0000000000000000000000000000000000000000");
+ *   const isZero = isZeroAddress(address); // true
+ */
 export const isZeroAddress: (address: Address) => boolean = internal.isZeroAddress;
 
 /**
  * Converts a big int to a hex string
+ *
+ * @example
+ *   import { toHex } from "effect-crypto";
+ *
+ *   const hex = toHex(123456789n); // "0x75bcd15"
  *
  * @param value
  * @returns The hex encoded calldata
