@@ -313,9 +313,9 @@ export function makeTokenVolumeZero<T extends TokenType>(token: T.Token<T>): T.T
 }
 
 class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
+  static mc: MathContext = MC((28 + 19) * 2, RoundingMode.FLOOR);
   readonly baseCurrency: T.Token<T>;
   readonly quoteCurrency: T.Token<T>;
-
   readonly value: BigDecimal;
 
   /**
@@ -378,6 +378,25 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
     return this.value.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
   }
 
+  get prettyPrint(): string {
+    return `1 ${this.token0.symbol || "token0"} -> ${this.asUnits} ${this.token1.symbol || "token1"}`;
+  }
+
+  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
+    return Assertable.AssertableEntity({
+      baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
+      quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
+      units: this.asUnits,
+    });
+  }
+
+  static convertToQ64x96(underlying: BigDecimal): Option.Option<bigint> {
+    const scaledValue = (underlying.unscaledValue() * 2n ** 96n) / BigInt(10 ** underlying.scale());
+    const maxValue = 2n ** (64n + 96n);
+
+    return scaledValue >= maxValue ? Option.none() : Option.some(scaledValue);
+  }
+
   contains(token: T.Token<T.TokenType>): boolean {
     return token.address == this.token0.address || token.address == this.token1.address;
   }
@@ -409,31 +428,9 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
     }
   }
 
-  get prettyPrint(): string {
-    return `1 ${this.token0.symbol || "token0"} -> ${this.asUnits} ${this.token1.symbol || "token1"}`;
-  }
-
   map(f: (a: BigDecimal) => BigDecimal): TokenPriceLive<T> {
     return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.value));
   }
-
-  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
-    return Assertable.AssertableEntity({
-      baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
-      quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: this.asUnits,
-    });
-  }
-
-
-  static convertToQ64x96(underlying: BigDecimal): Option.Option<bigint> {
-    const scaledValue = (underlying.unscaledValue() * 2n ** 96n) / BigInt(10 ** underlying.scale());
-    const maxValue = 2n ** (64n + 96n);
-
-    return scaledValue >= maxValue ? Option.none() : Option.some(scaledValue);
-  }
-
-  static mc: MathContext = MC((28 + 19) * 2, RoundingMode.FLOOR);
 }
 
 export function makeTokenPriceFromUnits<TBase extends T.TokenType, TQuote extends T.TokenType>(

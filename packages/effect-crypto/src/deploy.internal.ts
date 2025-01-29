@@ -186,7 +186,7 @@ class DeployLive<R0> implements DeployShape<R0> {
   private unsafeDeployModule(
     unsafeTagValue: string,
   ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag> {
-    const { [privateApiSymbol]: api, descriptor, wallet  } = this;
+    const { [privateApiSymbol]: api, descriptor, wallet } = this;
     const thisFunction = this.unsafeDeployModule.bind(this);
     const appendModuleToState = this.appendModuleToState.bind(this);
 
@@ -256,6 +256,21 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
     this.moduleTag = moduleTag;
   }
 
+  get layer(): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
+    const { moduleTag, descriptor } = this;
+
+    const makeLayer = Effect.gen(function* () {
+      const wallet = yield* Wallet.Tag;
+      const stateRef = yield* Ref.make<DeployState>({
+        unsafeDeployedModules: new Map(),
+      });
+
+      return new DeployLive(descriptor, stateRef, wallet) as Context.Tag.Service<Tag>;
+    });
+
+    return Layer.effect(moduleTag, makeLayer);
+  }
+
   // TODO: SHOULD INTRODUCE A METHOD TO ATTACH TWO DEPLOY MODULES TOGETHER
   deploy<Tag extends Context.Tag<any, T.DeployedContract>>(
     tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
@@ -271,21 +286,6 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
 
       return yield* api.deployModule(tag);
     });
-  }
-
-  get layer(): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
-    const { moduleTag, descriptor } = this;
-
-    const makeLayer = Effect.gen(function* () {
-      const wallet = yield* Wallet.Tag;
-      const stateRef = yield* Ref.make<DeployState>({
-        unsafeDeployedModules: new Map(),
-      });
-
-      return new DeployLive(descriptor, stateRef, wallet) as Context.Tag.Service<Tag>;
-    });
-
-    return Layer.effect(moduleTag, makeLayer);
   }
 
   sharedLayer<R1>(

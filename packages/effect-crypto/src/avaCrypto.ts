@@ -1,10 +1,10 @@
 import type { ExecutionContext } from "ava";
 import { Layer } from "effect";
 
-import * as internal from "./avaCrypto.internal.js";
-import * as AvaEffect from "./utils/avaEffect.js";
 import * as Assertable from "./assertable.js";
+import * as internal from "./avaCrypto.internal.js";
 import * as Token from "./token.js";
+import * as AvaEffect from "./utils/avaEffect.js";
 
 export type AssertableEqualAssertion = {
   /**
@@ -51,7 +51,11 @@ export type PriceEqualsWithPrecisionAssertion = {
     message?: string,
   ): expected is Actual;
 
-  <Actual extends Token.TokenPrice<T>, Expected extends Token.TokenPrice<T>, T extends Token.TokenType>(
+  <
+    Actual extends Token.TokenPrice<T>,
+    Expected extends Token.TokenPrice<T>,
+    T extends Token.TokenType,
+  >(
     actual: Actual,
     expected: Expected,
     message?: string,
@@ -63,7 +67,9 @@ export type PriceEqualsWithPrecisionAssertion = {
 
 export type Assertions = {
   readonly assertableEqual: AssertableEqualAssertion;
-  readonly priceEqualsWithPrecision: (precisionPercent: number) => PriceEqualsWithPrecisionAssertion;
+  readonly priceEqualsWithPrecision: (
+    precisionPercent: number,
+  ) => PriceEqualsWithPrecisionAssertion;
 };
 
 /**

@@ -112,7 +112,8 @@ export type EffectAssertions = {
  *
  * @constructor
  */
-export const EffectAssertions: <T>(t: ExecutionContext<T>) => EffectAssertions = internal.makeEffectAssertions;
+export const EffectAssertions: <T>(t: ExecutionContext<T>) => EffectAssertions =
+  internal.makeEffectAssertions;
 
 /**
  * Basic test function for effects which doesn't rely on any context `R`

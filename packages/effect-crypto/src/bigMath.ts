@@ -3,7 +3,6 @@ import { BigDecimal, MathContext } from "bigdecimal.js";
 import { Brand } from "effect";
 import { Arbitrary } from "fast-check";
 
-import * as Adt from "./adt.js";
 import * as internal from "./bigMath.internal.js";
 
 /**
@@ -35,7 +34,8 @@ export const Ratio: Brand.Brand.Constructor<Ratio> = internal.makeRatio;
  *   const ratio = BigMath.Ratio(Big("1.5"));
  *   BigMath.asNumeratorAndDenominator(ratio); // [15n, 10n]
  */
-export const asNumeratorAndDenominator: (ratio: BigDecimal) => [bigint, bigint] = internal.asNumeratorAndDenominatorImpl;
+export const asNumeratorAndDenominator: (ratio: BigDecimal) => [bigint, bigint] =
+  internal.asNumeratorAndDenominatorImpl;
 
 /**
  * A branded type for non-negative decimals: [0, +inf)
@@ -54,7 +54,8 @@ export type NonNegativeDecimal = Brand.Branded<BigDecimal, internal.NonNegativeD
  *
  * @constructor
  */
-export const NonNegativeDecimal: Brand.Brand.Constructor<NonNegativeDecimal> = internal.makeNonNegativeDecimal;
+export const NonNegativeDecimal: Brand.Brand.Constructor<NonNegativeDecimal> =
+  internal.makeNonNegativeDecimal;
 
 /**
  * Returns the natural logarithm of a given x
@@ -127,21 +128,20 @@ export const bigDecimalGen: (constraints?: {
   scale?: number;
 }) => Arbitrary<BigDecimal> = internal.bigDecimalGen;
 
-
 /**
  * Generates a Ratio value within given constraints
  */
 export const ratioGen: (constraints?: {
-  min?: Ratio,
-  max?: Ratio,
-  maxScale?: number,
+  min?: Ratio;
+  max?: Ratio;
+  maxScale?: number;
 }) => Arbitrary<Ratio> = internal.ratioGen;
 
 /**
  * Generates a non-negative decimal value within given constraints
  */
 export const nonNegativeDecimalGen: (constraints?: {
-    min?: NonNegativeDecimal;
-    max?: NonNegativeDecimal;
-    scale?: number;
+  min?: NonNegativeDecimal;
+  max?: NonNegativeDecimal;
+  scale?: number;
 }) => Arbitrary<NonNegativeDecimal> = internal.nonNegativeDecimalGen;

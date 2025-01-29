@@ -1,7 +1,7 @@
 /**
  * This module MUST NOT depend on any other module from this package.
  */
-import { Either, Brand } from "effect";
+import { Brand, Either } from "effect";
 import { Interface, InterfaceAbi } from "ethers";
 
 import * as internal from "./adt.internal.js";
@@ -75,7 +75,7 @@ export const Address: {
   zero: internal.zeroAddress,
 });
 
-export const isZeroAddress: (address: Address) => boolean = internal.isZeroAddress
+export const isZeroAddress: (address: Address) => boolean = internal.isZeroAddress;
 
 /**
  * Converts a big int to a hex string

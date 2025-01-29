@@ -1,5 +1,5 @@
 import { Brand, Either } from "effect";
-import { getAddress, ZeroAddress } from "ethers";
+import { ZeroAddress, getAddress } from "ethers";
 
 import type * as Adt from "./adt.js";
 
@@ -44,7 +44,9 @@ export function makeAddress(
 ): Either.Either<Adt.Address, Adt.FatalError> {
   return Either.mapLeft(
     Either.try(() =>
-      addressConstructor(bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address)),
+      addressConstructor(
+        bypassChecksum ? checkValidAddress(address) : validateAndParseAddress(address),
+      ),
     ) as Either.Either<Adt.Address, unknown>,
     (e) => makeFatalErrorFromUnknown(e),
   );
