@@ -2,7 +2,7 @@ import { Effect, Either, Option } from "effect";
 import { LazyArg } from "effect/Function";
 
 // TODO: circular dependency utils on effect-crypto and forth
-import * as Adt from "~/adt.js";
+import * as Adt from "../adt.js";
 
 export function getOrFail<A, E>(fa: Option.Option<A>, onNone: LazyArg<E>): Effect.Effect<A, E> {
   return Option.match(fa, {

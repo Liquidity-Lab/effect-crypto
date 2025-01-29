@@ -1,6 +1,12 @@
 {
   "files": [],
+  "compilerOptions": {
+    "baseUrl": "./packages"
+  },
   "references": [
+    {
+      "path": "packages/jsbi-reimported"
+    },
     {
       "path": "packages/sol-artifacts"
     },

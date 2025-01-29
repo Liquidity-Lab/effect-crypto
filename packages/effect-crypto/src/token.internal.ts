@@ -4,16 +4,16 @@ import { RuntimeException } from "effect/Cause";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
-import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
+import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
 
-import * as Adt from "~/adt.js";
-import * as Assertable from "~/assertable.js";
-import * as Chain from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import type * as T from "~/token.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
+import * as Adt from "./adt.js";
+import * as Assertable from "./assertable.js";
+import * as Chain from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import type * as T from "./token.js";
+import * as EffectUtils from "./utils/effectUtils.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/token#privateApi");
 
@@ -374,6 +374,10 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
     );
   }
 
+  get asUnscaled(): bigint {
+    return this.value.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
+  }
+
   contains(token: T.Token<T.TokenType>): boolean {
     return token.address == this.token0.address || token.address == this.token1.address;
   }
@@ -412,6 +416,15 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
   map(f: (a: BigDecimal) => BigDecimal): TokenPriceLive<T> {
     return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.value));
   }
+
+  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
+    return Assertable.AssertableEntity({
+      baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
+      quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
+      units: this.asUnits,
+    });
+  }
+
 
   static convertToQ64x96(underlying: BigDecimal): Option.Option<bigint> {
     const scaledValue = (underlying.unscaledValue() * 2n ** 96n) / BigInt(10 ** underlying.scale());
@@ -477,7 +490,7 @@ interface TokensShape {
  *
  * @example
  *   import { Context, Effect, Layer } from "effect";
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const descriptor: Token.TokensDescriptor
  *   const tokensLayer: Layer.Layer<Token.Tag> = Token.makeTokensFromDescriptor(descriptor);

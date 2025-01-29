@@ -12,15 +12,8 @@
   ],
   "compilerOptions": {
     "rootDir": "./src",
-    "baseUrl": "./src",
     "outDir": "./dist",
     "paths": {
-      "@liquidity_lab/sol-artifacts/*": [
-        "../../sol-artifacts/dist/*"
-      ],
-      "~/*": [
-        "*"
-      ]
     }
   },
   "references": [

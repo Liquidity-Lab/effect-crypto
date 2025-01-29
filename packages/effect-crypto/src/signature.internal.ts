@@ -2,8 +2,8 @@ import { Context, Effect } from "effect";
 import { dual } from "effect/Function";
 import { Contract, ContractRunner, FunctionFragment, Signer } from "ethers";
 
-import type * as S from "~/signature.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
+import type * as S from "./signature.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/signature#PrivateApi");
 

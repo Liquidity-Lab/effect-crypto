@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 
-import * as AvaEffect from "~/utils/avaEffect.js";
+import * as AvaEffect from "./avaEffect.js";
 
 const test = AvaEffect.testAnyEffect;
 

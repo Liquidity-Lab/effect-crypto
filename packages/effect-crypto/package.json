@@ -3,7 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./utils": {
+      "import": {
+        "types": "./dist/utils/index.d.ts",
+        "default": "./dist/utils/index.js"
+      },
+      "require": {
+        "types": "./dist/utils/index.d.ts",
+        "default": "./dist/utils/index.js"
+      }
+    }
+  },
   "engines": {
     "node": ">= 22"
   },
@@ -15,7 +38,6 @@
   "license": "ISC",
   "dependencies": {
     "@liquidity_lab/sol-artifacts": "1.0.0",
-    "@arbitrum/token-bridge-contracts": "1.2.3",
     "bigdecimal.js": "1.3.1",
     "effect": "3.2.5",
     "ethers": "6.12.1",
@@ -31,9 +53,6 @@
     "tsx": "4.9.3",
     "tslib": "2.6.2",
     "typescript": "5.4.5"
-  },
-  "ava": {
-
   },
   "description": ""
 }

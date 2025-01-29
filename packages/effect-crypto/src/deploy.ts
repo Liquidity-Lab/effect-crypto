@@ -1,11 +1,11 @@
 import { Context, Effect, Either, Layer, Pipeable, Types } from "effect";
 import { Interface, InterfaceAbi } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as internal from "~/deploy.internal.js";
-import * as BError from "~/error.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as internal from "./deploy.internal.js";
+import * as BError from "./error.js";
+import * as Wallet from "./wallet.js";
 
 /** This type represents low level arguments that will be passed to the contract factory
  *  to deploy new contract instance to the blockchain
@@ -264,6 +264,10 @@ export interface DeployModuleApi<R0, Tag extends Context.Tag<any, DeployLayout<R
    *
    */
   readonly layer: Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag>;
+
+  sharedLayer<R1>(
+    underlying: DeployLayout<R1>,
+  ): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag>;
 
   /**
    * Use this function to deploy any contract from your layout.

@@ -3,7 +3,6 @@
   "include": [
     "src/**/*",
     "src/**/*.json",
-    "artifacts/**/*.json",
     "__tests__/**/*"
   ],
   "exclude": [
@@ -11,9 +10,11 @@
     "dist/**/*"
   ],
   "compilerOptions": {
-    "rootDir": "./artifacts",
+    "rootDir": "./src",
     "outDir": "./dist",
-    "paths": {}
+    "module": "ES2022",
+    "moduleResolution":  "bundler"
   },
-  "references": []
+  "references": [
+  ]
 }

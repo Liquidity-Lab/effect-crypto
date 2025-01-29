@@ -2,12 +2,12 @@ import { ConfigError, Context, Effect, Layer } from "effect";
 import { Addressable, BaseWallet, Contract, ContractRunner, Interface, InterfaceAbi } from "ethers";
 import { Tagged } from "type-fest";
 
-import * as internal from "~/chain.internal.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import * as Token from "~/token.js";
+import * as internal from "./chain.internal.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import * as Token from "./token.js";
 
-export { ConfigTag, ChainTag as Tag } from "~/chain.internal.js";
+export { ConfigTag, ChainTag as Tag } from "./chain.internal.js";
 
 /**
  * ChainId is a type representing a chain id
@@ -19,7 +19,7 @@ export type ChainId = Tagged<bigint, "ChainId">;
  * It also provides a set of known chain ids
  *
  * @example
- *   import { ChainId } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { ChainId } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const mainnet: ChainId = ChainId.MAINNET;
  *   const optimism: ChainId = ChainId.OPTIMISM;
