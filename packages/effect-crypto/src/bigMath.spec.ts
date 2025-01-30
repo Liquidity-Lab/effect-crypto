@@ -53,11 +53,11 @@ testProp(
 );
 
 test("asNumeratorAndDenominator should correctly handle BigDecimal(1) with scale 6", (t) => {
-    const expected = Big("1").setScale(6);
-    const [numerator, denominator] = BigMath.asNumeratorAndDenominator(expected);
-    const actual = Big(numerator).divideWithMathContext(denominator, mathContext);
+  const expected = Big("1").setScale(6);
+  const [numerator, denominator] = BigMath.asNumeratorAndDenominator(expected);
+  const actual = Big(numerator).divideWithMathContext(denominator, mathContext);
 
-    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(actual, expected);
+  BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(actual, expected);
 });
 
 testProp(
