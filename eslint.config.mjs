@@ -17,13 +17,6 @@ export default tseslint.config(
       sourceType: "module",
       ecmaVersion: 2020,
     },
-    ignores: [
-      "./packages/*/jest.config.js",
-      "./packages/*/ava.config.mjs",
-      "**/jest.config.js",
-      "**/*.compileerror.spec.ts",
-      "**/dist/",
-    ],
     rules: {
       // The following rule is enabled only to supplement the inline suppression
       // examples, and because it is not a recommended rule, you should either
@@ -42,9 +35,18 @@ export default tseslint.config(
     },
   },
   {
-    files: ["*.internal.ts", "*.internal.tsx", "*.spec.ts", "*.spec.tsx"],
+    files: ["**/*.internal.ts", "**/*.internal.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
     rules: {
       "@typescript-eslint/explicit-function-return-type": "off",
     },
+  },
+  {
+    ignores: [
+      "./packages/*/jest.config.js",
+      "./packages/*/ava.config.mjs",
+      "**/jest.config.js",
+      "**/*.compileerror.spec.ts",
+      "**/dist/",
+    ],
   },
 );

@@ -88,7 +88,9 @@ test("assertEqualWithPercentage should correctly compare two zeros", async (t) =
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(expected, expected);
   });
 
-  result.passed && result.commit();
+  if (result.passed) {
+    result.commit();
+  }
 
   t.assert(result.passed, "Zero values should be equal");
 });
@@ -99,7 +101,9 @@ test("assertEqualWithPercentage should correctly compare same values", async (t)
   const result = await t.try((t) => {
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(value, value);
   });
-  result.passed && result.commit();
+  if (result.passed) {
+    result.commit();
+  }
   t.assert(result.passed, "Same values should be equal");
 });
 
@@ -110,7 +114,9 @@ test("assertEqualWithPercentage should correctly compare values on upper boundar
   const result = await t.try((t) => {
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
   });
-  result.passed && result.commit();
+  if (result.passed) {
+    result.commit();
+  }
   t.assert(result.passed, "Values on the upper boundary of the range should be considered equal");
 });
 
@@ -121,7 +127,11 @@ test("assertEqualWithPercentage should correctly compare values on lower boundar
   const result = await t.try((t) => {
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
   });
-  result.passed && result.commit();
+
+  if (result.passed) {
+    result.commit();
+  }
+
   t.assert(result.passed, "Values on the lower boundary of the range should be considered equal");
 });
 
@@ -132,7 +142,9 @@ test("assertEqualWithPercentage should reject values above upper boundary", asyn
   const result = await t.try((t) => {
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
   });
+
   result.discard();
+
   t.assert(
     !result.passed,
     "Values above the upper boundary of the range should not be considered equal",
@@ -163,7 +175,11 @@ test("assertEqualWithPercentage should trim scale when requested", async (t) => 
       expected,
     );
   });
-  result.passed && result.commit();
+
+  if (result.passed) {
+    result.commit();
+  }
+
   t.assert(result.passed, ".trimToExpectedScale should trim the scale");
 });
 
@@ -174,7 +190,9 @@ test("assertEqualWithPercentage should reject negative values", async (t) => {
   const result = await t.try((t) => {
     BigMath.assertEqualWithPercentage(t, percents, mathContext)(actual, expected);
   });
+
   result.discard();
+
   t.assert(!result.passed, "Negative values should not be considered equal");
 });
 
