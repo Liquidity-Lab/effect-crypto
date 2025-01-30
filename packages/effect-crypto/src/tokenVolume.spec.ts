@@ -5,6 +5,7 @@ import { Option } from "effect";
 import { fc, testProp } from "@fast-check/ava";
 
 import * as Adt from "./adt.js";
+import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as Token from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
@@ -78,6 +79,22 @@ testProp(
       t.is(unscaled, backToUnscaled);
     }
   },
+);
+
+testProp(
+  "TokenVolume assertable comparison works correctly",
+  [TokenVolume.tokenVolumeGen(USDT)],
+  (t, expected) => {
+    const actual = TokenVolume.TokenVolumeUnits(
+      USDT,
+      BigMath.NonNegativeDecimal(
+        TokenVolume.asUnits(expected).setScale(expected.underlyingValue.scale() * 2),
+      ),
+    );
+
+    t.deepEqual(Assertable.asAssertableEntity(actual), Assertable.asAssertableEntity(expected));
+  },
+  { numRuns: 1024 },
 );
 
 const constraints = {

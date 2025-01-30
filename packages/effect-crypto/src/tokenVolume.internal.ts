@@ -22,8 +22,16 @@ class TokenVolumeLive<T extends Token.TokenType> implements T.TokenVolume<T> {
   get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
     return Assertable.AssertableEntity({
       token: Assertable.asAssertableEntity(this.token),
-      value: asUnitsImpl(this),
+      value: asUnitsImpl(this).unscaledValue(),
     });
+  }
+
+  toString(): string {
+    return prettyPrintImpl(this);
+  }
+
+  [Symbol.for("nodejs.util.inspect.custom")](): string {
+    return `TokenVolume(${prettyPrintImpl(this)})`;
   }
 }
 
