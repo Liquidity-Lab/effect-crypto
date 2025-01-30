@@ -92,7 +92,9 @@ testProp(
 
     const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
     const sdkUSDT = new SdkToken(1, USDT.address, USDT.decimals, USDT.symbol, USDT.name);
-    const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(priceRatio);
+    const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
+      priceRatio.setScale(USDT.decimals),
+    );
     const sdkPrice = new SdkPrice(
       sdkWETH,
       sdkUSDT,
@@ -107,7 +109,7 @@ testProp(
     const expectedSdkValue = sdkPrice.quote(
       CurrencyAmount.fromFractionalAmount(
         sdkWETH,
-        volumeNominator.toString(),
+        (volumeNominator * 10n ** BigInt(USDT.decimals)).toString(),
         volumeDenominator.toString(),
       ),
     );
@@ -119,4 +121,5 @@ testProp(
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
     );
   },
+  { numRuns: 1024 },
 );

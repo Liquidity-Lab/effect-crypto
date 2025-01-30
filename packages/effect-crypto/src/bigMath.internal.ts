@@ -22,9 +22,9 @@ export const makeRatio = Brand.refined<T.Ratio>(
 );
 
 export function asNumeratorAndDenominatorImpl(ratio: BigDecimal): [bigint, bigint] {
-  const denominator = BigInt(ratio.scale());
+  const denominator = 10n ** BigInt(ratio.scale());
 
-  return [ratio.unscaledValue(), denominator === 0n ? 1n : denominator];
+  return [ratio.unscaledValue(), denominator];
 }
 
 export type NonNegativeDecimalTypeId = "com/liquidity_lab/effect-crypto/bigMath#NonNegativeDecimal";
