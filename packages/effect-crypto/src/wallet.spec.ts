@@ -1,9 +1,12 @@
+import { Big } from "bigdecimal.js";
 import { Context, Effect, Layer, Option } from "effect";
 
 import * as AvaCrypto from "./avaCrypto.js";
+import * as BigMath from "./bigMath.js";
 import * as Chain from "./chain.js";
 import * as TestEnv from "./testEnv.js";
 import * as Token from "./token.js";
+import * as TokenVolume from "./tokenVolume.js";
 import * as Wallet from "./wallet.js";
 
 type Services = Chain.Tag | Token.Tag | Wallet.Tag | TestEnv.Tag;
@@ -20,7 +23,7 @@ function setupLayer(ctx: Context.Context<Services>) {
   const prog = Effect.gen(function* () {
     const WETH = yield* Token.get("WETH");
 
-    yield* Wallet.wrap(Token.TokenVolumeUnits(WETH, "1000"));
+    yield* Wallet.wrap(TokenVolume.TokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(1000))));
   });
 
   return Effect.provide(prog, ctx);
@@ -43,7 +46,7 @@ testEffect("Should transfer all tokens", (t) => {
     sourceWallet: Wallet.Wallet,
   ) {
     return Effect.gen(function* () {
-      const volume = Token.TokenVolumeUnits(token, "1000");
+      const volume = TokenVolume.TokenVolumeUnits(token, BigMath.NonNegativeDecimal(Big(1000)));
 
       // TODO: Make transferToken work for all tokens including native
       yield* Wallet.transferToken(sourceWallet, volume, targetWallet.address);
@@ -54,7 +57,7 @@ testEffect("Should transfer all tokens", (t) => {
         targetBalance,
         Option.some(volume),
         t.assertableEqual,
-        `Target wallet should have received the volume of [${volume.prettyPrint}]`,
+        `Target wallet should have received the volume of [${TokenVolume.prettyPrint(volume)}]`,
       );
     });
   }

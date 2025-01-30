@@ -19,9 +19,10 @@ import * as Chain from "./chain.js";
 import * as Error from "./error.js";
 import * as Signature from "./signature.js";
 import * as Token from "./token.js";
+import * as TokenVolume from "./tokenVolume.js";
 import * as EffectUtils from "./utils/effectUtils.js";
 import * as FunctionUtils from "./utils/functionUtils.js";
-import type * as W from "./wallet.js";
+import type * as T from "./wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/wallet#PrivateApi");
 
@@ -54,14 +55,14 @@ interface WalletShape {
  */
 export class WalletTag extends Effect.Tag("Wallet")<WalletTag, WalletShape>() {}
 
-export class InsufficientFundsErrorLive implements W.InsufficientFundsError {
+export class InsufficientFundsErrorLive implements T.InsufficientFundsError {
   readonly _tag = "WalletError";
   readonly _kind = "InsufficientFundsError";
 
-  readonly requiredVolume: Token.AnyTokenVolume;
+  readonly requiredVolume: TokenVolume.AnyTokenVolume;
   readonly walletAddress: Adt.Address;
 
-  constructor(requiredVolume: Token.AnyTokenVolume, walletAddress: Adt.Address) {
+  constructor(requiredVolume: TokenVolume.AnyTokenVolume, walletAddress: Adt.Address) {
     this.requiredVolume = requiredVolume;
     this.walletAddress = walletAddress;
   }
@@ -71,15 +72,15 @@ export class InsufficientFundsErrorLive implements W.InsufficientFundsError {
   }
 
   prettyPrint(): string {
-    return `Insufficient funds for required[${this.requiredVolume.prettyPrint}] wallet[${this.walletAddress}]`;
+    return `Insufficient funds for required[${TokenVolume.prettyPrint(this.requiredVolume)}] wallet[${this.walletAddress}]`;
   }
 }
 
-export function isWalletError(err: unknown): err is W.Errors {
+export function isWalletError(err: unknown): err is T.Errors {
   return typeof err === "object" && err !== null && "_tag" in err && err["_tag"] === "WalletError";
 }
 
-export function isInsufficientFundsError(err: unknown): err is W.InsufficientFundsError {
+export function isInsufficientFundsError(err: unknown): err is T.InsufficientFundsError {
   return (
     typeof err === "object" &&
     err !== null &&
@@ -97,12 +98,12 @@ function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrappe
   { [privateApiSymbol]: api, address }: WalletShape,
   token: Token.Token<T>,
 ): Effect.Effect<
-  Option.Option<Token.TokenVolume<T>>,
+  Option.Option<TokenVolume.TokenVolume<T>>,
   Adt.FatalError | Error.BlockchainError,
   Token.TxTag
 > {
   return Effect.gen(function* () {
-    const balance: Option.Option<Token.TokenVolume<T>> = yield* Token.balanceOfErc20Like(
+    const balance: Option.Option<TokenVolume.TokenVolume<T>> = yield* Token.balanceOfErc20Like(
       token,
       address,
     ).pipe(Signature.signVia(api.signer));
@@ -136,11 +137,11 @@ export const transferToken = FunctionUtils.withOptionalServiceApi(
 
 function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
   service: WalletShape,
-  volume: Token.TokenVolume<T>,
+  volume: TokenVolume.TokenVolume<T>,
   to: Adt.Address,
 ): Effect.Effect<
   TransactionReceipt,
-  Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
+  Adt.FatalError | Error.BlockchainError | T.Errors | Error.TransactionFailedError,
   Token.TxTag
 > {
   const { [privateApiSymbol]: api } = service;
@@ -162,7 +163,7 @@ function transferTokenImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wra
         ).pipe(Signature.signVia(api.signer));
 
         yield* Effect.log(
-          `Transferring tokens from[${fromAddress}] to[${to}] volume[${volume.prettyPrint}]`,
+          `Transferring tokens from[${fromAddress}] to[${to}] volume[${TokenVolume.prettyPrint(volume)}]`,
           transferRequest,
         );
 
@@ -187,11 +188,11 @@ export const transferNative = FunctionUtils.withOptionalServiceApi(
 
 function transferNativeImpl(
   { [privateApiSymbol]: api, address: fromAddress }: WalletShape,
-  volume: Token.TokenVolume<Token.TokenType.Native>,
+  volume: TokenVolume.TokenVolume<Token.TokenType.Native>,
   to: Adt.Address,
 ): Effect.Effect<
   TransactionReceipt,
-  Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
+  Adt.FatalError | Error.BlockchainError | T.Errors | Error.TransactionFailedError,
   Token.TxTag
 > {
   const prog = Effect.gen(function* () {
@@ -208,7 +209,7 @@ function transferNativeImpl(
     );
 
     yield* Effect.log(
-      `Transferring native tokens from[${fromAddress}] to[${to}] volume[${volume.prettyPrint}]`,
+      `Transferring native tokens from[${fromAddress}] to[${to}] volume[${TokenVolume.prettyPrint(volume)}]`,
       transactionRequest,
     );
 
@@ -236,7 +237,7 @@ function deployContractImpl(
   abi: Interface | InterfaceAbi,
   bytecode: string,
   args: ReadonlyArray<unknown>,
-): Effect.Effect<W.DeployedContractOps, Adt.FatalError | Error.BlockchainError> {
+): Effect.Effect<T.DeployedContractOps, Adt.FatalError | Error.BlockchainError> {
   return Effect.gen(function* () {
     const factory = new ContractFactory(abi, bytecode, api.signer);
 
@@ -258,7 +259,7 @@ export const wrap = FunctionUtils.withOptionalServiceApi(WalletTag, wrapImpl).va
 
 function wrapImpl(
   { [privateApiSymbol]: api }: WalletShape,
-  volume: Token.TokenVolume<Token.TokenType.Wrapped>,
+  volume: TokenVolume.TokenVolume<Token.TokenType.Wrapped>,
 ): Effect.Effect<
   TransactionReceipt,
   Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
@@ -322,7 +323,7 @@ export function makeRandom(): Effect.Effect<WalletShape, Adt.FatalError, Chain.T
 }
 
 export function makeRandomWithNonceManagement(
-  makeNonceManager: (signer: Signer) => W.NonceManager,
+  makeNonceManager: (signer: Signer) => T.NonceManager,
 ): Layer.Layer<WalletTag, Adt.FatalError, Chain.Tag> {
   return Layer.effect(
     WalletTag,
@@ -346,7 +347,7 @@ export function makeRandomWithNonceManagement(
 
 export function makeFromPrivateKeyWithNonceManagement(
   privateKey: string,
-  makeNonceManager: (signer: Signer) => W.NonceManager,
+  makeNonceManager: (signer: Signer) => T.NonceManager,
 ): Layer.Layer<WalletTag, Adt.FatalError, Chain.Tag> {
   return Layer.effect(
     WalletTag,
@@ -394,12 +395,12 @@ function refinedSignerInvariant(signer: Signer): Effect.Effect<RefinedSigner, Ad
  */
 function withApproval<E, R>(
   service: WalletShape,
-  volume: Token.TokenVolume<Token.TokenType.ERC20 | Token.TokenType.Wrapped>,
+  volume: TokenVolume.TokenVolume<Token.TokenType.ERC20 | Token.TokenType.Wrapped>,
   to: Adt.Address,
   f: (address: Adt.Address) => Effect.Effect<TransactionRequest, E, R>,
 ): Effect.Effect<
   TransactionReceipt,
-  E | Adt.FatalError | Error.BlockchainError | W.Errors | Error.TransactionFailedError,
+  E | Adt.FatalError | Error.BlockchainError | T.Errors | Error.TransactionFailedError,
   R | Token.TxTag
 > {
   const { address, [privateApiSymbol]: api } = service;
@@ -417,7 +418,7 @@ function withApproval<E, R>(
     const rollbackOnError = (_: unknown, e: Exit.Exit<unknown, unknown>) =>
       Exit.match(e, {
         onFailure: () =>
-          transferApproval(Token.TokenVolumeZero(volume.token), to, api.signer).pipe(
+          transferApproval(TokenVolume.TokenVolumeZero(volume.token), to, api.signer).pipe(
             Effect.as(void 0),
             Effect.orElseSucceed(() => void 0),
             Effect.provideService(Token.TxTag, tokenOp),
@@ -472,9 +473,9 @@ function awaitForTransaction(
  * @returns A function transforming the effect to handle errors.
  */
 function handleDomainErrors<A, E, R>(
-  volume: Token.AnyTokenVolume,
+  volume: TokenVolume.AnyTokenVolume,
   walletAddress: Adt.Address,
-): (fa: Effect.Effect<A, E, R>) => Effect.Effect<A, E | W.Errors, R> {
+): (fa: Effect.Effect<A, E, R>) => Effect.Effect<A, E | T.Errors, R> {
   return (fa) =>
     Effect.mapError(fa, (e) => {
       if (Error.isInsufficientFundsBlockchainError(e)) {
@@ -493,7 +494,7 @@ function handleDomainErrors<A, E, R>(
  * @returns An effect that processes the approval.
  */
 function transferApproval(
-  volume: Token.TokenVolume<Token.TokenType.ERC20 | Token.TokenType.Wrapped>,
+  volume: TokenVolume.TokenVolume<Token.TokenType.ERC20 | Token.TokenType.Wrapped>,
   to: Adt.Address,
   signer: RefinedSigner,
 ): Effect.Effect<
