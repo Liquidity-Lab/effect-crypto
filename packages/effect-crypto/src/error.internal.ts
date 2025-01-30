@@ -3,8 +3,8 @@ import { constant } from "effect/Function";
 import { isRecord } from "effect/Predicate";
 import { Contract, ErrorDescription } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as T from "~/error.js";
+import * as Adt from "./adt.js";
+import * as T from "./error.js";
 
 /**
  * Error codes for blockchain errors

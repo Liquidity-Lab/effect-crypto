@@ -1,7 +1,7 @@
 import type { AfterFn, BeforeFn, ExecutionContext } from "ava";
 import { Context, Effect, Layer, Option, Scope } from "effect";
 
-import * as internal from "~/utils/avaEffect.internal.js";
+import * as internal from "./avaEffect.internal.js";
 
 /**
  * This type is used to provide `effect-ts`'s context to the test suites
@@ -108,6 +108,14 @@ export type EffectAssertions = {
 };
 
 /**
+ * Create an instance of `EffectAssertions` for the given `t` from ava
+ *
+ * @constructor
+ */
+export const EffectAssertions: <T>(t: ExecutionContext<T>) => EffectAssertions =
+  internal.makeEffectAssertions;
+
+/**
  * Basic test function for effects which doesn't rely on any context `R`
  */
 export const testAnyEffect: EffectTestFn<never, EffectAssertions> = internal.makeTestEffect<
@@ -121,7 +129,7 @@ export const testAnyEffect: EffectTestFn<never, EffectAssertions> = internal.mak
  * they will be provided once before all test suites.
  *
  * @example
- *   import { makeTestEffect } from "~/utils/ava.js";
+ *   import { makeTestEffect } from "./ava.js";
  *   import { Context, Effect, Layer } from "effect";
  *
  *   class SomeService extends Context.Tag("SomeService")<SomeService, {}> {}

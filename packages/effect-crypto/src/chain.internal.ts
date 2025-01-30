@@ -19,10 +19,10 @@ import {
   Networkish,
 } from "ethers";
 
-import type * as T from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
+import type * as T from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/chain#privateApi");
 

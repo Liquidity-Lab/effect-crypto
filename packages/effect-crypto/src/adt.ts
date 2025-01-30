@@ -1,32 +1,93 @@
 /**
  * This module MUST NOT depend on any other module from this package.
  */
-import { Either } from "effect";
-import { Interface, InterfaceAbi } from "ethers";
-import { Tagged } from "type-fest";
+import { Brand, Either } from "effect";
 
-import * as internal from "~/adt.internal.js";
+import * as internal from "./adt.internal.js";
 
-export type DeployArgs = [
-  abi: Interface | InterfaceAbi,
-  bytecode: string,
-  args: ReadonlyArray<unknown>,
-];
+/**
+ * FatalError is a tagged type that represents a fatal error.
+ */
+export interface FatalError {
+  readonly _tag: "@liquidity_lab/effect-crypto/adt#FatalError";
+  readonly underlying: Error;
+}
+
+/**
+ * Creates a new FatalError instance
+ *
+ * @example
+ *   import { FatalError } from "effect-crypto";
+ *
+ *   const error = FatalError(new Error("Something went wrong"));
+ *
+ * @constructor
+ */
+export const FatalError: (underlying: Error) => FatalError = internal.makeFatalError;
+
+/**
+ * Creates a new FatalError instance from a string
+ *
+ * @example
+ *   import { FatalErrorString } from "effect-crypto";
+ *
+ *   const error = FatalErrorString("Something went wrong");
+ *
+ * @constructor
+ */
+export const FatalErrorString: (message: string) => FatalError = internal.makeFatalErrorFromString;
+
+/**
+ * Creates a new FatalError instance from an unknown
+ *
+ * @example
+ *   import { FatalErrorUnknown } from "effect-crypto";
+ *
+ *   try {
+ *     throw new Error("Something went wrong");
+ *   } catch (e) {
+ *     const error = FatalErrorUnknown(e);
+ *   }
+ *
+ * @constructor
+ */
+export const FatalErrorUnknown: (cause: unknown) => FatalError = internal.makeFatalErrorFromUnknown;
+
+/**
+ * Type guard for FatalError
+ *
+ * @example
+ *   import { FatalError, isFatalError } from "effect-crypto";
+ *
+ *   const error = FatalError(new Error("Something went wrong"));
+ *   if (isFatalError(error)) {
+ *     console.log(error.underlying);
+ *   }
+ */
+export const isFatalError: (err: unknown) => err is FatalError = internal.isFatalError;
 
 /**
  * Address is a tagged type that represents a blockchain address.
  */
-export type Address = Tagged<string, "Address">;
+export type Address = Brand.Branded<string, internal.AddressTypeId>;
 
 /**
  * Creates a new address instance
  *
  * @example
- *   import { Address } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Address } from "effect-crypto";
  *
- *   const address: Either.Right<Address, unknown> = Address("0x0000000000000000000000000000000000000001");
- *   const failedAddress: Either.Left<Address, unknown> = Address("0xzzz");
- *   const unsafeAddress: Address = Address.unsafe("0x0000000000000000000000000000000000000001");
+ *   // Standard usage
+ *   const address = Address("0x0000000000000000000000000000000000000001");
+ *
+ *   // With checksum bypass
+ *   const unchecked = Address("0x0000000000000000000000000000000000000001", true);
+ *
+ *   // Using unsafe constructor
+ *   const unsafe = Address.unsafe("0x0000000000000000000000000000000000000001");
+ *
+ *   // Zero address
+ *   const zero = Address.zero;
  *
  * @param address
  * @param bypassChecksum
@@ -36,40 +97,32 @@ export const Address: {
   (address: string, bypassChecksum: boolean): Either.Either<Address, FatalError>;
   (address: string): Either.Either<Address, FatalError>;
   unsafe(address: string, bypassChecksum?: boolean): Address;
+  zero: Address;
 } = Object.assign(internal.makeAddress, {
   unsafe: internal.makeAddressUnsafe,
+  zero: internal.zeroAddress,
 });
 
 /**
- * FatalError is a tagged type that represents a fatal error.
- */
-export interface FatalError {
-  readonly _tag: "FatalError";
-  readonly underlying: Error;
-}
-
-/**
- * Creates a new FatalError instance
+ * Checks if the given address is a zero address
  *
- * @constructor
- */
-export const FatalError: (underlying: Error) => FatalError = internal.makeFatalError;
-
-/**
- * Creates a new FatalError instance from a string
+ * @example
+ *   import { Address, isZeroAddress } from "effect-crypto";
  *
- * @constructor
+ *   const address = Address.unsafe("0x0000000000000000000000000000000000000000");
+ *   const isZero = isZeroAddress(address); // true
  */
-export const FatalErrorString: (message: string) => FatalError = internal.makeFatalErrorFromString;
+export const isZeroAddress: (address: Address) => boolean = internal.isZeroAddress;
 
 /**
- * Creates a new FatalError instance from an unknown
+ * Converts a big int to a hex string
  *
- * @constructor
+ * @example
+ *   import { toHex } from "effect-crypto";
+ *
+ *   const hex = toHex(123456789n); // "0x75bcd15"
+ *
+ * @param value
+ * @returns The hex encoded calldata
  */
-export const FatalErrorUnknown: (cause: unknown) => FatalError = internal.makeFatalErrorFromUnknown;
-
-/**
- * Type guard for FatalError
- */
-export const isFatalError: (err: unknown) => err is FatalError = internal.isFatalError;
+export const toHex: (value: bigint) => string = internal.toHex;

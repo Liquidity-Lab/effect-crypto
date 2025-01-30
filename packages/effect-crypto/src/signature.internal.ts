@@ -2,8 +2,8 @@ import { Context, Effect } from "effect";
 import { dual } from "effect/Function";
 import { Contract, ContractRunner, FunctionFragment, Signer } from "ethers";
 
-import type * as S from "~/signature.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
+import type * as T from "./signature.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/signature#PrivateApi");
 
@@ -21,7 +21,7 @@ export class SignatureTxTag extends Context.Tag("SignatureTxTag")<
   SignatureTxShape
 >() {}
 
-class ContractOpsLive implements S.ContractOps {
+class ContractOpsLive implements T.ContractOps {
   private readonly defaultProvider: ContractRunner;
   private readonly makeContract: (runner: ContractRunner | null) => Contract;
 
@@ -49,7 +49,7 @@ class ContractOpsLive implements S.ContractOps {
 export function makeContractOps(
   defaultProvider: ContractRunner,
   f: (runner: ContractRunner | null) => Contract,
-): S.ContractOps {
+): T.ContractOps {
   return new ContractOpsLive(defaultProvider, f);
 }
 
@@ -60,7 +60,7 @@ export const signedContract = FunctionUtils.withOptionalServiceApi(
 
 export function signedContractImpl(
   { [privateApiSymbol]: api }: SignatureTxShape,
-  ops: S.ContractOps,
+  ops: T.ContractOps,
 ): Contract {
   return ops.connect(api.signer);
 }

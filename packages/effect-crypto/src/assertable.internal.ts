@@ -1,7 +1,7 @@
 import type * as Types from "effect/Types";
 import { ReadonlyRecord } from "effect/Record";
 
-import { Assertable, AssertableEntity } from "~/assertable.js";
+import { Assertable, AssertableEntity } from "./assertable.js";
 
 export const assertableInstanceSymbol = Symbol(
   "com/liquidity_lab/crypto/blockchain/assertable#instance",

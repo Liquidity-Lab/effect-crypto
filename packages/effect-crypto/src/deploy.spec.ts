@@ -6,13 +6,13 @@ import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/to
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
 import NFTDescriptor from "@uniswap/v3-periphery/artifacts/contracts/libraries/NFTDescriptor.sol/NFTDescriptor.json";
 
-import * as Adt from "~/adt.js";
-import * as AvaCrypto from "~/avaCrypto.js";
-import * as Chain from "~/chain.js";
-import * as deploy from "~/deploy.internal.js";
-import type * as Deploy from "~/deploy.js";
-import * as TestEnv from "~/testEnv.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as AvaCrypto from "./avaCrypto.js";
+import * as Chain from "./chain.js";
+import * as deploy from "./deploy.internal.js";
+import type * as Deploy from "./deploy.js";
+import * as TestEnv from "./testEnv.js";
+import * as Wallet from "./wallet.js";
 
 type Services = Chain.Tag | Wallet.Tag | TestEnv.Tag;
 

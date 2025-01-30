@@ -2,16 +2,18 @@ import { Context, Effect, Either, Layer, Ref, Types } from "effect";
 import { pipeArguments } from "effect/Pipeable";
 import { getAddress, solidityPackedKeccak256 } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import type * as T from "~/deploy.js";
-import * as BError from "~/error.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
-import * as Wallet from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import type * as T from "./deploy.js";
+import * as BError from "./error.js";
+import * as EffectUtils from "./utils/effectUtils.js";
+import * as Wallet from "./wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/deploy#privateApi");
 
 interface DeployPrivateApi<R0> {
+  readonly stateRef: Ref.Ref<DeployState>;
+
   deployModule<Tag extends Context.Tag<any, T.DeployedContract>>(
     tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
   ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag>;
@@ -157,7 +159,6 @@ class DeployLive<R0> implements DeployShape<R0> {
   readonly [privateApiSymbol]: DeployPrivateApi<R0>;
 
   private readonly descriptor: T.DeployDescriptor<R0>;
-  private readonly stateRef: Ref.Ref<DeployState>;
   private readonly wallet: Context.Tag.Service<Wallet.Tag>;
 
   constructor(
@@ -166,7 +167,6 @@ class DeployLive<R0> implements DeployShape<R0> {
     wallet: Context.Tag.Service<Wallet.Tag>,
   ) {
     this.descriptor = descriptor;
-    this.stateRef = stateRef;
     this.wallet = wallet;
 
     const unsafeDeployModule = this.unsafeDeployModule.bind(this);
@@ -178,6 +178,7 @@ class DeployLive<R0> implements DeployShape<R0> {
     }
 
     this[privateApiSymbol] = {
+      stateRef,
       deployModule,
     };
   }
@@ -185,12 +186,12 @@ class DeployLive<R0> implements DeployShape<R0> {
   private unsafeDeployModule(
     unsafeTagValue: string,
   ): Effect.Effect<T.DeployedContract, Adt.FatalError | BError.BlockchainError, Chain.Tag> {
-    const { descriptor, stateRef, wallet } = this;
+    const { [privateApiSymbol]: api, descriptor, wallet } = this;
     const thisFunction = this.unsafeDeployModule.bind(this);
     const appendModuleToState = this.appendModuleToState.bind(this);
 
     return Effect.gen(function* () {
-      const state = yield* stateRef.get;
+      const state = yield* api.stateRef.get;
       const maybeModule = state.unsafeDeployedModules.get(unsafeTagValue);
 
       if (maybeModule) {
@@ -232,9 +233,9 @@ class DeployLive<R0> implements DeployShape<R0> {
     unsafeTagValue: string,
     deployedModule: T.DeployedContract,
   ): Effect.Effect<T.DeployedContract> {
-    const { stateRef } = this;
+    const { [privateApiSymbol]: api } = this;
 
-    return stateRef.modify((state) => {
+    return api.stateRef.modify((state) => {
       const unsafeDeployedModules = new Map(state.unsafeDeployedModules);
 
       unsafeDeployedModules.set(unsafeTagValue, deployedModule);
@@ -255,6 +256,22 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
     this.moduleTag = moduleTag;
   }
 
+  get layer(): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
+    const { moduleTag, descriptor } = this;
+
+    const makeLayer = Effect.gen(function* () {
+      const wallet = yield* Wallet.Tag;
+      const stateRef = yield* Ref.make<DeployState>({
+        unsafeDeployedModules: new Map(),
+      });
+
+      return new DeployLive(descriptor, stateRef, wallet) as Context.Tag.Service<Tag>;
+    });
+
+    return Layer.effect(moduleTag, makeLayer);
+  }
+
+  // TODO: SHOULD INTRODUCE A METHOD TO ATTACH TWO DEPLOY MODULES TOGETHER
   deploy<Tag extends Context.Tag<any, T.DeployedContract>>(
     tag: Context.Tag.Identifier<Tag> extends R0 ? Tag : never,
   ): Effect.Effect<
@@ -271,14 +288,15 @@ class DeployModuleApiLive<R0, Tag extends Context.Tag<any, DeployShape<R0>>>
     });
   }
 
-  get layer(): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
+  sharedLayer<R1>(
+    underlying: DeployShape<R1>,
+  ): Layer.Layer<Context.Tag.Identifier<Tag>, never, Wallet.Tag> {
     const { moduleTag, descriptor } = this;
 
     const makeLayer = Effect.gen(function* () {
       const wallet = yield* Wallet.Tag;
-      const stateRef = yield* Ref.make<DeployState>({
-        unsafeDeployedModules: new Map(),
-      });
+
+      const stateRef = underlying[privateApiSymbol].stateRef;
 
       return new DeployLive(descriptor, stateRef, wallet) as Context.Tag.Service<Tag>;
     });

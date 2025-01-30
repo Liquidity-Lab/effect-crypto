@@ -1,18 +1,18 @@
 import { Context, Effect, Equal, Layer, Option, Order } from "effect";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Assertable from "~/assertable.js";
-import * as Chain from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import * as internal from "~/token.internal.js";
+import * as Adt from "./adt.js";
+import * as Assertable from "./assertable.js";
+import * as Chain from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import * as internal from "./token.internal.js";
 
 export {
   TokenType, // TODO: rename to Type
   TokensTag as TxTag,
   TokensTag as Tag,
-} from "~/token.internal.js";
+} from "./token.internal.js";
 
 /**
  * Token ADT
@@ -226,6 +226,7 @@ export declare type TokensDescriptor = {
   readonly ETH: Token<internal.TokenType.Native>;
   readonly WETH: Token<internal.TokenType.Wrapped>;
   readonly USDC: Token<internal.TokenType.ERC20>;
+  readonly USDT: Token<internal.TokenType.ERC20>;
 };
 
 export interface TokenVolume<T extends internal.TokenType> extends Assertable.Assertable {
@@ -269,7 +270,7 @@ export type NativeTokenVolume = TokenVolume<internal.TokenType.Native>;
  * Creates a new token volume instance interpreting the provided value as units
  *
  * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const BTC: Token.AnyToken = ???;
  *   const volume: AnyTokenVolume = TokenVolumeUnits(BTC, "70000.015");
@@ -287,7 +288,7 @@ export const TokenVolumeUnits: <T extends internal.TokenType>(
  * Creates a new token volume instance interpreting the provided value as unscaled
  *
  * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   // Assume USDT has 6 decimals
  *   const USDT: Token.AnyToken = ???;
@@ -306,7 +307,7 @@ export const TokenVolumeUnscaled: <T extends internal.TokenType>(
  * Creates a new token volume instance with zero value
  *
  * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const USDT: Token.AnyToken = ???;
  *   const volume: AnyTokenVolume = TokenVolumeZero(USDT); // 0 USDT
@@ -317,7 +318,7 @@ export const TokenVolumeUnscaled: <T extends internal.TokenType>(
 export const TokenVolumeZero: <T extends internal.TokenType>(token: Token<T>) => TokenVolume<T> =
   internal.makeTokenVolumeZero;
 
-export interface TokenPrice<T extends internal.TokenType> {
+export interface TokenPrice<T extends internal.TokenType> extends Assertable.Assertable {
   readonly baseCurrency: Token<T>;
   readonly quoteCurrency: Token<T>;
 
@@ -373,6 +374,11 @@ export interface TokenPrice<T extends internal.TokenType> {
   readonly asFlippedSqrtX96: Option.Option<bigint>;
 
   /**
+   * Returns unscaled price
+   */
+  readonly asUnscaled: bigint;
+
+  /**
    * Returns amount of another token, based on the price ratio
    *
    * @example
@@ -394,7 +400,7 @@ export interface TokenPrice<T extends internal.TokenType> {
 /**
  * Creates a new token price instance interpreting the provided value as units
  * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const BTC: Token.AnyToken = ???;
  *   const USDT: Token.AnyToken = ???;
@@ -415,7 +421,7 @@ export const TokenPriceUnits: <T extends internal.TokenType>(
  * encoded in Q96.64 number format
  *
  * @example
- *   import { Token } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   // Assume USDT has 6 decimals
  *   const USDT: Token.AnyToken = ???;

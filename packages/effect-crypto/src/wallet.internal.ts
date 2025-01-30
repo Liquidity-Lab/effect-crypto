@@ -14,14 +14,14 @@ import {
   Wallet as UnderlyingWallet,
 } from "ethers";
 
-import * as Adt from "~/adt.js";
-import * as Chain from "~/chain.js";
-import * as Error from "~/error.js";
-import * as Signature from "~/signature.js";
-import * as Token from "~/token.js";
-import * as EffectUtils from "~/utils/effectUtils.js";
-import * as FunctionUtils from "~/utils/functionUtils.js";
-import type * as W from "~/wallet.js";
+import * as Adt from "./adt.js";
+import * as Chain from "./chain.js";
+import * as Error from "./error.js";
+import * as Signature from "./signature.js";
+import * as Token from "./token.js";
+import * as EffectUtils from "./utils/effectUtils.js";
+import * as FunctionUtils from "./utils/functionUtils.js";
+import type * as W from "./wallet.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/wallet#PrivateApi");
 
@@ -48,7 +48,7 @@ interface WalletShape {
 /**
  * Wallet Tag to be used in the context:
  * @example
- *   import { Wallet } from "~/com/liquidity_lab/crypto/blockchain";
+ *   import { Wallet } from "./com/liquidity_lab/crypto/blockchain";
  *
  *   const effect: Effect.Effect<any, never, Wallet.Tag> = ...
  */
@@ -108,6 +108,21 @@ function getBalanceImpl<T extends Token.TokenType.ERC20 | Token.TokenType.Wrappe
     ).pipe(Signature.signVia(api.signer));
 
     return balance;
+  });
+}
+
+export const transact = FunctionUtils.withOptionalServiceApi(WalletTag, transactImpl).value;
+
+function transactImpl(
+  { [privateApiSymbol]: api }: WalletShape,
+  transactionRequest: TransactionRequest,
+): Effect.Effect<TransactionReceipt, Error.BlockchainError | Error.TransactionFailedError> {
+  return Effect.gen(function* () {
+    const transactionResponse: TransactionResponse = yield* Error.catchBlockchainErrors(
+      Effect.promise(() => api.signer.sendTransaction(transactionRequest)),
+    );
+
+    return yield* awaitForTransaction(transactionResponse);
   });
 }
 
