@@ -5,6 +5,9 @@ import { Arbitrary } from "fast-check";
 import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as Token from "./token.js";
+// it conflicts with the T as generic type parameter
+// @see https://github.com/typescript-eslint/typescript-eslint/issues/10746
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type * as T from "./tokenVolume.js";
 
 class TokenVolumeLive<T extends Token.TokenType> implements T.TokenVolume<T> {
