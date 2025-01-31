@@ -40,8 +40,7 @@ export function makeFatalErrorFromUnknown(cause: unknown): T.FatalError {
   return makeFatalErrorFromString(`Unknown error happened: ${JSON.stringify(cause)}`);
 }
 
-const addressTypeIdSymbol = Symbol("com/liquidity_lab/effect-crypto/adt#Address");
-export type AddressTypeId = typeof addressTypeIdSymbol;
+export type AddressTypeId = "com/liquidity_lab/effect-crypto/adt#Address";
 
 const addressConstructor = Brand.nominal<T.Address>();
 
@@ -80,7 +79,7 @@ function validateAndParseAddress(address: string): string {
   try {
     return getAddress(address);
   } catch (error) {
-    throw new Error(`${address} is not a valid address.`);
+    throw new Error(`${address} is not a valid address.`, { cause: error });
   }
 }
 

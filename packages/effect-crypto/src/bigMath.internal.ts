@@ -14,8 +14,7 @@ const LN2 = Big("0.6931471805599453094172321214581765680755001343602552541206800
 
 const MATH_CONTEXT_HIGH_PRECISION = new MathContext(192, RoundingMode.HALF_UP);
 
-const ratioTypeIdSymbol = Symbol("com/liquidity_lab/effect-crypto/bigMath#Ratio");
-export type RatioTypeId = typeof ratioTypeIdSymbol;
+export type RatioTypeId = "com/liquidity_lab/effect-crypto/bigMath#Ratio";
 
 export const makeRatio = Brand.refined<T.Ratio>(
   (raw) => raw.greaterThan(0n),
@@ -28,10 +27,7 @@ export function asNumeratorAndDenominatorImpl(ratio: BigDecimal): [bigint, bigin
   return [ratio.unscaledValue(), denominator === 0n ? 1n : denominator];
 }
 
-const nonNegativeDecimalTypeIdSymbol = Symbol(
-  "com/liquidity_lab/effect-crypto/bigMath#NonNegativeDecimal",
-);
-export type NonNegativeDecimalTypeId = typeof nonNegativeDecimalTypeIdSymbol;
+export type NonNegativeDecimalTypeId = "com/liquidity_lab/effect-crypto/bigMath#NonNegativeDecimal";
 
 export const makeNonNegativeDecimal = Brand.refined<T.NonNegativeDecimal>(
   (raw) => raw.greaterThanOrEquals(0),

@@ -1,8 +1,0 @@
-**/jest.config.js
-**/*.compileerror.spec.ts
-**/dist/
-packages/localnet/ignition/*
-packages/localnet/test/*
-
-packages/localnet/*
-packages/uniswap/*

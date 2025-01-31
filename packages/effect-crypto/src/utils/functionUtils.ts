@@ -19,7 +19,6 @@ import { Context, Effect } from "effect";
  * @param fn
  */
 export function withOptionalService<
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   Service extends Context.Tag<any, any>,
   Args extends unknown[],
   A,
@@ -72,7 +71,6 @@ export function withOptionalService<
 }
 
 type WithOptionalServiceOps<
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   Service extends Context.Tag<any, any>,
   Args extends unknown[],
   A,
@@ -83,7 +81,6 @@ type WithOptionalServiceOps<
     (...args: Args): Effect.Effect<A, E, Context.Tag.Identifier<Service> | R>;
     (service: Context.Tag.Service<Service>, ...args: Args): Effect.Effect<A, E, R>;
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   contramapEvalService<NewService extends Context.Tag<any, any>, E1 = never, R1 = never>(
     cF: (
       newService: Context.Tag.Service<NewService>,
@@ -116,7 +113,6 @@ type WithOptionalServiceOps<
  * @param fn
  */
 export function withOptionalServiceApi<
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   Service extends Context.Tag<any, any>,
   Args extends unknown[],
   A,
@@ -159,7 +155,6 @@ export function withOptionalServiceApi<
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function contramapEvalService<NewService extends Context.Tag<any, any>, E1, R1>(
     cF: (
       newService: Context.Tag.Service<NewService>,
