@@ -8,10 +8,12 @@ import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contract
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
+import * as BigMath from "./bigMath.js";
 import * as Chain from "./chain.js";
 import * as Error from "./error.js";
 import * as Signature from "./signature.js";
 import type * as T from "./token.js";
+import * as TokenVolume from "./tokenVolume.js";
 import * as EffectUtils from "./utils/effectUtils.js";
 import * as FunctionUtils from "./utils/functionUtils.js";
 
@@ -265,58 +267,11 @@ anyTokenInputTest(fakeToken<TokenType.Native>());
 anyTokenInputTest(fakeToken<TokenType.ERC20>());
 */
 
-class TokenVolumeLive<T extends TokenType> implements T.TokenVolume<T> {
-  readonly token: T.Token<T>;
-  readonly value: BigDecimal;
-
-  constructor(token: T.Token<T>, value: BigDecimal) {
-    this.token = token;
-    this.value = value;
-  }
-
-  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
-    return Assertable.AssertableEntity({
-      token: Assertable.asAssertableEntity(this.token),
-      value: this.asUnits,
-    });
-  }
-
-  get asUnits(): string {
-    return this.value.setScale(this.token.decimals, RoundingMode.FLOOR).toPlainString();
-  }
-
-  get asUnscaled(): bigint {
-    return this.value.setScale(this.token.decimals, RoundingMode.FLOOR).unscaledValue();
-  }
-
-  get prettyPrint(): string {
-    return `${this.asUnits} ${this.token.symbol || "token"}`;
-  }
-}
-
-export function makeTokenVolumeFromUnits<T extends TokenType>(
-  token: T.Token<T>,
-  units: BigNumberish,
-): T.TokenVolume<T> {
-  return new TokenVolumeLive(token, Big(units)) as T.TokenVolume<T>;
-}
-
-export function makeTokenVolumeFromUnscaled<T extends TokenType>(
-  token: T.Token<T>,
-  unscaled: bigint,
-): T.TokenVolume<T> {
-  return new TokenVolumeLive(token, Big(unscaled, token.decimals)) as T.TokenVolume<T>;
-}
-
-export function makeTokenVolumeZero<T extends TokenType>(token: T.Token<T>): T.TokenVolume<T> {
-  return makeTokenVolumeFromUnscaled(token, 0n);
-}
-
 class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
   static mc: MathContext = MC((28 + 19) * 2, RoundingMode.FLOOR);
   readonly baseCurrency: T.Token<T>;
   readonly quoteCurrency: T.Token<T>;
-  readonly value: BigDecimal;
+  readonly ratio: BigMath.Ratio;
 
   /**
    * price = baseCurrency / quoteCurrency,
@@ -324,7 +279,7 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
    * @example
    *   "BTCUSD" -> 70000 USD
    */
-  constructor(baseCurrency: T.Token<T>, quoteCurrency: T.Token<T>, value: BigDecimal) {
+  constructor(baseCurrency: T.Token<T>, quoteCurrency: T.Token<T>, ratio: BigMath.Ratio) {
     // tokens must be sorted
     if (!Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency)) {
       throw new RuntimeException(
@@ -334,7 +289,7 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
 
     this.baseCurrency = baseCurrency;
     this.quoteCurrency = quoteCurrency;
-    this.value = value;
+    this.ratio = ratio;
 
     // node_modules/@uniswap/sdk-core/dist/utils/sqrt.d.ts
     // const initialSqrtPrice = encodeSqrtRatioX96() parseUnits("4000", USDC.decimals) *; // TODO: convert to sqrt price
@@ -354,28 +309,28 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
   }
 
   get asUnits(): string {
-    return this.value.setScale(this.token1.decimals, RoundingMode.FLOOR).toPlainString();
+    return this.ratio.setScale(this.token1.decimals, RoundingMode.FLOOR).toPlainString();
   }
 
   get asFlippedUnits(): string {
     return Big(1)
-      .divideWithMathContext(this.value, TokenPriceLive.mc)
+      .divideWithMathContext(this.ratio, TokenPriceLive.mc)
       .setScale(this.token0.decimals, RoundingMode.FLOOR)
       .toPlainString();
   }
 
   get asSqrtX96(): Option.Option<bigint> {
-    return TokenPriceLive.convertToQ64x96(this.value.sqrt(TokenPriceLive.mc));
+    return TokenPriceLive.convertToQ64x96(this.ratio.sqrt(TokenPriceLive.mc));
   }
 
   get asFlippedSqrtX96(): Option.Option<bigint> {
     return TokenPriceLive.convertToQ64x96(
-      Big(1).divideWithMathContext(this.value, TokenPriceLive.mc).sqrt(TokenPriceLive.mc),
+      Big(1).divideWithMathContext(this.ratio, TokenPriceLive.mc).sqrt(TokenPriceLive.mc),
     );
   }
 
   get asUnscaled(): bigint {
-    return this.value.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
+    return this.ratio.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
   }
 
   get prettyPrint(): string {
@@ -401,35 +356,33 @@ class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
     return token.address == this.token0.address || token.address == this.token1.address;
   }
 
-  projectAmount(inputAmount: T.TokenVolume<T>): Option.Option<T.TokenVolume<T>> {
+  projectAmount(
+    inputAmount: TokenVolume.TokenVolume<T>,
+  ): Option.Option<TokenVolume.TokenVolume<T>> {
     switch (inputAmount.token.address) {
       case this.token0.address:
-        return Option.some(
-          makeTokenVolumeFromUnscaled(
-            this.token1,
-            this.value
-              .multiply(Big(inputAmount.asUnscaled, inputAmount.token.decimals))
-              .setScale(this.token1.decimals, RoundingMode.FLOOR)
-              .unscaledValue(),
-          ),
+        return TokenVolume.tokenVolumeFromUnscaled(
+          this.token1,
+          this.ratio
+            .multiply(inputAmount.underlyingValue)
+            .setScale(this.token1.decimals, RoundingMode.FLOOR)
+            .unscaledValue(),
         );
       case this.token1.address:
-        return Option.some(
-          makeTokenVolumeFromUnscaled(
-            this.token0,
-            Big(inputAmount.asUnscaled, inputAmount.token.decimals)
-              .divideWithMathContext(this.value, TokenPriceLive.mc)
-              .setScale(this.token0.decimals, RoundingMode.FLOOR)
-              .unscaledValue(),
-          ),
+        return TokenVolume.tokenVolumeFromUnscaled(
+          this.token0,
+          inputAmount.underlyingValue
+            .divideWithMathContext(this.ratio, TokenPriceLive.mc)
+            .setScale(this.token0.decimals, RoundingMode.FLOOR)
+            .unscaledValue(),
         );
       default:
         return Option.none();
     }
   }
 
-  map(f: (a: BigDecimal) => BigDecimal): TokenPriceLive<T> {
-    return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.value));
+  map(f: (a: BigMath.Ratio) => BigMath.Ratio): TokenPriceLive<T> {
+    return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.ratio));
   }
 }
 
@@ -437,23 +390,36 @@ export function makeTokenPriceFromUnits<TBase extends T.TokenType, TQuote extend
   baseCurrency: T.Token<TBase>,
   quoteCurrency: T.Token<TQuote>,
   valueInQuoteCurrency: string,
+): Option.Option<T.TokenPrice<TBase | TQuote>> {
+  return Option.map(
+    BigMath.Ratio.option(Big(valueInQuoteCurrency, undefined, TokenPriceLive.mc)),
+    (ratio) => makeTokenPriceFromRatio(baseCurrency, quoteCurrency, ratio),
+  );
+}
+
+export function makeTokenPriceFromRatio<TBase extends T.TokenType, TQuote extends T.TokenType>(
+  baseCurrency: T.Token<TBase>,
+  quoteCurrency: T.Token<TQuote>,
+  ratio: BigMath.Ratio,
 ): T.TokenPrice<TBase | TQuote> {
   const isInverted = !Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency);
   const [token0, token1] =
     isInverted ? [quoteCurrency, baseCurrency] : [baseCurrency, quoteCurrency];
-  const providedValue: BigDecimal = Big(valueInQuoteCurrency, undefined, TokenPriceLive.mc);
 
-  return new TokenPriceLive<TBase | TQuote>(
-    token0,
-    token1,
-    isInverted ? Big(1).divideWithMathContext(providedValue, TokenPriceLive.mc) : providedValue,
-  ) as T.TokenPrice<TBase | TQuote>;
+  const finalRatio = BigMath.Ratio(
+    isInverted ? Big(1).divideWithMathContext(ratio, TokenPriceLive.mc) : ratio,
+  );
+
+  return new TokenPriceLive<TBase | TQuote>(token0, token1, finalRatio) as T.TokenPrice<
+    TBase | TQuote
+  >;
 }
 
+// TODO: move it to SqrtPrice
 export function makeTokenPriceFromSqrtX96<TBase extends TokenType, TQuote extends TokenType>(
   baseCurrency: T.Token<TBase>,
   quoteCurrency: T.Token<TQuote>,
-  sqrtX96: BigNumberish,
+  sqrtX96: BigNumberish, // TODO: get rid of BigNumberish and introduce q64x96 type
 ): T.TokenPrice<TBase | TQuote> {
   const isInverted = !Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency);
   const [token0, token1] =
@@ -465,11 +431,11 @@ export function makeTokenPriceFromSqrtX96<TBase extends TokenType, TQuote extend
     TokenPriceLive.mc,
   ).pow(2);
 
-  return new TokenPriceLive<TBase | TQuote>(
-    token0,
-    token1,
+  const ratio = BigMath.Ratio(
     isInverted ? Big(1).divideWithMathContext(providedValue, TokenPriceLive.mc) : providedValue,
-  ) as T.TokenPrice<TBase | TQuote>;
+  );
+
+  return new TokenPriceLive<TBase | TQuote>(token0, token1, ratio) as T.TokenPrice<TBase | TQuote>;
 }
 
 interface TokensPrivateApi {
@@ -554,7 +520,7 @@ export const approveTransfer = FunctionUtils.withOptionalServiceApi(
 
 function approveTransferImpl(
   { [privateApiSymbol]: api }: TokensShape,
-  volume: T.Erc20LikeTokenVolume,
+  volume: TokenVolume.Erc20LikeTokenVolume,
   to: Adt.Address,
 ): Effect.Effect<TransactionResponse, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
   return Effect.gen(function* () {
@@ -565,7 +531,7 @@ function approveTransferImpl(
     );
     const contract = yield* Signature.signed(contractOps);
     const approvalTx: TransactionResponse = yield* Effect.promise(() =>
-      contract.approve(to, volume.asUnscaled),
+      contract.approve(to, TokenVolume.asUnscaled(volume)),
     );
 
     return approvalTx;
@@ -576,7 +542,7 @@ export const deposit = FunctionUtils.withOptionalServiceApi(TokensTag, depositIm
 
 function depositImpl(
   { [privateApiSymbol]: api }: TokensShape,
-  volume: T.WrappedTokenVolume,
+  volume: TokenVolume.WrappedTokenVolume,
 ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag> {
   const originalToken = volume.token.meta.originalToken;
 
@@ -601,7 +567,7 @@ function depositImpl(
     const transactionRequest = {
       to: volume.token.address,
       data: tokenContract.interface.encodeFunctionData("deposit", []),
-      value: `0x${volume.asUnscaled.toString(16)}`,
+      value: `0x${TokenVolume.asUnscaled(volume).toString(16)}`,
     };
 
     return transactionRequest;
@@ -615,7 +581,7 @@ export const transferNative = FunctionUtils.withOptionalServiceApi(
 
 function transferNativeImpl(
   { [privateApiSymbol]: api }: TokensShape,
-  volume: T.NativeTokenVolume,
+  volume: TokenVolume.NativeTokenVolume,
   to: Adt.Address,
 ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag> {
   return Effect.gen(function* () {
@@ -623,7 +589,7 @@ function transferNativeImpl(
 
     return {
       to,
-      value: `0x${volume.asUnscaled.toString(16)}`,
+      value: `0x${TokenVolume.asUnscaled(volume).toString(16)}`,
     };
   });
 }
@@ -638,7 +604,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   token: T.Token<T>,
   address: Adt.Address,
 ): Effect.Effect<
-  Option.Option<T.TokenVolume<T>>,
+  Option.Option<TokenVolume.TokenVolume<T>>,
   Adt.FatalError | Error.BlockchainError,
   Signature.TxTag
 > {
@@ -655,7 +621,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
       tokenContract,
     );
 
-    return Option.some(makeTokenVolumeFromUnscaled(token, BigInt(balance)));
+    return TokenVolume.tokenVolumeFromUnscaled(token, BigInt(balance));
   });
 }
 
@@ -666,7 +632,7 @@ export const transferErc20Like = FunctionUtils.withOptionalServiceApi(
 
 function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   { [privateApiSymbol]: api }: TokensShape,
-  volume: T.TokenVolume<T>,
+  volume: TokenVolume.TokenVolume<T>,
   to: Adt.Address,
   from: Adt.Address,
 ): Effect.Effect<TransactionRequest, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
@@ -679,7 +645,7 @@ function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
     const tokenContract = yield* Signature.signed(contractOps);
     const transferCallData = tokenContract.interface.encodeFunctionData("transfer", [
       to,
-      volume.asUnscaled,
+      TokenVolume.asUnscaled(volume),
     ]);
     const transactionRequest: TransactionRequest = {
       data: transferCallData,
@@ -711,5 +677,14 @@ function invariantNativeToken(
         ),
       );
     }
+  });
+}
+
+export function tokenPriceGen<T0 extends T.TokenType, T1 extends T.TokenType>(
+  token0: T.Token<T0>,
+  token1: T.Token<T1>,
+) {
+  return BigMath.ratioGen().map((ratio) => {
+    return makeTokenPriceFromRatio(token0, token1, ratio);
   });
 }

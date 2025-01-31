@@ -15,6 +15,7 @@ import * as Chain from "./chain.js";
 import * as Error from "./error.js";
 import * as Signature from "./signature.js";
 import * as Token from "./token.js";
+import * as TokenVolume from "./tokenVolume.js";
 import * as internal from "./wallet.internal.js";
 
 export { WalletTag as Tag } from "./wallet.internal.js";
@@ -117,7 +118,7 @@ export const transact: {
  */
 export const transferToken: {
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
-    volume: Token.TokenVolume<T>,
+    volume: TokenVolume.TokenVolume<T>,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionReceipt,
@@ -126,7 +127,7 @@ export const transferToken: {
   >;
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.WalletTag>,
-    volume: Token.TokenVolume<T>,
+    volume: TokenVolume.TokenVolume<T>,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionReceipt,
@@ -149,7 +150,7 @@ export const transferToken: {
  */
 export const wrap: {
   (
-    volume: Token.TokenVolume<Token.TokenType.Wrapped>,
+    volume: TokenVolume.TokenVolume<Token.TokenType.Wrapped>,
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
@@ -157,7 +158,7 @@ export const wrap: {
   >;
   (
     wallet: Context.Tag.Service<internal.WalletTag>,
-    volume: Token.TokenVolume<Token.TokenType.Wrapped>,
+    volume: TokenVolume.TokenVolume<Token.TokenType.Wrapped>,
   ): Effect.Effect<
     TransactionReceipt,
     Adt.FatalError | Error.BlockchainError | Error.TransactionFailedError,
@@ -175,7 +176,7 @@ export const getBalance: {
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     token: Token.Token<T>,
   ): Effect.Effect<
-    Option.Option<Token.TokenVolume<T>>,
+    Option.Option<TokenVolume.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
     Token.TxTag | internal.WalletTag
   >;
@@ -183,7 +184,7 @@ export const getBalance: {
     wallet: Context.Tag.Service<internal.WalletTag>,
     token: Token.Token<T>,
   ): Effect.Effect<
-    Option.Option<Token.TokenVolume<T>>,
+    Option.Option<TokenVolume.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
     Token.TxTag | Chain.Tag
   >;
@@ -199,7 +200,7 @@ export const getBalance: {
  */
 export const transferNative: {
   (
-    volume: Token.TokenVolume<Token.TokenType.Native>,
+    volume: TokenVolume.TokenVolume<Token.TokenType.Native>,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionReceipt,
@@ -208,7 +209,7 @@ export const transferNative: {
   >;
   (
     wallet: Context.Tag.Service<internal.WalletTag>,
-    volume: Token.TokenVolume<Token.TokenType.Native>,
+    volume: TokenVolume.TokenVolume<Token.TokenType.Native>,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionReceipt,
@@ -264,7 +265,7 @@ export interface InsufficientFundsError {
   readonly _tag: "WalletError";
   readonly _kind: "InsufficientFundsError";
 
-  readonly requiredVolume: Token.AnyTokenVolume;
+  readonly requiredVolume: TokenVolume.AnyTokenVolume;
   readonly walletAddress: Adt.Address;
 
   prettyPrint(): string;
@@ -284,7 +285,7 @@ export const isInsufficientFundsError = (err: unknown): err is InsufficientFunds
  * @constructor
  */
 export const InsufficientFundsError = (
-  requiredVolume: Token.AnyTokenVolume,
+  requiredVolume: TokenVolume.AnyTokenVolume,
   walletAddress: Adt.Address,
 ): InsufficientFundsError => {
   return new internal.InsufficientFundsErrorLive(requiredVolume, walletAddress);

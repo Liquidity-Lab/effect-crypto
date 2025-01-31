@@ -1,18 +1,17 @@
 import { Context, Effect, Equal, Layer, Option, Order } from "effect";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
+import { Arbitrary } from "fast-check";
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
+import * as BigMath from "./bigMath.js";
 import * as Chain from "./chain.js";
 import * as Error from "./error.js";
 import * as Signature from "./signature.js";
 import * as internal from "./token.internal.js";
+import * as TokenVolume from "./tokenVolume.js";
 
-export {
-  TokenType, // TODO: rename to Type
-  TokensTag as TxTag,
-  TokensTag as Tag,
-} from "./token.internal.js";
+export { TokenType, TokensTag as TxTag, TokensTag as Tag } from "./token.internal.js";
 
 /**
  * Token ADT
@@ -229,98 +228,11 @@ export declare type TokensDescriptor = {
   readonly USDT: Token<internal.TokenType.ERC20>;
 };
 
-export interface TokenVolume<T extends internal.TokenType> extends Assertable.Assertable {
-  readonly token: Token<T>;
-
-  /**
-   * Formats token amount as units string keeping [[token.decimals]] precision.
-   * For example:
-   * @example {{
-   *   val BTC: Token = ???;
-   *
-   *   // "70000.015"
-   *   TokenVolume.fromUnits(BTC, "70000.015").asUnits
-   * }}
-   */
-  readonly asUnits: string;
-
-  /**
-   * Returns unscaled token amount.
-   * For example:
-   * @example {{
-   *   val USDT: Token = ???; // 5 decimals
-   *
-   *   // 70000.00015
-   *   TokenVolume.fromUnits(USDT, "70000.015").asUnscaled
-   * }}
-   */
-  readonly asUnscaled: bigint;
-
-  readonly prettyPrint: string;
-}
-
-export type AnyTokenVolume = TokenVolume<internal.TokenType>;
-export type Erc20LikeTokenVolume = TokenVolume<
-  internal.TokenType.ERC20 | internal.TokenType.Wrapped
->;
-export type WrappedTokenVolume = TokenVolume<internal.TokenType.Wrapped>;
-export type NativeTokenVolume = TokenVolume<internal.TokenType.Native>;
-
-/**
- * Creates a new token volume instance interpreting the provided value as units
- *
- * @example
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   const BTC: Token.AnyToken = ???;
- *   const volume: AnyTokenVolume = TokenVolumeUnits(BTC, "70000.015");
- *
- * @param token
- * @param units
- * @constructor
- */
-export const TokenVolumeUnits: <T extends internal.TokenType>(
-  token: Token<T>,
-  units: BigNumberish,
-) => TokenVolume<T> = internal.makeTokenVolumeFromUnits;
-
-/**
- * Creates a new token volume instance interpreting the provided value as unscaled
- *
- * @example
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   // Assume USDT has 6 decimals
- *   const USDT: Token.AnyToken = ???;
- *   const volume: AnyTokenVolume = TokenVolumeUnscaled(USDT, 70000n * 10n ** 6n); // 70000 USDT
- *
- * @param token
- * @param unscaled
- * @constructor
- */
-export const TokenVolumeUnscaled: <T extends internal.TokenType>(
-  token: Token<T>,
-  unscaled: bigint,
-) => TokenVolume<T> = internal.makeTokenVolumeFromUnscaled;
-
-/**
- * Creates a new token volume instance with zero value
- *
- * @example
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   const USDT: Token.AnyToken = ???;
- *   const volume: AnyTokenVolume = TokenVolumeZero(USDT); // 0 USDT
- *
- * @param token
- * @constructor
- */
-export const TokenVolumeZero: <T extends internal.TokenType>(token: Token<T>) => TokenVolume<T> =
-  internal.makeTokenVolumeZero;
-
 export interface TokenPrice<T extends internal.TokenType> extends Assertable.Assertable {
   readonly baseCurrency: Token<T>;
   readonly quoteCurrency: Token<T>;
+
+  readonly ratio: BigMath.Ratio;
 
   /**
    * Returns token0, alias for baseCurrency
@@ -390,7 +302,7 @@ export interface TokenPrice<T extends internal.TokenType> extends Assertable.Ass
    *     Volume.fromUnits(USDT, "70000.015")
    *   )
    */
-  projectAmount(inputAmount: TokenVolume<T>): Option.Option<TokenVolume<T>>;
+  projectAmount(inputAmount: TokenVolume.TokenVolume<T>): Option.Option<TokenVolume.TokenVolume<T>>;
 
   contains(token: Token<internal.TokenType>): boolean;
 
@@ -413,8 +325,33 @@ export interface TokenPrice<T extends internal.TokenType> extends Assertable.Ass
 export const TokenPriceUnits: <T extends internal.TokenType>(
   baseCurrency: Token<T>,
   quoteCurrency: Token<T>,
-  valueInQuoteCurrency: string,
-) => TokenPrice<T> = internal.makeTokenPriceFromUnits;
+  valueInQuoteCurrency: string, // TODO: replace with BigDecimal or Ratio
+) => Option.Option<TokenPrice<T>> = internal.makeTokenPriceFromUnits; // TODO: this is not constructor
+
+/**
+ * Creates a new token price instance interpreting the provided value as ratio
+ *
+ * @example
+ *   import { Option } from "effect";
+ *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
+ *   import { BigMath } from "./com/liquidity_lab/crypto/blockchain";
+ *
+ *   const BTC: Token.AnyToken = ???;
+ *   const USDT: Token.AnyToken = ???;
+ *
+ *   // "70000.00015 USDT" -> "1 BTC"
+ *   Option.map(
+ *     BigMath.ratio(70000n, 10000015n).option,
+ *     ratio => TokenPriceRatio(BTC, USDT, ratio)
+ *   )
+ *
+ * @constructor
+ */
+export const TokenPriceRatio: <T extends internal.TokenType>(
+  baseCurrency: Token<T>,
+  quoteCurrency: Token<T>,
+  ratio: BigMath.Ratio,
+) => TokenPrice<T> = internal.makeTokenPriceFromRatio;
 
 /**
  * Creates a new token price instance interpreting the provided value as sqrt of price,
@@ -461,7 +398,7 @@ export const makeTokensFromDescriptor: (
  */
 export const approveTransfer: {
   (
-    volume: Erc20LikeTokenVolume,
+    volume: TokenVolume.Erc20LikeTokenVolume,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionResponse,
@@ -470,7 +407,7 @@ export const approveTransfer: {
   >;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
-    volume: Erc20LikeTokenVolume,
+    volume: TokenVolume.Erc20LikeTokenVolume,
     to: Adt.Address,
   ): Effect.Effect<
     TransactionResponse,
@@ -486,7 +423,7 @@ export const approveTransfer: {
  */
 export const deposit: {
   (
-    volume: WrappedTokenVolume,
+    volume: TokenVolume.WrappedTokenVolume,
   ): Effect.Effect<
     TransactionRequest,
     Adt.FatalError,
@@ -494,7 +431,7 @@ export const deposit: {
   >;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
-    volume: WrappedTokenVolume,
+    volume: TokenVolume.WrappedTokenVolume,
   ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.Tag>;
 } = internal.deposit;
 
@@ -506,12 +443,12 @@ export const deposit: {
  */
 export const transferNative: {
   (
-    volume: NativeTokenVolume,
+    volume: TokenVolume.NativeTokenVolume,
     to: Adt.Address,
   ): Effect.Effect<TransactionRequest, Adt.FatalError, internal.TokensTag | Signature.TxTag>;
   (
     tokens: Context.Tag.Service<internal.TokensTag>,
-    volume: NativeTokenVolume,
+    volume: TokenVolume.NativeTokenVolume,
     to: Adt.Address,
   ): Effect.Effect<TransactionRequest, Adt.FatalError, Signature.TxTag | Chain.Tag>;
 } = internal.transferNative;
@@ -527,7 +464,7 @@ export const balanceOfErc20Like: {
     token: Token<T>,
     address: Adt.Address,
   ): Effect.Effect<
-    Option.Option<TokenVolume<T>>,
+    Option.Option<TokenVolume.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
     Signature.TxTag | internal.TokensTag
   >;
@@ -536,7 +473,7 @@ export const balanceOfErc20Like: {
     token: Token<T>,
     address: Adt.Address,
   ): Effect.Effect<
-    Option.Option<TokenVolume<T>>,
+    Option.Option<TokenVolume.TokenVolume<T>>,
     Adt.FatalError | Error.BlockchainError,
     Signature.TxTag | Chain.Tag
   >;
@@ -550,7 +487,7 @@ export const balanceOfErc20Like: {
  */
 export const transferErc20Like: {
   <T extends internal.TokenType.ERC20 | internal.TokenType.Wrapped>(
-    volume: TokenVolume<T>,
+    volume: TokenVolume.TokenVolume<T>,
     to: Adt.Address,
     from: Adt.Address,
   ): Effect.Effect<
@@ -560,7 +497,7 @@ export const transferErc20Like: {
   >;
   <T extends internal.TokenType.ERC20 | internal.TokenType.Wrapped>(
     wallet: Context.Tag.Service<internal.TokensTag>,
-    volume: TokenVolume<T>,
+    volume: TokenVolume.TokenVolume<T>,
     to: Adt.Address,
     from: Adt.Address,
   ): Effect.Effect<
@@ -569,3 +506,13 @@ export const transferErc20Like: {
     Signature.TxTag | Chain.Tag
   >;
 } = internal.transferErc20Like;
+
+/**
+ * Generates token price for the given pair of tokens
+ */
+export const tokenPriceGen: {
+  <T0 extends internal.TokenType, T1 extends internal.TokenType>(
+    token0: Token<T0>,
+    token1: Token<T1>,
+  ): Arbitrary<TokenPrice<T0 | T1>>;
+} = internal.tokenPriceGen;
