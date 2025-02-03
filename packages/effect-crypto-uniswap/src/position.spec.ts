@@ -286,6 +286,10 @@ test(
   }),
 );
 
+// TODO: 1. sqrtPrice is important
+// TODO: 2. We should be able to obtain Tick from price (and sqrtPrice) and vice versa
+// TODO: 3. Tick math is important. Implement DSL for it (nearest usable tick, etc)
+// TODO: 4. Amount should be related to TokenVolume: we should be able to convert it to token volume
 function testPositionDraft(
   currentSqrtRatioUnscaled: BigMath.Ratio,
   params: {

@@ -1,7 +1,7 @@
 import { Big, BigDecimal, MathContext } from "bigdecimal.js";
 import { Effect, Either, Option } from "effect";
 
-import { BigMath, Token, Wallet } from "@liquidity_lab/effect-crypto";
+import {BigMath, Price, Token, Wallet} from "@liquidity_lab/effect-crypto";
 import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
@@ -103,7 +103,7 @@ export function calculatePositionDraftFromAmounts(
     tickUpper: Tick.Tick,
 ) {
   // It is safe to construct a ratio from the sqrt of the price since we know that the value is always positive
-  const sqrtPrice = BigMath.Ratio(Big(slot0.price.asUnits).sqrt(Internal.mathContext));
+  const sqrtPrice = Price.asSqrt(slot0.price);
   const sqrtRatioA = Tick.getSqrtRatio(tickLower);
   const sqrtRatioB = Tick.getSqrtRatio(tickUpper);
 

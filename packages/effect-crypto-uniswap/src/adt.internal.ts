@@ -88,5 +88,5 @@ function amountGen(constraints: { min?: bigint; max?: bigint }): Arbitrary<BigDe
 }
 
 function verifyAmount(rawAmount: BigDecimal): boolean {
-  return rawAmount.greaterThanOrEquals(0);// && rawAmount.unscaledValue() <= MAX_UINT256;
+  return rawAmount.greaterThanOrEquals(0) && rawAmount.toBigInt() <= MAX_UINT256;
 }
