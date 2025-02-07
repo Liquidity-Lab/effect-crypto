@@ -4,8 +4,8 @@ import { Option } from "effect";
 
 import { fc, testProp } from "@fast-check/ava";
 
-import * as AvaEffect from "./utils/avaEffect.js";
 import * as BigMath from "./bigMath.js";
+import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);

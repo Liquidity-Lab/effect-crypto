@@ -1,12 +1,12 @@
+import { BigDecimal } from "bigdecimal.js";
 import { Option } from "effect";
+import { Arbitrary } from "fast-check";
 
 import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as internal from "./price.internal.js";
 import * as Token from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
-import {BigDecimal} from "bigdecimal.js";
-import {Arbitrary} from "fast-check";
 
 /**
  * Represents a regular price value
@@ -303,10 +303,7 @@ export const projectAmount: {
  * ```
  */
 export const contains: {
-  <T extends Token.TokenType>(
-    price: TokenPrice<T>,
-    token: Token.Token<Token.TokenType>,
-  ): boolean;
+  <T extends Token.TokenType>(price: TokenPrice<T>, token: Token.Token<Token.TokenType>): boolean;
 } = internal.containsImpl;
 
 /**
@@ -331,7 +328,6 @@ export const contains: {
 export const prettyPrint: {
   <T extends Token.TokenType>(price: TokenPrice<T>): string;
 } = internal.prettyPrintImpl;
-
 
 /**
  * Generates token price for the given pair of tokens

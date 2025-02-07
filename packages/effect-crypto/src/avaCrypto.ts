@@ -3,8 +3,8 @@ import { Layer } from "effect";
 
 import * as Assertable from "./assertable.js";
 import * as internal from "./avaCrypto.internal.js";
-import * as Token from "./token.js";
 import * as Price from "./price.js";
+import * as Token from "./token.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
 export type AssertableEqualAssertion = {

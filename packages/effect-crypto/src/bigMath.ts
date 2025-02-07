@@ -1,6 +1,6 @@
 import { ExecutionContext } from "ava";
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import {Brand, Option} from "effect";
+import { Brand, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import * as internal from "./bigMath.internal.js";
@@ -57,7 +57,6 @@ export type NonNegativeDecimal = Brand.Branded<BigDecimal, internal.NonNegativeD
 export const NonNegativeDecimal: Brand.Brand.Constructor<NonNegativeDecimal> =
   internal.makeNonNegativeDecimal;
 
-
 /**
  * A branded type for Q64.96 fixed-point numbers. The Q64.96 format:
  * - Uses 64 bits for the integer part
@@ -98,7 +97,8 @@ export const Q64x96: Brand.Brand.Constructor<Q64x96> = internal.makeQ64x96;
  * @see {@link Q64x96} for more details about the Q64.96 format
  * @see {@link https://docs.uniswap.org/contracts/v3/reference/core/libraries/FixedPoint96 Uniswap v3 Q64.96}
  */
-export const convertToQ64x96: (value: BigDecimal) => Option.Option<Q64x96> = internal.convertToQ64x96Impl;
+export const convertToQ64x96: (value: BigDecimal) => Option.Option<Q64x96> =
+  internal.convertToQ64x96Impl;
 
 export const q64x96ToBigDecimal: (q64x96: Q64x96) => BigDecimal = internal.q64x96ToBigDecimalImpl;
 

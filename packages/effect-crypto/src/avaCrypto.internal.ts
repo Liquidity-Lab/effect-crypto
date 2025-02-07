@@ -4,8 +4,8 @@ import { Layer } from "effect";
 
 import * as Assertable from "./assertable.js";
 import type * as T from "./avaCrypto.js";
-import * as Token from "./token.js";
 import * as Price from "./price.js";
+import * as Token from "./token.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
 function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.AssertableEqualAssertion {
