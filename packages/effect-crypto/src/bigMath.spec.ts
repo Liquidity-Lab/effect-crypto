@@ -1,9 +1,11 @@
 import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
+import { Option } from "effect";
 
 import { fc, testProp } from "@fast-check/ava";
 
 import * as BigMath from "./bigMath.js";
+import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -244,4 +246,30 @@ testProp(
     t.true(generated.scale() <= 2, `Generated value ${generated} should have scale <= 2`);
   },
   { numRuns: 64 },
+);
+
+test("Q64x96 conversion handles edge cases correctly", (t) => {
+  // Zero
+  t.deepEqual(
+    Option.map(BigMath.convertToQ64x96(Big(0)), BigMath.q64x96ToBigDecimal),
+    Option.some(Big(0)),
+  );
+
+  // Max value should result in None
+  t.deepEqual(BigMath.convertToQ64x96(Big(2).pow(160)), Option.none());
+});
+
+testProp(
+  "Q64x96 round-trip conversion should preserve the original value",
+  [BigMath.nonNegativeDecimalGen()],
+  (t, original) => {
+    const result = Option.map(BigMath.convertToQ64x96(original), BigMath.q64x96ToBigDecimal);
+
+    AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+      result,
+      Option.some(original),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+    );
+  },
+  { numRuns: 1024 },
 );
