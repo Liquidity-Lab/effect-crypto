@@ -309,6 +309,9 @@ export interface TokenPrice<T extends internal.TokenType> extends Assertable.Ass
   readonly prettyPrint: string;
 }
 
+// TODO: add docs
+export type Erc20LikeTokenPrice = TokenPrice<internal.TokenType.ERC20 | internal.TokenType.Wrapped>;
+
 /**
  * Creates a new token price instance interpreting the provided value as units
  * @example
