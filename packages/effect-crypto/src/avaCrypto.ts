@@ -4,6 +4,7 @@ import { Layer } from "effect";
 import * as Assertable from "./assertable.js";
 import * as internal from "./avaCrypto.internal.js";
 import * as Token from "./token.js";
+import * as Price from "./price.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
 export type AssertableEqualAssertion = {
@@ -39,21 +40,21 @@ export type AssertableEqualAssertion = {
 };
 
 export type PriceEqualsWithPrecisionAssertion = {
-  <Actual extends Token.TokenPrice<T>, Expected extends Actual, T extends Token.TokenType>(
+  <Actual extends Price.TokenPrice<T>, Expected extends Actual, T extends Token.TokenType>(
     actual: Actual,
     expected: Expected,
     message?: string,
   ): actual is Expected;
 
-  <Actual extends Expected, Expected extends Token.TokenPrice<T>, T extends Token.TokenType>(
+  <Actual extends Expected, Expected extends Price.TokenPrice<T>, T extends Token.TokenType>(
     actual: Actual,
     expected: Expected,
     message?: string,
   ): expected is Actual;
 
   <
-    Actual extends Token.TokenPrice<T>,
-    Expected extends Token.TokenPrice<T>,
+    Actual extends Price.TokenPrice<T>,
+    Expected extends Price.TokenPrice<T>,
     T extends Token.TokenType,
   >(
     actual: Actual,

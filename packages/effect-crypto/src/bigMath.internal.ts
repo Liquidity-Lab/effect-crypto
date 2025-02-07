@@ -34,6 +34,26 @@ export const makeNonNegativeDecimal = Brand.refined<T.NonNegativeDecimal>(
   (raw) => Brand.error(`NonNegativeDecimal must be non negative number [0, +inf), given [${raw}]`),
 );
 
+export type Q64x96TypeId = "com/liquidity_lab/effect-crypto/bigMath#Q64x96";
+
+const Q64x96_MAX_VALUE = 2n ** (64n + 96n);
+
+export const makeQ64x96 = Brand.refined<T.Q64x96>(
+  (raw) => raw <= Q64x96_MAX_VALUE && raw >= 0n,
+  (raw) =>
+    Brand.error(`Q64x96 must be non negative number [0, +${Q64x96_MAX_VALUE}], given [${raw}]`),
+);
+
+export function convertToQ64x96Impl(value: BigDecimal): Option.Option<T.Q64x96> {
+  const scaledValue = value.multiply(2n ** 96n).toBigInt();
+
+  return makeQ64x96.option(scaledValue);
+}
+
+export function q64x96ToBigDecimalImpl(q64x96: T.Q64x96): BigDecimal {
+  return Big(q64x96).divideWithMathContext(2n ** 96n, MATH_CONTEXT_HIGH_PRECISION);
+}
+
 /**
  * Computes the natural logarithm of a BigDecimal number.
  * @param x - The input BigDecimal number.
