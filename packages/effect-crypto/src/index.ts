@@ -9,4 +9,5 @@ export * as Price from "./price.js";
 export * as Signature from "./signature.js";
 export * as TestEnv from "./testEnv.js";
 export * as Token from "./token.js";
+export * as TokenVolume from "./tokenVolume.js";
 export * as Wallet from "./wallet.js";
