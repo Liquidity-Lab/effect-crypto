@@ -1,5 +1,5 @@
 import { Context, Effect, Equal, Layer, Option, Order } from "effect";
-import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
+import { Contract, TransactionRequest, TransactionResponse } from "ethers";
 import { Arbitrary } from "fast-check";
 
 import * as Adt from "./adt.js";
@@ -228,159 +228,6 @@ export declare type TokensDescriptor = {
   readonly USDT: Token<internal.TokenType.ERC20>;
 };
 
-export interface TokenPrice<T extends internal.TokenType> extends Assertable.Assertable {
-  readonly baseCurrency: Token<T>;
-  readonly quoteCurrency: Token<T>;
-
-  readonly ratio: BigMath.Ratio;
-
-  /**
-   * Returns token0, alias for baseCurrency
-   */
-  readonly token0: Token<T>;
-
-  /**
-   * Returns token1, alias for quoteCurrency
-   */
-  readonly token1: Token<T>;
-
-  /**
-   * Returns sorted array of tokens, mostly used for pool address determination
-   */
-  readonly tokens: [Token<T>, Token<T>];
-
-  /**
-   * Formats price value (token1/token0) as units string keeping [[token0.decimals]] precision.
-   * For example:
-   * @example {{
-   *   val BTC: Token = ???;
-   *   val USDT: Token = ???;
-   *
-   *   // "70000.015"
-   *   TokenPrice.fromUnits(BTC, USDT, "70000.015").asUnits
-   * }}
-   */
-  readonly asUnits: string;
-
-  /**
-   * Formats flipped value (token0/token1) as units string keeping [[token1.decimals]] precision.
-   * For example:
-   * @example
-   *   val BTC: Token = ???;
-   *   val USDT: Token = ???;
-   *
-   *   // "0.00001428571122" ~> "1 / 70000.015"
-   *   TokenPrice.fromUnits(BTC, USDT, "70000.015").asFlippedUnits
-   */
-  readonly asFlippedUnits: string;
-
-  /**
-   * Converts price to sqrt(Q64.96) format.
-   * The value is [[Option.None]] in case of overflow
-   */
-  readonly asSqrtX96: Option.Option<bigint>;
-
-  /**
-   * Returns flipped value token0 / token1
-   */
-  readonly asFlippedSqrtX96: Option.Option<bigint>;
-
-  /**
-   * Returns unscaled price
-   */
-  readonly asUnscaled: bigint;
-
-  /**
-   * Returns amount of another token, based on the price ratio
-   *
-   * @example
-   *   val BTC: Token = ???;
-   *   val USDT: Token = ???;
-   *
-   *   // 1n -> "1 BTC"
-   *   TokenPrice.fromUnits(BTC, USDT, "70000.015").getAmount(
-   *     Volume.fromUnits(USDT, "70000.015")
-   *   )
-   */
-  projectAmount(inputAmount: TokenVolume.TokenVolume<T>): Option.Option<TokenVolume.TokenVolume<T>>;
-
-  contains(token: Token<internal.TokenType>): boolean;
-
-  readonly prettyPrint: string;
-}
-
-// TODO: add docs
-export type Erc20LikeTokenPrice = TokenPrice<internal.TokenType.ERC20 | internal.TokenType.Wrapped>;
-
-/**
- * Creates a new token price instance interpreting the provided value as units
- * @example
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   const BTC: Token.AnyToken = ???;
- *   const USDT: Token.AnyToken = ???;
- *
- *   // "70000.00015 USDT" -> "1 BTC"
- *   TokenPriceUnits(BTC, USDT, "70000.00015")
- *
- * @constructor
- */
-export const TokenPriceUnits: <T extends internal.TokenType>(
-  baseCurrency: Token<T>,
-  quoteCurrency: Token<T>,
-  valueInQuoteCurrency: string, // TODO: replace with BigDecimal or Ratio
-) => Option.Option<TokenPrice<T>> = internal.makeTokenPriceFromUnits; // TODO: this is not constructor
-
-/**
- * Creates a new token price instance interpreting the provided value as ratio
- *
- * @example
- *   import { Option } from "effect";
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *   import { BigMath } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   const BTC: Token.AnyToken = ???;
- *   const USDT: Token.AnyToken = ???;
- *
- *   // "70000.00015 USDT" -> "1 BTC"
- *   Option.map(
- *     BigMath.ratio(70000n, 10000015n).option,
- *     ratio => TokenPriceRatio(BTC, USDT, ratio)
- *   )
- *
- * @constructor
- */
-export const TokenPriceRatio: <T extends internal.TokenType>(
-  baseCurrency: Token<T>,
-  quoteCurrency: Token<T>,
-  ratio: BigMath.Ratio,
-) => TokenPrice<T> = internal.makeTokenPriceFromRatio;
-
-/**
- * Creates a new token price instance interpreting the provided value as sqrt of price,
- * encoded in Q96.64 number format
- *
- * @example
- *   import { Token } from "./com/liquidity_lab/crypto/blockchain";
- *
- *   // Assume USDT has 6 decimals
- *   const USDT: Token.AnyToken = ???;
- *   // Assume USDT has 18 decimals
- *   const BTC: Token.AnyToken = ???;
- *
- *   // "70000 USDT" -> "1 BTC"
- *   TokenPriceSqrtX96(BTC, USDT, 0000000n) // some big number
- *
- * @constructor
- */
-export const TokenPriceSqrtX96: <T extends internal.TokenType>(
-  baseCurrency: Token<T>,
-  quoteCurrency: Token<T>,
-  sqrtX96: BigNumberish,
-) => TokenPrice<T> = internal.makeTokenPriceFromSqrtX96;
-
-export type AnyTokenPrice = TokenPrice<internal.TokenType>;
-
 /**
  * A layer that provides a TokensTag instance based on a TokensDescriptor
  *
@@ -511,11 +358,79 @@ export const transferErc20Like: {
 } = internal.transferErc20Like;
 
 /**
- * Generates token price for the given pair of tokens
+ * Generates an arbitrary token based on specified type and constraints.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "@fast-check/ava";
+ * import { Token, TokenType } from "effect-crypto";
+ *
+ * // Generate an ERC20 token with default constraints
+ * const erc20TokenArb = Token.tokenGen(TokenType.ERC20);
+ *
+ * // Generate a Wrapped token with custom decimals and original token
+ * const wrappedTokenArb = Token.tokenGen(TokenType.Wrapped, {
+ *   decimals: 18,
+ *   symbol: "WBTC",
+ *   name: "Wrapped Bitcoin",
+ *   originalToken: someToken
+ * });
+ *
+ * // Use in property-based tests
+ * fc.assert(
+ *   fc.property(erc20TokenArb, (token) => {
+ *     // Your test logic here
+ *   })
+ * );
+ * ```
+ *
+ * @param tokenType - The type of token to generate (ERC20, Wrapped, or Native)
+ * @param constraints - Optional generation constraints
+ * @param constraints.maxDecimals - Number of decimals for the token (default: random between 6 and 18)
+ * @returns An Arbitrary that generates tokens of the specified type.
+ *         Token decimals start from 6
+ * @throws If Wrapped token type is specified without an originalToken constraint
  */
-export const tokenPriceGen: {
-  <T0 extends internal.TokenType, T1 extends internal.TokenType>(
-    token0: Token<T0>,
-    token1: Token<T1>,
-  ): Arbitrary<TokenPrice<T0 | T1>>;
-} = internal.tokenPriceGen;
+export const tokenGen: {
+  <T extends internal.TokenType>(
+    tokenType: T,
+    constraints?: {
+      maxDecimals?: number;
+    },
+  ): Arbitrary<Token<T>>;
+} = internal.tokenGenImpl;
+
+/**
+ * Generates an arbitrary pair of tokens based on the specified type and constraints.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "@fast-check/ava";
+ * import { Token, TokenType } from "effect-crypto";
+ *
+ * // Generate a pair of ERC20 tokens with default constraints
+ * const erc20TokenPairArb = Token.tokenPairGen(TokenType.ERC20);
+ *
+ * // Use in property-based tests
+ * fc.assert(
+ *   fc.property(erc20TokenPairArb, ([tokenA, tokenB]) => {
+ *     // Your test logic here
+ *   })
+ * );
+ * ```
+ *
+ * @param tokenType - The type of tokens to generate (ERC20, Wrapped, or Native)
+ * @param constraints - Optional generation constraints
+ * @param constraints.maxDecimals - Maximum number of decimals for the tokens (default is random between 6 and 18)
+ * @returns An Arbitrary that generates pairs of tokens of the specified type.
+ *          Token decimals start from 6
+ * @throws If Wrapped token type is specified without an originalToken constraint
+ */
+export const tokenPairGen: {
+  <T extends internal.TokenType>(
+    tokenType: T,
+    constraints?: {
+      maxDecimals?: number;
+    },
+  ): Arbitrary<[Token<T>, Token<T>]>;
+} = internal.tokenPairGenImpl;

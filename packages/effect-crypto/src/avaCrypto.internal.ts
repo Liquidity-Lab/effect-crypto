@@ -4,10 +4,13 @@ import { Layer } from "effect";
 
 import * as Assertable from "./assertable.js";
 import type * as T from "./avaCrypto.js";
+import * as Price from "./price.js";
 import * as Token from "./token.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
-function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.AssertableEqualAssertion {
+export function makeAssertableEqualAssertion(
+  t: ExecutionContext<unknown>,
+): T.AssertableEqualAssertion {
   function assertableEqual<
     Actual extends Assertable.Assertable,
     Expected extends Assertable.Assertable,
@@ -19,7 +22,24 @@ function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.Assertabl
     );
   }
 
-  return Object.assign(assertableEqual, { skip: t.deepEqual.skip }) as T.AssertableEqualAssertion;
+  function assertArrays<
+    Actual extends Assertable.Assertable,
+    Expected extends Assertable.Assertable,
+  >(actual: readonly Actual[], expected: readonly Expected[], message?: string): boolean {
+    if (actual.length !== expected.length) {
+      return false;
+    }
+
+    const actualEntities = actual.map((a) => Assertable.asAssertableEntity(a));
+    const expectedEntities = expected.map((e) => Assertable.asAssertableEntity(e));
+
+    return t.deepEqual(actualEntities, expectedEntities, message);
+  }
+
+  return Object.assign(assertableEqual, {
+    skip: t.deepEqual.skip,
+    arrays: assertArrays,
+  }) as T.AssertableEqualAssertion;
 }
 
 function makePriceEqualsWithPrecisionAssertion(
@@ -27,19 +47,19 @@ function makePriceEqualsWithPrecisionAssertion(
 ): (precisionPercent: number) => T.PriceEqualsWithPrecisionAssertion {
   return (precisionPercent: number) => {
     function priceEqualsWithPrecision<
-      Actual extends Token.TokenPrice<T>,
+      Actual extends Price.TokenPrice<T>,
       Expected extends Actual,
       T extends Token.TokenType,
     >(actual: Actual, expected: Expected, message?: string): boolean {
-      const actualValue = actual.asUnscaled;
-      const expectedValue = expected.asUnscaled;
+      const actualValue = Price.asUnits(actual);
+      const expectedValue = Price.asUnits(expected);
 
-      if (actualValue === expectedValue) {
+      if (actualValue.compareTo(expectedValue) === 0) {
         return true;
       }
 
       const maxDiff = Big(precisionPercent);
-      const diff = Big(expectedValue)
+      const diff = expectedValue
         .divide(actualValue, maxDiff.scale() * 2, RoundingMode.HALF_UP)
         .abs()
         .subtract(1);

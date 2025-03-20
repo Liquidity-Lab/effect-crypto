@@ -1,7 +1,12 @@
-import { Big, BigDecimal, MC, MathContext, RoundingMode } from "bigdecimal.js";
 import { Context, Effect, Equal, Hash, Layer, Option, Order } from "effect";
-import { RuntimeException } from "effect/Cause";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
+import {
+  Arbitrary,
+  constant as constantGen,
+  integer as integerGen,
+  string as stringGen,
+  tuple,
+} from "fast-check";
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
@@ -10,7 +15,7 @@ import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as Chain from "./chain.js";
-import * as Error from "./error.js";
+import * as BError from "./error.js";
 import * as Signature from "./signature.js";
 import type * as T from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
@@ -162,11 +167,11 @@ export function isErc20LikeToken(a: T.Token<TokenType>): a is T.Erc20LikeToken {
 
 export function fetchErc20Token(
   address: Adt.Address,
-): Effect.Effect<Option.Option<T.Erc20Token>, Error.BlockchainError, Chain.Tag> {
+): Effect.Effect<Option.Option<T.Erc20Token>, BError.BlockchainError, Chain.Tag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(address, ERC20.abi);
     const contract = contractOps.withOnChainRunner;
-    const contractCode = yield* Error.catchRefinedBlockchainErrors(
+    const contractCode = yield* BError.catchRefinedBlockchainErrors(
       Effect.promise(() => contract.getDeployedCode()),
       contract,
     );
@@ -183,7 +188,7 @@ export function fetchErc20Token(
 
 export function fetchErc20TokenDataFromContract(
   contract: Contract,
-): Effect.Effect<T.Erc20Token, Error.BlockchainError> {
+): Effect.Effect<T.Erc20Token, BError.BlockchainError> {
   const prog = Effect.gen(function* () {
     const getName = contract.getFunction("name");
     const name: string = yield* Effect.promise(() => getName());
@@ -206,7 +211,7 @@ export function fetchErc20TokenDataFromContract(
     );
   });
 
-  return Error.catchRefinedBlockchainErrors(prog, contract);
+  return BError.catchRefinedBlockchainErrors(prog, contract);
 }
 
 function isMetaEquals<A extends T.TokenType, B extends T.TokenType>(
@@ -522,7 +527,7 @@ function approveTransferImpl(
   { [privateApiSymbol]: api }: TokensShape,
   volume: TokenVolume.Erc20LikeTokenVolume,
   to: Adt.Address,
-): Effect.Effect<TransactionResponse, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
+): Effect.Effect<TransactionResponse, Adt.FatalError | BError.BlockchainError, Signature.TxTag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(
       api.underlyingChain,
@@ -605,7 +610,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   address: Adt.Address,
 ): Effect.Effect<
   Option.Option<TokenVolume.TokenVolume<T>>,
-  Adt.FatalError | Error.BlockchainError,
+  Adt.FatalError | BError.BlockchainError,
   Signature.TxTag
 > {
   return Effect.gen(function* () {
@@ -616,7 +621,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
     );
     const tokenContract = yield* Signature.signed(contractOps);
 
-    const balance: BigNumberish = yield* Error.catchRefinedBlockchainErrors(
+    const balance: BigNumberish = yield* BError.catchRefinedBlockchainErrors(
       Effect.promise(() => tokenContract.balanceOf(address)),
       tokenContract,
     );
@@ -635,7 +640,7 @@ function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   volume: TokenVolume.TokenVolume<T>,
   to: Adt.Address,
   from: Adt.Address,
-): Effect.Effect<TransactionRequest, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
+): Effect.Effect<TransactionRequest, Adt.FatalError | BError.BlockchainError, Signature.TxTag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(
       api.underlyingChain,
@@ -680,11 +685,69 @@ function invariantNativeToken(
   });
 }
 
-export function tokenPriceGen<T0 extends T.TokenType, T1 extends T.TokenType>(
-  token0: T.Token<T0>,
-  token1: T.Token<T1>,
-) {
-  return BigMath.ratioGen().map((ratio) => {
-    return makeTokenPriceFromRatio(token0, token1, ratio);
+// Generator for token decimals with configurable max
+const decimalsGen = (maxDecimals: number = 18): Arbitrary<number> =>
+  integerGen({ min: 6, max: maxDecimals < 6 ? 6 : maxDecimals });
+
+// Generator for token symbol
+const symbolGen = (): Arbitrary<string> =>
+  stringGen({ minLength: 3, maxLength: 8 }).map((s) => s.toUpperCase());
+
+// Generator for ERC20 token metadata
+const erc20MetaGen = (): Arbitrary<T.TokenMetaShape<TokenType.ERC20>> =>
+  constantGen(makeErc20TokenMeta());
+
+// Generator for Native token metadata
+const nativeMetaGen = (): Arbitrary<T.TokenMetaShape<TokenType.Native>> =>
+  constantGen(makeNativeTokenMeta());
+
+// Generator for Wrapped token metadata, requires original token
+const wrappedMetaGen = (
+  originalToken: T.AnyToken,
+): Arbitrary<T.TokenMetaShape<TokenType.Wrapped>> =>
+  constantGen(makeWrappedTokenMeta(originalToken));
+
+/** @internal */
+export function tokenGenImpl<T extends TokenType>(
+  tokenType: T,
+  constraints?: {
+    maxDecimals?: number;
+  },
+): Arbitrary<T.Token<T>> {
+  // Generate metadata based on token type
+  const metaGen = (): Arbitrary<T.TokenMetaShape<T>> => {
+    switch (tokenType) {
+      case TokenType.ERC20:
+        return erc20MetaGen() as Arbitrary<T.TokenMetaShape<T>>;
+      case TokenType.Native:
+        return nativeMetaGen() as Arbitrary<T.TokenMetaShape<T>>;
+      case TokenType.Wrapped:
+        return tokenGenImpl(TokenType.Native).chain(
+          (originalToken) => wrappedMetaGen(originalToken) as Arbitrary<T.TokenMetaShape<T>>,
+        );
+      default:
+        throw new Error(`Unsupported token type: ${tokenType}`);
+    }
+  };
+
+  // Compose all generators to create a token
+  return symbolGen().chain((symbol) => {
+    return tuple(Adt.addressGen(), decimalsGen(constraints?.maxDecimals ?? 18), metaGen()).map(
+      ([address, decimals, meta]) => makeToken(address, decimals, symbol, symbol, meta),
+    );
   });
+}
+
+/** @internal */
+export function tokenPairGenImpl<T extends TokenType>(
+  tokenType: T,
+  constraints?: {
+    maxDecimals?: number;
+  },
+): Arbitrary<[T.Token<T>, T.Token<T>]> {
+  return tuple(tokenGenImpl(tokenType, constraints), tokenGenImpl(tokenType, constraints)).filter(
+    ([token0, token1]) => {
+      return token0.address !== token1.address;
+    },
+  );
 }
