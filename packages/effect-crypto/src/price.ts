@@ -9,25 +9,62 @@ import * as Token from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
 
 /**
- * Represents a regular price value
+ * Represents a regular price value expressed as a ratio between two tokens.
+ * This is the standard representation for price values, where the value directly
+ * corresponds to the exchange rate between tokens.
+ *
+ * For example, if the value is 50000, it means 1 unit of the base token equals
+ * 50000 units of the quote token.
  */
 export interface PriceValueUnits {
   readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueUnits";
   readonly value: BigMath.Ratio;
 
+  /**
+   * Returns the inverted price value (1/price).
+   * For a price expressed as quote/base, this returns base/quote.
+   */
   get flip(): this;
 }
 
 /**
- * This special representation is used for sqrt price values
+ * This special representation is used for sqrt price values, primarily in Uniswap V3 pools.
+ * The value represents the square root of the price ratio between two tokens.
+ *
+ * In Uniswap V3, liquidity is concentrated around price ranges, and the sqrt price
+ * representation enables more efficient calculations for liquidity values along
+ * the price curve.
+ *
+ * The value here is the square root of the actual price. To obtain the real price,
+ * you need to square this value.
  */
 export interface PriceValueSqrtUnits {
   readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits";
   readonly value: BigMath.Ratio;
 
+  /**
+   * Returns the inverted sqrt price value (1/sqrt(price)).
+   * For a sqrt price expressed as √(quote/base), this returns √(base/quote).
+   */
   get flip(): this;
 }
 
+/**
+ * Represents the underlying price value for token pairs.
+ *
+ * This type is a union of two different price representations:
+ *
+ * 1. `PriceValueUnits` - The standard price representation, where the value
+ *    directly represents the exchange rate between tokens.
+ *
+ * 2. `PriceValueSqrtUnits` - A specialized representation used primarily in
+ *    Uniswap V3 pools, where the value is the square root of the actual price.
+ *
+ * The different representations serve different purposes and optimization needs
+ * in DeFi protocols.
+ * Functions in this module handle both representations appropriately
+ * based on the context of use.
+ */
 export type PriceValue = PriceValueUnits | PriceValueSqrtUnits;
 
 /**
@@ -70,7 +107,15 @@ export interface TokenPrice<T extends Token.TokenType> extends Assertable.Assert
   /** Returns the second token based on address ordering */
   readonly token1: Token.Token<T>;
 
-  /** Underlying representation of the price */
+  /**
+   * Underlying representation of the price
+   *
+   * This can be either:
+   * - A standard price value (`PriceValueUnits`), representing a direct exchange rate
+   * - A square root price value (`PriceValueSqrtUnits`), as used in Uniswap V3 pools
+   *
+   * The appropriate functions in this module will handle both representations correctly.
+   */
   readonly underlying: PriceValue;
 
   /** The base currency of the price, alias for [[token0]] */
@@ -343,3 +388,4 @@ export const tokenPriceGen: {
     },
   ): Arbitrary<TokenPrice<T0 | T1>>;
 } = internal.tokenPriceGenImpl;
+
