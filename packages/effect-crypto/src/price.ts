@@ -1,5 +1,5 @@
 import { BigDecimal } from "bigdecimal.js";
-import { Option } from "effect";
+import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import * as Assertable from "./assertable.js";
@@ -115,13 +115,13 @@ export type AnyTokenPrice = TokenPrice<Token.TokenType>;
  *
  * @constructor
  */
-export const TokenPriceRatio: {
-  <T extends Token.TokenType>(
-    baseCurrency: Token.Token<T>,
-    quoteCurrency: Token.Token<T>,
+export const makeTokenPriceFromRatio: {
+  <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
+    baseCurrency: Token.Token<TBase>,
+    quoteCurrency: Token.Token<TQuote>,
     ratio: BigMath.Ratio,
-  ): TokenPrice<T>;
-} = internal.makeTokenPriceFromRatio;
+  ): Either.Either<TokenPrice<TBase | TQuote>, string>;
+} = internal.makeTokenPriceFromRatioImpl;
 
 /**
  * Creates a new token price instance interpreting the provided value as sqrt of price,
@@ -146,11 +146,11 @@ export const TokenPriceRatio: {
  * ```
  */
 export const TokenPriceSqrt: {
-  <T extends Token.TokenType>(
-    baseCurrency: Token.Token<T>,
-    quoteCurrency: Token.Token<T>,
+  <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
+    baseCurrency: Token.Token<TBase>,
+    quoteCurrency: Token.Token<TQuote>,
     sqrtValue: BigMath.Ratio,
-  ): TokenPrice<T>;
+  ): Either.Either<TokenPrice<TBase | TQuote>, string>;
 } = internal.makeTokenPriceFromSqrt;
 
 /**
@@ -171,11 +171,11 @@ export const TokenPriceSqrt: {
  * ```
  */
 export const makeFromUnits: {
-  <T extends Token.TokenType>(
-    baseCurrency: Token.Token<T>,
-    quoteCurrency: Token.Token<T>,
+  <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
+    baseCurrency: Token.Token<TBase>,
+    quoteCurrency: Token.Token<TQuote>,
     valueInQuoteCurrency: BigDecimal,
-  ): Option.Option<TokenPrice<T>>;
+  ): Option.Option<TokenPrice<TBase | TQuote>>;
 } = internal.makeTokenPriceFromUnits;
 
 /**

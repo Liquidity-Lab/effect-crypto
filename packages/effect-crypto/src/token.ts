@@ -1,5 +1,6 @@
 import { Context, Effect, Equal, Layer, Option, Order } from "effect";
 import { Contract, TransactionRequest, TransactionResponse } from "ethers";
+import { Arbitrary } from "fast-check";
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
@@ -354,3 +355,81 @@ export const transferErc20Like: {
     Signature.TxTag | Chain.Tag
   >;
 } = internal.transferErc20Like;
+
+/**
+ * Generates an arbitrary token based on specified type and constraints.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "@fast-check/ava";
+ * import { Token, TokenType } from "effect-crypto";
+ *
+ * // Generate an ERC20 token with default constraints
+ * const erc20TokenArb = Token.tokenGen(TokenType.ERC20);
+ *
+ * // Generate a Wrapped token with custom decimals and original token
+ * const wrappedTokenArb = Token.tokenGen(TokenType.Wrapped, {
+ *   decimals: 18,
+ *   symbol: "WBTC",
+ *   name: "Wrapped Bitcoin",
+ *   originalToken: someToken
+ * });
+ *
+ * // Use in property-based tests
+ * fc.assert(
+ *   fc.property(erc20TokenArb, (token) => {
+ *     // Your test logic here
+ *   })
+ * );
+ * ```
+ *
+ * @param tokenType - The type of token to generate (ERC20, Wrapped, or Native)
+ * @param constraints - Optional generation constraints
+ * @param constraints.maxDecimals - Number of decimals for the token (default: random between 6 and 18)
+ * @returns An Arbitrary that generates tokens of the specified type.
+ *         Token decimals start from 6
+ * @throws If Wrapped token type is specified without an originalToken constraint
+ */
+export const tokenGen: {
+  <T extends internal.TokenType>(
+    tokenType: T,
+    constraints?: {
+      maxDecimals?: number;
+    },
+  ): Arbitrary<Token<T>>;
+} = internal.tokenGenImpl;
+
+/**
+ * Generates an arbitrary pair of tokens based on the specified type and constraints.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "@fast-check/ava";
+ * import { Token, TokenType } from "effect-crypto";
+ *
+ * // Generate a pair of ERC20 tokens with default constraints
+ * const erc20TokenPairArb = Token.tokenPairGen(TokenType.ERC20);
+ *
+ * // Use in property-based tests
+ * fc.assert(
+ *   fc.property(erc20TokenPairArb, ([tokenA, tokenB]) => {
+ *     // Your test logic here
+ *   })
+ * );
+ * ```
+ *
+ * @param tokenType - The type of tokens to generate (ERC20, Wrapped, or Native)
+ * @param constraints - Optional generation constraints
+ * @param constraints.maxDecimals - Maximum number of decimals for the tokens (default is random between 6 and 18)
+ * @returns An Arbitrary that generates pairs of tokens of the specified type.
+ *          Token decimals start from 6
+ * @throws If Wrapped token type is specified without an originalToken constraint
+ */
+export const tokenPairGen: {
+  <T extends internal.TokenType>(
+    tokenType: T,
+    constraints?: {
+      maxDecimals?: number;
+    },
+  ): Arbitrary<[Token<T>, Token<T>]>;
+} = internal.tokenPairGenImpl;

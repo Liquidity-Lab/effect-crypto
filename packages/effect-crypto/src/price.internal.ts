@@ -1,5 +1,5 @@
 import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
-import { Option, Order } from "effect";
+import { Either, Option, Order } from "effect";
 
 import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
@@ -72,7 +72,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return Assertable.AssertableEntity({
       baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
       quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: priceValueAsUnits(this.underlying).toPlainString(), // TODO: This is not correct
+      units: toPriceRatio(this.underlying).toPlainString(), // TODO: This is not correct
     });
   }
 
@@ -80,18 +80,26 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     token0: Token.Token<TBase>,
     token1: Token.Token<TQuote>,
     underlying: T.PriceValue,
-  ): T.TokenPrice<TBase | TQuote> {
+  ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
+    if (token0.address === token1.address) {
+      return Either.left("Cannot create price: token0 and token1 address are the same");
+    }
+
     const isInverted = !Order.lessThanOrEqualTo(Token.order)(token0, token1);
 
     switch (isInverted) {
       case true:
-        return new TokenPriceLive<TBase | TQuote>(token1, token0, underlying.flip) as T.TokenPrice<
-          TBase | TQuote
-        >;
+        return Either.right(
+          new TokenPriceLive<TBase | TQuote>(token1, token0, underlying.flip) as T.TokenPrice<
+            TBase | TQuote
+          >,
+        );
       case false:
-        return new TokenPriceLive<TBase | TQuote>(token0, token1, underlying) as T.TokenPrice<
-          TBase | TQuote
-        >;
+        return Either.right(
+          new TokenPriceLive<TBase | TQuote>(token0, token1, underlying) as T.TokenPrice<
+            TBase | TQuote
+          >,
+        );
     }
   }
 
@@ -104,17 +112,19 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
   }
 }
 
-export function makeTokenPriceFromRatio<
+/** @internal */
+export function makeTokenPriceFromRatioImpl<
   TBase extends Token.TokenType,
   TQuote extends Token.TokenType,
 >(
   baseCurrency: Token.Token<TBase>,
   quoteCurrency: Token.Token<TQuote>,
   ratio: BigMath.Ratio,
-): T.TokenPrice<TBase | TQuote> {
+): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
   return TokenPriceLive.make(baseCurrency, quoteCurrency, new PriceValueUnitsLive(ratio));
 }
 
+/** @internal */
 export function makeTokenPriceFromSqrt<
   TBase extends Token.TokenType,
   TQuote extends Token.TokenType,
@@ -122,10 +132,11 @@ export function makeTokenPriceFromSqrt<
   baseCurrency: Token.Token<TBase>,
   quoteCurrency: Token.Token<TQuote>,
   sqrtValue: BigMath.Ratio,
-): T.TokenPrice<TBase | TQuote> {
+): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
   return TokenPriceLive.make(baseCurrency, quoteCurrency, new PriceValueSqrtUnitsLive(sqrtValue));
 }
 
+/** @internal */
 export function makeTokenPriceFromUnits<
   TBase extends Token.TokenType,
   TQuote extends Token.TokenType,
@@ -134,23 +145,23 @@ export function makeTokenPriceFromUnits<
   quoteCurrency: Token.Token<TQuote>,
   valueInQuoteCurrency: BigDecimal,
 ): Option.Option<T.TokenPrice<TBase | TQuote>> {
-  return Option.map(
+  return Option.flatMap(
     BigMath.Ratio.option(Big(valueInQuoteCurrency, undefined, mathContext)),
-    (ratio) => makeTokenPriceFromRatio(baseCurrency, quoteCurrency, ratio),
+    (ratio) => Either.getRight(makeTokenPriceFromRatioImpl(baseCurrency, quoteCurrency, ratio)),
   );
 }
 
+/** @internal */
 export function asUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return priceValueAsUnits(price.underlying).setScale(price.token1.decimals, RoundingMode.FLOOR);
+  return toPriceRatio(price.underlying).setScale(price.token1.decimals, RoundingMode.FLOOR);
 }
 
+/** @internal */
 export function asFlippedUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return priceValueAsUnits(price.underlying.flip).setScale(
-    price.token0.decimals,
-    RoundingMode.FLOOR,
-  );
+  return toPriceRatio(price.underlying.flip).setScale(price.token0.decimals, RoundingMode.FLOOR);
 }
 
+/** @internal */
 export function asSqrtImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigMath.Ratio {
   switch (price.underlying._tag) {
     case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
@@ -160,11 +171,12 @@ export function asSqrtImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): B
   }
 }
 
+/** @internal */
 export function projectAmountImpl<T extends Token.TokenType>(
   price: T.TokenPrice<T>,
   inputAmount: TokenVolume.TokenVolume<T>,
 ): Option.Option<TokenVolume.TokenVolume<T>> {
-  const ratio = priceValueAsUnits(price.underlying);
+  const ratio = toPriceRatio(price.underlying);
 
   switch (inputAmount.token.address) {
     case price.token0.address:
@@ -174,7 +186,10 @@ export function projectAmountImpl<T extends Token.TokenType>(
       );
     case price.token1.address:
       return Option.map(
-        BigMath.Ratio.option(ratio.divide(TokenVolume.asUnits(inputAmount))),
+        BigMath.Ratio.option(
+          TokenVolume.asUnits(inputAmount).divideWithMathContext(ratio, mathContext),
+        ),
+        // BigMath.Ratio.option(ratio.divide(TokenVolume.asUnits(inputAmount))),
         (output) => TokenVolume.TokenVolumeRatio(price.token0, output),
       );
     default:
@@ -182,6 +197,7 @@ export function projectAmountImpl<T extends Token.TokenType>(
   }
 }
 
+/** @internal */
 export function containsImpl<T extends Token.TokenType>(
   price: T.TokenPrice<T>,
   token: Token.Token<Token.TokenType>,
@@ -189,10 +205,12 @@ export function containsImpl<T extends Token.TokenType>(
   return token.address == price.token0.address || token.address == price.token1.address;
 }
 
+/** @internal */
 export function prettyPrintImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): string {
   return `1 ${price.token0.symbol || "token0"} -> ${asUnitsImpl(price).toPlainString()} ${price.token1.symbol || "token1"}`;
 }
 
+/** @internal */
 export function tokenPriceGenImpl<T0 extends Token.TokenType, T1 extends Token.TokenType>(
   token0: Token.Token<T0>,
   token1: Token.Token<T1>,
@@ -203,11 +221,19 @@ export function tokenPriceGenImpl<T0 extends Token.TokenType, T1 extends Token.T
   },
 ) {
   return BigMath.ratioGen(constraints).map((ratio) => {
-    return makeTokenPriceFromRatio(token0, token1, ratio);
+    return Either.getOrThrowWith(
+      makeTokenPriceFromRatioImpl(token0, token1, ratio),
+      (cause) => new Error(`Failed to create TokenPrice from ratio: ${cause}`),
+    );
   });
 }
 
-function priceValueAsUnits(value: T.PriceValue): BigDecimal {
+/**
+ * Converts a price value to its ratio representation.
+ * For regular units, returns the value directly.
+ * For sqrt units, squares the value to get the actual ratio.
+ */
+function toPriceRatio(value: T.PriceValue): BigDecimal {
   switch (value._tag) {
     case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
       return value.value;

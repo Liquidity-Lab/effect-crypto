@@ -1,6 +1,6 @@
 import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
-import { Option } from "effect";
+import { Either, Option } from "effect";
 
 import { testProp } from "@fast-check/ava";
 import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
@@ -30,36 +30,35 @@ const USDT = Token.Erc20Token(
   Token.Erc20TokenMeta(),
 );
 
-test("TokenPrice.project for quote currency", (t) => {
-  const underlyingPrice = BigMath.NonNegativeDecimal(Big("70000.015"));
+test("TokenPrice.project converts quote currency amounts correctly", (t) => {
+  const price = BigMath.NonNegativeDecimal(Big("70000.015"));
+  const quoteAmount = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
-  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, underlyingPrice), (price) =>
-    Price.projectAmount(price, TokenVolume.TokenVolumeUnits(USDT, underlyingPrice)),
+  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
+    Price.projectAmount(price, TokenVolume.TokenVolumeUnits(USDT, quoteAmount)),
   );
+  const expected = BigMath.NonNegativeDecimal(Big("2.5"));
 
-  t.deepEqual(
-    Option.map(actual, TokenVolume.asUnscaled),
-    Option.some(
-      TokenVolume.asUnscaled(
-        TokenVolume.TokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(1))),
-      ),
-    ),
+  AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+    Option.map(actual, TokenVolume.asUnits),
+    Option.some(expected),
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
   );
 });
 
-test("TokenPrice.project for base currency", (t) => {
-  const underlyingPrice = BigMath.NonNegativeDecimal(Big("70000.15"));
+test("TokenPrice.project converts base currency amounts correctly", (t) => {
+  const price = BigMath.NonNegativeDecimal(Big("70000.15"));
+  const baseAmount = BigMath.NonNegativeDecimal(Big("2.5"));
 
-  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, underlyingPrice), (price) =>
-    Price.projectAmount(
-      price,
-      TokenVolume.TokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(1))),
-    ),
+  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
+    Price.projectAmount(price, TokenVolume.TokenVolumeUnits(WETH, baseAmount)),
   );
+  const expected = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
-  t.deepEqual(
-    Option.map(actual, TokenVolume.asUnscaled),
-    Option.some(TokenVolume.asUnscaled(TokenVolume.TokenVolumeUnits(USDT, underlyingPrice))),
+  AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+    Option.map(actual, TokenVolume.asUnits),
+    Option.some(expected),
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
   );
 });
 
@@ -92,7 +91,7 @@ testProp(
   "TokenPrice.project should be the same with UniswapSdkPrice",
   [BigMath.ratioGen(), BigMath.ratioGen()],
   (t, priceRatio, volumeRatio) => {
-    const price = Price.TokenPriceRatio(WETH, USDT, priceRatio);
+    const price = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH, USDT, priceRatio));
 
     const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
     const sdkUSDT = new SdkToken(1, USDT.address, USDT.decimals, USDT.symbol, USDT.name);
@@ -126,4 +125,80 @@ testProp(
     );
   },
   { numRuns: 1024 },
+);
+
+testProp(
+  "TokenPrice should normalize token order and preserve price value",
+  [BigMath.ratioGen()],
+  (t, ratio) => {
+    const assertions = AvaEffect.EffectAssertions(t);
+    const errorTolerance = Big("0.000001");
+
+    // Create price with tokens in both orders
+    const regularPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH, USDT, ratio));
+
+    // Create price with tokens in reverse order
+    const WETH2 = Object.assign({}, WETH, {
+      address: Adt.Address.unsafe("0x0000000000000000000000000000000000000002"),
+    });
+    const USDT2 = Object.assign({}, USDT, {
+      address: Adt.Address.unsafe("0x0000000000000000000000000000000000000001"),
+    });
+    const invertedPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH2, USDT2, ratio));
+
+    const volumeRatio = BigMath.Ratio(Big(2.5));
+    const expected = Price.projectAmount(
+      regularPrice,
+      TokenVolume.TokenVolumeRatio(WETH, volumeRatio),
+    );
+    const actual = Price.projectAmount(
+      invertedPrice,
+      TokenVolume.TokenVolumeRatio(WETH2, volumeRatio),
+    );
+
+    assertions.assertOptionalEqualVia(
+      Option.map(actual, TokenVolume.asUnits),
+      Option.map(expected, TokenVolume.asUnits),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Price projections should be equal",
+    );
+  },
+  { numRuns: 1024 },
+);
+
+testProp(
+  "TokenPrice should project the same amount for inverted and regular flows",
+  [Token.tokenPairGen(Token.TokenType.ERC20), BigMath.ratioGen(), BigMath.ratioGen()],
+  (t, [token0, token1], ratio, volumeRatio) => {
+    const assertions = AvaEffect.EffectAssertions(t);
+    // Because the minimal number of decimals for token is 6, we cannot test with much higher precision
+    const errorTolerance = Big("0.0000001");
+
+    // Create price with tokens in both orders
+    const regularPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(token0, token1, ratio));
+    const invertedPrice = Either.getOrThrow(
+      Price.makeTokenPriceFromRatio(
+        token1,
+        token0,
+        BigMath.Ratio(Big(1).divideWithMathContext(ratio, mathContext)),
+      ),
+    );
+
+    const expected = Price.projectAmount(
+      regularPrice,
+      TokenVolume.TokenVolumeRatio(token0, volumeRatio),
+    );
+    const actual = Price.projectAmount(
+      invertedPrice,
+      TokenVolume.TokenVolumeRatio(token0, volumeRatio),
+    );
+
+    assertions.assertOptionalEqualVia(
+      Option.map(actual, TokenVolume.asUnits),
+      Option.map(expected, TokenVolume.asUnits),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Price projections should be equal",
+    );
+  },
+  { numRuns: 2048 },
 );

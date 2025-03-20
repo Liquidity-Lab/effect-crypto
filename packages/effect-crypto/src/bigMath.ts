@@ -100,6 +100,20 @@ export const Q64x96: Brand.Brand.Constructor<Q64x96> = internal.makeQ64x96;
 export const convertToQ64x96: (value: BigDecimal) => Option.Option<Q64x96> =
   internal.convertToQ64x96Impl;
 
+/**
+ * Converts a Q64.96 fixed-point number back to BigDecimal format.
+ *
+ * @example
+ *  import { Big } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const q64x96 = BigMath.Q64x96(Big("1.5"));
+ *  BigMath.q64x96ToBigDecimal(q64x96); // BigDecimal("1.5")
+ *
+ * @see {@link Q64x96} for more details about the Q64.96 format
+ * @see {@link https://docs.uniswap.org/contracts/v3/reference/core/libraries/FixedPoint96 Uniswap v3 Q64.96}
+ * @see {@link convertToQ64x96} for the reverse operation
+ */
 export const q64x96ToBigDecimal: (q64x96: Q64x96) => BigDecimal = internal.q64x96ToBigDecimalImpl;
 
 /**

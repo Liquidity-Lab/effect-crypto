@@ -8,7 +8,9 @@ import * as Price from "./price.js";
 import * as Token from "./token.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
-function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.AssertableEqualAssertion {
+export function makeAssertableEqualAssertion(
+  t: ExecutionContext<unknown>,
+): T.AssertableEqualAssertion {
   function assertableEqual<
     Actual extends Assertable.Assertable,
     Expected extends Assertable.Assertable,
@@ -20,7 +22,24 @@ function makeAssertableEqualAssertion(t: ExecutionContext<unknown>): T.Assertabl
     );
   }
 
-  return Object.assign(assertableEqual, { skip: t.deepEqual.skip }) as T.AssertableEqualAssertion;
+  function assertArrays<
+    Actual extends Assertable.Assertable,
+    Expected extends Assertable.Assertable,
+  >(actual: readonly Actual[], expected: readonly Expected[], message?: string): boolean {
+    if (actual.length !== expected.length) {
+      return false;
+    }
+
+    const actualEntities = actual.map((a) => Assertable.asAssertableEntity(a));
+    const expectedEntities = expected.map((e) => Assertable.asAssertableEntity(e));
+
+    return t.deepEqual(actualEntities, expectedEntities, message);
+  }
+
+  return Object.assign(assertableEqual, {
+    skip: t.deepEqual.skip,
+    arrays: assertArrays,
+  }) as T.AssertableEqualAssertion;
 }
 
 function makePriceEqualsWithPrecisionAssertion(

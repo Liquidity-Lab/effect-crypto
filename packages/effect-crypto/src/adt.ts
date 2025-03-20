@@ -2,6 +2,7 @@
  * This module MUST NOT depend on any other module from this package.
  */
 import { Brand, Either } from "effect";
+import { Arbitrary } from "fast-check";
 
 import * as internal from "./adt.internal.js";
 
@@ -126,3 +127,39 @@ export const isZeroAddress: (address: Address) => boolean = internal.isZeroAddre
  * @returns The hex encoded calldata
  */
 export const toHex: (value: bigint) => string = internal.toHex;
+
+/**
+ * Generates an arbitrary Ethereum address for property-based testing.
+ *
+ * This generator creates valid Ethereum addresses that:
+ * - Start with "0x"
+ * - Are 42 characters long (including "0x")
+ * - Contain only valid hexadecimal characters
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { addressGen } from "effect-crypto";
+ *
+ * // Generate a random address
+ * fc.assert(
+ *   fc.property(addressGen(), (address) => {
+ *     // address is a valid Ethereum address
+ *     return address.startsWith("0x");
+ *   })
+ * );
+ *
+ * // Use with other test properties
+ * fc.assert(
+ *   fc.property(addressGen(), addressGen(), (addr1, addr2) => {
+ *     // Test interactions between two addresses
+ *   })
+ * );
+ * ```
+ *
+ * @see {@link https://ethereum.org/en/developers/docs/accounts/#account-creation | Ethereum Accounts}
+ * @returns An Arbitrary that generates valid Ethereum addresses
+ */
+export const addressGen: {
+  (): Arbitrary<Address>;
+} = internal.addressGenImpl;
