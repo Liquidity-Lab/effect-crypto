@@ -72,7 +72,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return Assertable.AssertableEntity({
       baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
       quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: toPriceRatio(this.underlying).toPlainString(), // TODO: This is not correct
+      units: asUnitsImpl(this).toPlainString(),
     });
   }
 

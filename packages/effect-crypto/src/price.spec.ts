@@ -10,6 +10,7 @@ import * as BigMath from "./bigMath.js";
 import * as Price from "./price.js";
 import * as Token from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
+import * as Assertable from "./assertable.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
@@ -201,4 +202,32 @@ testProp(
     );
   },
   { numRuns: 2048 },
+);
+
+testProp(
+  "TokenPrice with same value but different scale should be considered equal via Assertable",
+  [Token.tokenPairGen(Token.TokenType.ERC20), BigMath.ratioGen()],
+  (t, [token0, token1], ratio) => {
+    // Create the first price instance
+    const actualPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(token0, token1, ratio));
+
+    // Create a second price with the same value but different scale
+    // This adjusts the scale without changing the actual value
+    const adjustedRatio = BigMath.Ratio(
+      ratio.setScale(ratio.scale() + 3, RoundingMode.HALF_UP)
+    );
+    const expectedPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(token0, token1, adjustedRatio));
+
+    // Get assertable entities
+    const actual = Assertable.asAssertableEntity(actualPrice);
+    const expected = Assertable.asAssertableEntity(expectedPrice);
+
+    // Assert they are equal despite different string representations
+    t.deepEqual(
+      actual,
+      expected,
+      `Prices should be equal: ${actual.toString()} vs ${expected.toString()}`
+    );
+  },
+  { numRuns: 100 },
 );
