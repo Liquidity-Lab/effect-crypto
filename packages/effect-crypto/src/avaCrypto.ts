@@ -3,6 +3,7 @@ import { Layer } from "effect";
 
 import * as Assertable from "./assertable.js";
 import * as internal from "./avaCrypto.internal.js";
+import * as Price from "./price.js";
 import * as Token from "./token.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
@@ -34,26 +35,56 @@ export type AssertableEqualAssertion = {
     message?: string,
   ): boolean;
 
+  arrays: {
+    /**
+     * Assert that arrays of assertables are deeply equal after converting each element to AssertableEntity
+     */ <Actual extends Assertable.Assertable, Expected extends Actual>(
+      actual: readonly Actual[],
+      expected: readonly Expected[],
+      message?: string,
+    ): actual is Expected[];
+
+    /**
+     * Assert that arrays of assertables are deeply equal after converting each element to AssertableEntity
+     */ <Actual extends Expected, Expected extends Assertable.Assertable>(
+      actual: readonly Actual[],
+      expected: readonly Expected[],
+      message?: string,
+    ): expected is Actual[];
+
+    /**
+     * Assert that arrays of assertables are deeply equal after converting each element to AssertableEntity
+     */ <Actual extends Assertable.Assertable, Expected extends Assertable.Assertable>(
+      actual: readonly Actual[],
+      expected: readonly Expected[],
+      message?: string,
+    ): boolean;
+  };
+
   /** Skip this assertion. */
   skip(actual: unknown, expected: unknown, message?: string): void;
 };
 
+export const AssertableEqualAssertion: {
+  <T>(t: ExecutionContext<T>): AssertableEqualAssertion;
+} = internal.makeAssertableEqualAssertion;
+
 export type PriceEqualsWithPrecisionAssertion = {
-  <Actual extends Token.TokenPrice<T>, Expected extends Actual, T extends Token.TokenType>(
+  <Actual extends Price.TokenPrice<T>, Expected extends Actual, T extends Token.TokenType>(
     actual: Actual,
     expected: Expected,
     message?: string,
   ): actual is Expected;
 
-  <Actual extends Expected, Expected extends Token.TokenPrice<T>, T extends Token.TokenType>(
+  <Actual extends Expected, Expected extends Price.TokenPrice<T>, T extends Token.TokenType>(
     actual: Actual,
     expected: Expected,
     message?: string,
   ): expected is Actual;
 
   <
-    Actual extends Token.TokenPrice<T>,
-    Expected extends Token.TokenPrice<T>,
+    Actual extends Price.TokenPrice<T>,
+    Expected extends Price.TokenPrice<T>,
     T extends Token.TokenType,
   >(
     actual: Actual,

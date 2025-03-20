@@ -1,16 +1,20 @@
-import { Big, BigDecimal, MC, MathContext, RoundingMode } from "bigdecimal.js";
 import { Context, Effect, Equal, Hash, Layer, Option, Order } from "effect";
-import { RuntimeException } from "effect/Cause";
 import { BigNumberish, Contract, TransactionRequest, TransactionResponse } from "ethers";
+import {
+  Arbitrary,
+  constant as constantGen,
+  integer as integerGen,
+  string as stringGen,
+  tuple,
+} from "fast-check";
 
 import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
-import * as BigMath from "./bigMath.js";
 import * as Chain from "./chain.js";
-import * as Error from "./error.js";
+import * as BError from "./error.js";
 import * as Signature from "./signature.js";
 import type * as T from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
@@ -162,11 +166,11 @@ export function isErc20LikeToken(a: T.Token<TokenType>): a is T.Erc20LikeToken {
 
 export function fetchErc20Token(
   address: Adt.Address,
-): Effect.Effect<Option.Option<T.Erc20Token>, Error.BlockchainError, Chain.Tag> {
+): Effect.Effect<Option.Option<T.Erc20Token>, BError.BlockchainError, Chain.Tag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(address, ERC20.abi);
     const contract = contractOps.withOnChainRunner;
-    const contractCode = yield* Error.catchRefinedBlockchainErrors(
+    const contractCode = yield* BError.catchRefinedBlockchainErrors(
       Effect.promise(() => contract.getDeployedCode()),
       contract,
     );
@@ -183,7 +187,7 @@ export function fetchErc20Token(
 
 export function fetchErc20TokenDataFromContract(
   contract: Contract,
-): Effect.Effect<T.Erc20Token, Error.BlockchainError> {
+): Effect.Effect<T.Erc20Token, BError.BlockchainError> {
   const prog = Effect.gen(function* () {
     const getName = contract.getFunction("name");
     const name: string = yield* Effect.promise(() => getName());
@@ -206,7 +210,7 @@ export function fetchErc20TokenDataFromContract(
     );
   });
 
-  return Error.catchRefinedBlockchainErrors(prog, contract);
+  return BError.catchRefinedBlockchainErrors(prog, contract);
 }
 
 function isMetaEquals<A extends T.TokenType, B extends T.TokenType>(
@@ -223,219 +227,6 @@ function isMetaEquals<A extends T.TokenType, B extends T.TokenType>(
     case "NativeTokenMeta":
       return b._tag === "NativeTokenMeta";
   }
-}
-
-// Checks
-/*
-function fakeToken<T extends TokenType>(): Token<T> {
-  return {} as Token<T>;
-}
-
-type MetaTest = TokenMetaShape<TokenType>;
-// This can be resolved using different constructors
-const tmp = Token.newWrapped(
-  Address.makeUnsafe("0x"),
-  123,
-  "ETH",
-  "Etttth",
-  TokenMetaShape.wrapped(fakeToken<TokenType.Native>()),
-);
-
-function tokenInputTest(token: Token<TokenType.ERC20 | TokenType.Wrapped>) {
-  if (!isErc20Token(token)) {
-    return;
-  }
-
-  const meta: Erc20TokenMeta = token.meta;
-}
-
-tokenInputTest(fakeToken<TokenType.Native>());
-tokenInputTest(fakeToken<TokenType.ERC20>());
-tokenInputTest(fakeToken<TokenType.Wrapped>());
-tokenInputTest(fakeToken<TokenType.Wrapped | TokenType.ERC20>());
-tokenInputTest(fakeToken<TokenType.Native | TokenType.ERC20>());
-
-function anyTokenInputTest(token: AnyToken) {
-  if (!isErc20Token(token)) {
-    return;
-  }
-
-  const meta: Erc20TokenMeta = token.meta;
-}
-
-anyTokenInputTest(fakeToken<TokenType.Native>());
-anyTokenInputTest(fakeToken<TokenType.ERC20>());
-*/
-
-class TokenPriceLive<T extends TokenType> implements T.TokenPrice<T> {
-  static mc: MathContext = MC((28 + 19) * 2, RoundingMode.FLOOR);
-  readonly baseCurrency: T.Token<T>;
-  readonly quoteCurrency: T.Token<T>;
-  readonly ratio: BigMath.Ratio;
-
-  /**
-   * price = baseCurrency / quoteCurrency,
-   * meaning that 1 unit of baseCurrency is worth value units of quoteCurrency
-   * @example
-   *   "BTCUSD" -> 70000 USD
-   */
-  constructor(baseCurrency: T.Token<T>, quoteCurrency: T.Token<T>, ratio: BigMath.Ratio) {
-    // tokens must be sorted
-    if (!Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency)) {
-      throw new RuntimeException(
-        "Cannot construct TokenPrice, baseCurrency must be sorted before quoteCurrency",
-      );
-    }
-
-    this.baseCurrency = baseCurrency;
-    this.quoteCurrency = quoteCurrency;
-    this.ratio = ratio;
-
-    // node_modules/@uniswap/sdk-core/dist/utils/sqrt.d.ts
-    // const initialSqrtPrice = encodeSqrtRatioX96() parseUnits("4000", USDC.decimals) *; // TODO: convert to sqrt price
-    // const dbg = new SdkPrice()
-  }
-
-  get token0(): T.Token<T> {
-    return this.baseCurrency;
-  }
-
-  get token1(): T.Token<T> {
-    return this.quoteCurrency;
-  }
-
-  get tokens(): [T.Token<T>, T.Token<T>] {
-    return [this.token0, this.token1];
-  }
-
-  get asUnits(): string {
-    return this.ratio.setScale(this.token1.decimals, RoundingMode.FLOOR).toPlainString();
-  }
-
-  get asFlippedUnits(): string {
-    return Big(1)
-      .divideWithMathContext(this.ratio, TokenPriceLive.mc)
-      .setScale(this.token0.decimals, RoundingMode.FLOOR)
-      .toPlainString();
-  }
-
-  get asSqrtX96(): Option.Option<bigint> {
-    return TokenPriceLive.convertToQ64x96(this.ratio.sqrt(TokenPriceLive.mc));
-  }
-
-  get asFlippedSqrtX96(): Option.Option<bigint> {
-    return TokenPriceLive.convertToQ64x96(
-      Big(1).divideWithMathContext(this.ratio, TokenPriceLive.mc).sqrt(TokenPriceLive.mc),
-    );
-  }
-
-  get asUnscaled(): bigint {
-    return this.ratio.setScale(this.token1.decimals, RoundingMode.FLOOR).unscaledValue();
-  }
-
-  get prettyPrint(): string {
-    return `1 ${this.token0.symbol || "token0"} -> ${this.asUnits} ${this.token1.symbol || "token1"}`;
-  }
-
-  get [Assertable.instanceSymbol](): Assertable.AssertableEntity<this> {
-    return Assertable.AssertableEntity({
-      baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
-      quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: this.asUnits,
-    });
-  }
-
-  static convertToQ64x96(underlying: BigDecimal): Option.Option<bigint> {
-    const scaledValue = (underlying.unscaledValue() * 2n ** 96n) / BigInt(10 ** underlying.scale());
-    const maxValue = 2n ** (64n + 96n);
-
-    return scaledValue >= maxValue ? Option.none() : Option.some(scaledValue);
-  }
-
-  contains(token: T.Token<T.TokenType>): boolean {
-    return token.address == this.token0.address || token.address == this.token1.address;
-  }
-
-  projectAmount(
-    inputAmount: TokenVolume.TokenVolume<T>,
-  ): Option.Option<TokenVolume.TokenVolume<T>> {
-    switch (inputAmount.token.address) {
-      case this.token0.address:
-        return TokenVolume.tokenVolumeFromUnscaled(
-          this.token1,
-          this.ratio
-            .multiply(inputAmount.underlyingValue)
-            .setScale(this.token1.decimals, RoundingMode.FLOOR)
-            .unscaledValue(),
-        );
-      case this.token1.address:
-        return TokenVolume.tokenVolumeFromUnscaled(
-          this.token0,
-          inputAmount.underlyingValue
-            .divideWithMathContext(this.ratio, TokenPriceLive.mc)
-            .setScale(this.token0.decimals, RoundingMode.FLOOR)
-            .unscaledValue(),
-        );
-      default:
-        return Option.none();
-    }
-  }
-
-  map(f: (a: BigMath.Ratio) => BigMath.Ratio): TokenPriceLive<T> {
-    return new TokenPriceLive(this.baseCurrency, this.quoteCurrency, f(this.ratio));
-  }
-}
-
-export function makeTokenPriceFromUnits<TBase extends T.TokenType, TQuote extends T.TokenType>(
-  baseCurrency: T.Token<TBase>,
-  quoteCurrency: T.Token<TQuote>,
-  valueInQuoteCurrency: string,
-): Option.Option<T.TokenPrice<TBase | TQuote>> {
-  return Option.map(
-    BigMath.Ratio.option(Big(valueInQuoteCurrency, undefined, TokenPriceLive.mc)),
-    (ratio) => makeTokenPriceFromRatio(baseCurrency, quoteCurrency, ratio),
-  );
-}
-
-export function makeTokenPriceFromRatio<TBase extends T.TokenType, TQuote extends T.TokenType>(
-  baseCurrency: T.Token<TBase>,
-  quoteCurrency: T.Token<TQuote>,
-  ratio: BigMath.Ratio,
-): T.TokenPrice<TBase | TQuote> {
-  const isInverted = !Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency);
-  const [token0, token1] =
-    isInverted ? [quoteCurrency, baseCurrency] : [baseCurrency, quoteCurrency];
-
-  const finalRatio = BigMath.Ratio(
-    isInverted ? Big(1).divideWithMathContext(ratio, TokenPriceLive.mc) : ratio,
-  );
-
-  return new TokenPriceLive<TBase | TQuote>(token0, token1, finalRatio) as T.TokenPrice<
-    TBase | TQuote
-  >;
-}
-
-// TODO: move it to SqrtPrice
-export function makeTokenPriceFromSqrtX96<TBase extends TokenType, TQuote extends TokenType>(
-  baseCurrency: T.Token<TBase>,
-  quoteCurrency: T.Token<TQuote>,
-  sqrtX96: BigNumberish, // TODO: get rid of BigNumberish and introduce q64x96 type
-): T.TokenPrice<TBase | TQuote> {
-  const isInverted = !Order.lessThanOrEqualTo(tokenOrder)(baseCurrency, quoteCurrency);
-  const [token0, token1] =
-    isInverted ? [quoteCurrency, baseCurrency] : [baseCurrency, quoteCurrency];
-
-  const providedValue = Big(
-    (BigInt(sqrtX96) * 10n ** BigInt(quoteCurrency.decimals)) / 2n ** 96n,
-    quoteCurrency.decimals,
-    TokenPriceLive.mc,
-  ).pow(2);
-
-  const ratio = BigMath.Ratio(
-    isInverted ? Big(1).divideWithMathContext(providedValue, TokenPriceLive.mc) : providedValue,
-  );
-
-  return new TokenPriceLive<TBase | TQuote>(token0, token1, ratio) as T.TokenPrice<TBase | TQuote>;
 }
 
 interface TokensPrivateApi {
@@ -522,7 +313,7 @@ function approveTransferImpl(
   { [privateApiSymbol]: api }: TokensShape,
   volume: TokenVolume.Erc20LikeTokenVolume,
   to: Adt.Address,
-): Effect.Effect<TransactionResponse, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
+): Effect.Effect<TransactionResponse, Adt.FatalError | BError.BlockchainError, Signature.TxTag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(
       api.underlyingChain,
@@ -605,7 +396,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   address: Adt.Address,
 ): Effect.Effect<
   Option.Option<TokenVolume.TokenVolume<T>>,
-  Adt.FatalError | Error.BlockchainError,
+  Adt.FatalError | BError.BlockchainError,
   Signature.TxTag
 > {
   return Effect.gen(function* () {
@@ -616,7 +407,7 @@ function balanceOfErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
     );
     const tokenContract = yield* Signature.signed(contractOps);
 
-    const balance: BigNumberish = yield* Error.catchRefinedBlockchainErrors(
+    const balance: BigNumberish = yield* BError.catchRefinedBlockchainErrors(
       Effect.promise(() => tokenContract.balanceOf(address)),
       tokenContract,
     );
@@ -635,7 +426,7 @@ function transferErc20LikeImpl<T extends TokenType.ERC20 | TokenType.Wrapped>(
   volume: TokenVolume.TokenVolume<T>,
   to: Adt.Address,
   from: Adt.Address,
-): Effect.Effect<TransactionRequest, Adt.FatalError | Error.BlockchainError, Signature.TxTag> {
+): Effect.Effect<TransactionRequest, Adt.FatalError | BError.BlockchainError, Signature.TxTag> {
   return Effect.gen(function* () {
     const contractOps = yield* Chain.contractInstance(
       api.underlyingChain,
@@ -680,11 +471,69 @@ function invariantNativeToken(
   });
 }
 
-export function tokenPriceGen<T0 extends T.TokenType, T1 extends T.TokenType>(
-  token0: T.Token<T0>,
-  token1: T.Token<T1>,
-) {
-  return BigMath.ratioGen().map((ratio) => {
-    return makeTokenPriceFromRatio(token0, token1, ratio);
+// Generator for token decimals with configurable max
+const decimalsGen = (maxDecimals: number = 18): Arbitrary<number> =>
+  integerGen({ min: 6, max: maxDecimals < 6 ? 6 : maxDecimals });
+
+// Generator for token symbol
+const symbolGen = (): Arbitrary<string> =>
+  stringGen({ minLength: 3, maxLength: 8 }).map((s) => s.toUpperCase());
+
+// Generator for ERC20 token metadata
+const erc20MetaGen = (): Arbitrary<T.TokenMetaShape<TokenType.ERC20>> =>
+  constantGen(makeErc20TokenMeta());
+
+// Generator for Native token metadata
+const nativeMetaGen = (): Arbitrary<T.TokenMetaShape<TokenType.Native>> =>
+  constantGen(makeNativeTokenMeta());
+
+// Generator for Wrapped token metadata, requires original token
+const wrappedMetaGen = (
+  originalToken: T.AnyToken,
+): Arbitrary<T.TokenMetaShape<TokenType.Wrapped>> =>
+  constantGen(makeWrappedTokenMeta(originalToken));
+
+/** @internal */
+export function tokenGenImpl<T extends TokenType>(
+  tokenType: T,
+  constraints?: {
+    maxDecimals?: number;
+  },
+): Arbitrary<T.Token<T>> {
+  // Generate metadata based on token type
+  const metaGen = (): Arbitrary<T.TokenMetaShape<T>> => {
+    switch (tokenType) {
+      case TokenType.ERC20:
+        return erc20MetaGen() as Arbitrary<T.TokenMetaShape<T>>;
+      case TokenType.Native:
+        return nativeMetaGen() as Arbitrary<T.TokenMetaShape<T>>;
+      case TokenType.Wrapped:
+        return tokenGenImpl(TokenType.Native).chain(
+          (originalToken) => wrappedMetaGen(originalToken) as Arbitrary<T.TokenMetaShape<T>>,
+        );
+      default:
+        throw new Error(`Unsupported token type: ${tokenType}`);
+    }
+  };
+
+  // Compose all generators to create a token
+  return symbolGen().chain((symbol) => {
+    return tuple(Adt.addressGen(), decimalsGen(constraints?.maxDecimals ?? 18), metaGen()).map(
+      ([address, decimals, meta]) => makeToken(address, decimals, symbol, symbol, meta),
+    );
   });
+}
+
+/** @internal */
+export function tokenPairGenImpl<T extends TokenType>(
+  tokenType: T,
+  constraints?: {
+    maxDecimals?: number;
+  },
+): Arbitrary<[T.Token<T>, T.Token<T>]> {
+  return tuple(tokenGenImpl(tokenType, constraints), tokenGenImpl(tokenType, constraints)).filter(
+    ([token0, token1]) => {
+      return token0.address !== token1.address;
+    },
+  );
 }

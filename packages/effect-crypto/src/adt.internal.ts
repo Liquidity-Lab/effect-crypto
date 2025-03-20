@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { Brand, Either } from "effect";
 import { ZeroAddress, getAddress } from "ethers";
 
@@ -100,4 +101,12 @@ export function toHex(value: bigint): string {
   const hex = value.toString(16);
 
   return `0x${hex.length % 2 !== 0 ? "0" : ""}${hex}`;
+}
+
+export function addressGenImpl() {
+  return fc.hexaString({ minLength: 40, maxLength: 40 }).map((hex) => {
+    const address = `0x${hex}`;
+
+    return makeAddressUnsafe(address, true);
+  });
 }

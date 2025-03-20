@@ -81,7 +81,7 @@ export function asUnscaledImpl<T extends Token.TokenType>(volume: T.TokenVolume<
 
 /** @internal */
 export function prettyPrintImpl<T extends Token.TokenType>(volume: T.TokenVolume<T>): string {
-  return `${asUnitsImpl(volume)} ${volume.token.symbol || "UnknownToken"}`;
+  return `${asUnitsImpl(volume)} ${volume.token.symbol?.length > 0 ? volume.token.symbol : "UnknownToken"}`;
 }
 
 /** @internal */
