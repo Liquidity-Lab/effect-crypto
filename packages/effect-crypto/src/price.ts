@@ -388,4 +388,3 @@ export const tokenPriceGen: {
     },
   ): Arbitrary<TokenPrice<T0 | T1>>;
 } = internal.tokenPriceGenImpl;
-

@@ -6,11 +6,11 @@ import { testProp } from "@fast-check/ava";
 import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
 
 import * as Adt from "./adt.js";
+import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as Price from "./price.js";
 import * as Token from "./token.js";
 import * as TokenVolume from "./tokenVolume.js";
-import * as Assertable from "./assertable.js";
 import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
@@ -213,10 +213,10 @@ testProp(
 
     // Create a second price with the same value but different scale
     // This adjusts the scale without changing the actual value
-    const adjustedRatio = BigMath.Ratio(
-      ratio.setScale(ratio.scale() + 3, RoundingMode.HALF_UP)
+    const adjustedRatio = BigMath.Ratio(ratio.setScale(ratio.scale() + 3, RoundingMode.HALF_UP));
+    const expectedPrice = Either.getOrThrow(
+      Price.makeTokenPriceFromRatio(token0, token1, adjustedRatio),
     );
-    const expectedPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(token0, token1, adjustedRatio));
 
     // Get assertable entities
     const actual = Assertable.asAssertableEntity(actualPrice);
@@ -226,7 +226,7 @@ testProp(
     t.deepEqual(
       actual,
       expected,
-      `Prices should be equal: ${actual.toString()} vs ${expected.toString()}`
+      `Prices should be equal: ${actual.toString()} vs ${expected.toString()}`,
     );
   },
   { numRuns: 100 },
