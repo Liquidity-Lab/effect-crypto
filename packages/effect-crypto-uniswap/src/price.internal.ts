@@ -1,11 +1,10 @@
 import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option, Order } from "effect";
 
-import * as Assertable from "./assertable.js";
-import * as BigMath from "./bigMath.js";
+import { Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+import { BrandUtils } from "@liquidity_lab/effect-crypto/utils";
+
 import type * as T from "./price.js";
-import * as Token from "./token.js";
-import * as TokenVolume from "./tokenVolume.js";
 
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 
@@ -152,6 +151,23 @@ export function makeTokenPriceFromUnits<
 }
 
 /** @internal */
+export function makeTokenPriceFromSqrtQ64_96Impl<
+  TBase extends Token.TokenType,
+  TQuote extends Token.TokenType,
+>(
+  baseCurrency: Token.Token<TBase>,
+  quoteCurrency: Token.Token<TQuote>,
+  value: BigMath.Q64x96,
+): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
+  return BigMath.Ratio.either(BigMath.q64x96ToBigDecimal(value)).pipe(
+    Either.mapLeft(BrandUtils.stringifyBrandErrors),
+    Either.flatMap((value) =>
+      makeTokenPriceFromSqrt(baseCurrency, quoteCurrency, value),
+    )
+  );
+}
+
+/** @internal */
 export function asUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
   return toPriceRatio(price.underlying).setScale(price.token1.decimals, RoundingMode.FLOOR);
 }
@@ -169,6 +185,13 @@ export function asSqrtImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): B
     case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
       return price.underlying.value;
   }
+}
+
+/** @internal */
+export function asSqrtQ64_96Impl<T extends Token.TokenType>(
+  price: T.TokenPrice<T>,
+): Option.Option<BigMath.Q64x96> {
+  return BigMath.convertToQ64x96(asSqrtImpl(price));
 }
 
 /** @internal */

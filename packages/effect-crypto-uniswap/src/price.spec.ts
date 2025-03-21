@@ -3,28 +3,25 @@ import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
 
 import { testProp } from "@fast-check/ava";
+import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+import { AvaEffect } from "@liquidity_lab/effect-crypto/utils";
 import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
 
-import * as Adt from "./adt.js";
-import * as Assertable from "./assertable.js";
-import * as BigMath from "./bigMath.js";
+import * as AvaUnswap from "./avaUniswap.js";
 import * as Price from "./price.js";
-import * as Token from "./token.js";
-import * as TokenVolume from "./tokenVolume.js";
-import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
 
 const WETH = Token.Erc20Token(
-  Adt.Address.unsafe("0x0000000000000000000000000000000000000001"),
+  Address.unsafe("0x0000000000000000000000000000000000000001"),
   18,
   "WETH",
   "Wrapped Ether",
   Token.Erc20TokenMeta(),
 );
 const USDT = Token.Erc20Token(
-  Adt.Address.unsafe("0x0000000000000000000000000000000000000002"),
+  Address.unsafe("0x0000000000000000000000000000000000000002"),
   6,
   "USDT",
   "Tether USD",
@@ -140,10 +137,10 @@ testProp(
 
     // Create price with tokens in reverse order
     const WETH2 = Object.assign({}, WETH, {
-      address: Adt.Address.unsafe("0x0000000000000000000000000000000000000002"),
+      address: Address.unsafe("0x0000000000000000000000000000000000000002"),
     });
     const USDT2 = Object.assign({}, USDT, {
-      address: Adt.Address.unsafe("0x0000000000000000000000000000000000000001"),
+      address: Address.unsafe("0x0000000000000000000000000000000000000001"),
     });
     const invertedPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH2, USDT2, ratio));
 
@@ -230,4 +227,37 @@ testProp(
     );
   },
   { numRuns: 100 },
+);
+
+testProp(
+  "Price round-trip conversion through Q64.96 format should be identical",
+  [Token.tokenPairGen(Token.TokenType.ERC20), BigMath.ratioGen()],
+  (t, [token0, token1], ratio) => {
+    const assertPriceEquals = AvaUnswap.PriceEqualsWithPrecisionAssertion(t);
+
+    // Create the initial price
+    const expected = Either.getOrThrowWith(
+      Price.makeTokenPriceFromRatio(token0, token1, ratio),
+      () => new Error("Failed to create TokenPrice from ratio")
+    );
+
+    // Convert to Q64.96 format
+    const sqrtQ64x96 = Option.getOrThrowWith(
+      Price.asSqrtQ64_96(expected),
+      () => new Error("Conversion to Q64.96 should succeed")
+    );
+
+    // Convert back to price
+    const actual = Either.getOrThrowWith(
+      Price.makeFromSqrtQ64_96(token0, token1, sqrtQ64x96),
+      () => new Error("Failed to create TokenPrice from sqrt Q64.96")
+    );
+
+    assertPriceEquals(
+      actual,
+      expected,
+      "Price should be equal after round-trip conversion"
+    );
+  },
+{ numRuns: 1024 }
 );
