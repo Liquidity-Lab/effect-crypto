@@ -1,12 +1,12 @@
+// External imports
 import { BigDecimal } from "bigdecimal.js";
 import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
-import * as Assertable from "./assertable.js";
-import * as BigMath from "./bigMath.js";
+import { Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+
 import * as internal from "./price.internal.js";
-import * as Token from "./token.js";
-import * as TokenVolume from "./tokenVolume.js";
+
 
 /**
  * Represents a regular price value expressed as a ratio between two tokens.
@@ -223,6 +223,14 @@ export const makeFromUnits: {
   ): Option.Option<TokenPrice<TBase | TQuote>>;
 } = internal.makeTokenPriceFromUnits;
 
+export const makeFromSqrtQ64_96: {
+  <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
+    baseCurrency: Token.Token<TBase>,
+    quoteCurrency: Token.Token<TQuote>,
+    sqrtValue: BigMath.Q64x96,
+  ): Either.Either<TokenPrice<TBase | TQuote>, string>;
+} = internal.makeTokenPriceFromSqrtQ64_96Impl;
+
 /**
  * Gets the price as a decimal string in quote currency units per base currency unit.
  *
@@ -294,6 +302,10 @@ export const asFlippedUnits: {
 export const asSqrt: {
   <T extends Token.TokenType>(price: TokenPrice<T>): BigMath.Ratio;
 } = internal.asSqrtImpl;
+
+export const asSqrtQ64_96: {
+  <T extends Token.TokenType>(price: TokenPrice<T>): Option.Option<BigMath.Q64x96>;
+} = internal.asSqrtQ64_96Impl;
 
 /**
  * Projects an input amount of one token to the equivalent amount of the other token
@@ -388,3 +400,4 @@ export const tokenPriceGen: {
     },
   ): Arbitrary<TokenPrice<T0 | T1>>;
 } = internal.tokenPriceGenImpl;
+
