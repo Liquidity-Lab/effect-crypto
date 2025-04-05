@@ -10,8 +10,8 @@ This rule defines the core project structure and coding standards for the Effect
 
 ## File Patterns
 # Refined patterns to focus on core TypeScript source and test files
-- `packages/effect-crypto/src/**/*.ts`
-- `packages/effect-crypto-uniswap/src/**/*.ts`
+- `packages/*/src/**/*.ts`
+- `packages/*/src/**/*.ts`
 # Added pattern for Solidity contracts
 - `packages/sol-artifacts/contracts/**/*.sol`
 
