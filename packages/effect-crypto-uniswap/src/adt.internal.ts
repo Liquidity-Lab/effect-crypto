@@ -1,9 +1,12 @@
-import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
-import { Brand } from "effect";
+import {
+  Big,
+  BigInt,
+  MathContext,
+} from "bigdecimal.js";
+import { Brand, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import { fc } from "@fast-check/ava";
-import { BigMath } from "@liquidity_lab/effect-crypto";
 
 import type * as T from "./adt.js";
 
@@ -36,8 +39,12 @@ export const feeAmountGen: Arbitrary<FeeAmount> = fc.constantFrom(
  */
 const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
-const amount0TypeId = Symbol("com/liquidity_lab/crypto/blockchain/uniswap#amount0");
-export type Amount0TypeId = typeof amount0TypeId;
+/**
+ * Internal implementation for Amount0.
+ */
+export class Amount0Internal extends Amount<T.Amount0Tag> {
+  readonly _tag = T.amount0Tag;
+}
 
 export const makeAmount0 = Brand.refined<T.Amount0>(verifyAmount, (rawAmount) => {
   return Brand.error(
@@ -53,9 +60,12 @@ export const amount0Gen = (constraints?: { min?: T.Amount0; max?: T.Amount0 }) =
     max: constraints?.max?.toBigInt(),
   }).map(makeAmount0);
 
-const amount1TypeId = Symbol("com/liquidity_lab/crypto/blockchain/uniswap#amount1");
-
-export type Amount1TypeId = typeof amount1TypeId;
+/**
+ * Internal implementation for Amount1.
+ */
+export class Amount1Internal extends Amount<T.Amount1Tag> {
+  readonly _tag = T.amount1Tag;
+}
 
 export const makeAmount1 = Brand.refined<T.Amount1>(verifyAmount, (rawAmount) => {
   return Brand.error(

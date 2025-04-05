@@ -1,17 +1,15 @@
-import test, { ExecutionContext } from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Effect, Layer, Option } from "effect";
 
-import * as uniswapV3Sdk from "@uniswap/v3-sdk";
-import { fc, testProp } from "@fast-check/ava";
-import { AvaCrypto, BigMath, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
+import { AvaCrypto, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
 import { jsbi } from "@liquidity_lab/jsbi-reimported";
 
 import * as Adt from "./adt.js";
-import * as internal from "./pool.internal.js";
+import * as AvaUniswap from "./avaUniswap.js";
 import * as Pool from "./pool.js";
-import * as Tick from "./tick.js";
+import * as Price from "./price.js";
 import * as UniswapTestEnv from "./uniswapTestEnv.js";
+import * as Token from "./token.js";
 
 const JSBI = jsbi.default;
 const MaxUint256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -33,7 +31,7 @@ const deps: Layer.Layer<Services> = Layer.empty.pipe(
   Layer.orDie,
 );
 
-const testEffect = AvaCrypto.makeTestEffect(deps, () => ({}));
+const testEffect = AvaCrypto.makeTestEffect(deps, (t) => AvaUniswap.Assertions(t));
 
 testEffect("Should return None state if pool does not exist", (t) => {
   return Effect.gen(function* () {
@@ -48,12 +46,14 @@ testEffect("Should return None state if pool does not exist", (t) => {
 });
 
 testEffect("Should create and initialize pool", (t) => {
+  const errorTolerance = Big("0.00001");
+
   return Effect.gen(function* () {
     const WETH = yield* Token.get("WETH");
     const USDC = yield* Token.get("USDC");
 
     const feeAmount = Adt.FeeAmount.MEDIUM;
-    const expectedPrice = Option.getOrElse(Token.TokenPriceUnits(WETH, USDC, "4000"), () =>
+    const expectedPrice = Option.getOrElse(Price.makeFromUnits(WETH, USDC, Big("4000")), () =>
       t.fail("Failed to create TokenPriceUnits"),
     );
 
@@ -62,11 +62,11 @@ testEffect("Should create and initialize pool", (t) => {
     t.assertOptionalEqualVia(
       Option.map(slot0PriceOpt, (slot0Price) => slot0Price.price),
       Option.some(expectedPrice),
-      t.priceEqualsWithPrecision(0.00001),
+      t.priceEqualsWithPrecision(errorTolerance),
     );
 
     const existingPoolPriceOpt = yield* Pool.createAndInitialize(
-      Option.getOrElse(Token.TokenPriceUnits(WETH, USDC, "5000"), () =>
+      Option.getOrElse(Price.makeFromUnits(WETH, USDC, Big("5000")), () =>
         t.fail("Failed to create TokenPriceUnits"),
       ),
       feeAmount,

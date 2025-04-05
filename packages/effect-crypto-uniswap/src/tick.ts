@@ -2,9 +2,10 @@ import { BigDecimal } from "bigdecimal.js";
 import { Brand } from "effect";
 import { Arbitrary } from "fast-check";
 
-import { Price, Token } from "@liquidity_lab/effect-crypto";
+import { Token } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
+import * as Price from "./price.js";
 import * as internal from "./tick.internal.js";
 
 /**

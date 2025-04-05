@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { Error } from "@liquidity_lab/effect-crypto";
+
 import type * as T from "./uniswap.js";
 
 const privateApiSymbol = Symbol("com/liquidity_lab/crypto/blockchain/uniswap#privateApi");
@@ -21,7 +22,7 @@ export class UniswapTxTag extends Effect.Tag("UniswapTxTag")<UniswapTxTag, Unisw
 interface UniswapShape {
   readonly [privateApiSymbol]: {
     readonly toTx: Effect.Effect<UniswapTxShape>;
-  }
+  };
 
   transact<A, E, R>(
     fa: Effect.Effect<A, E, R | UniswapTxTag>,

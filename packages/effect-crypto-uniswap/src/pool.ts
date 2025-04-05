@@ -7,8 +7,9 @@ import { Address, Chain, Error, FatalError, Token, Wallet } from "@liquidity_lab
 import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
-import * as Tick from "./tick.js";
 import * as internal from "./pool.internal.js";
+import * as Price from "./price.js";
+import * as Tick from "./tick.js";
 
 export { PoolsTag as Tag } from "./pool.internal.js";
 
@@ -58,7 +59,7 @@ export const Liquidity: Brand.Brand.Constructor<Liquidity> = internal.liquidityC
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3PoolState#slot0}
  */
 export interface Slot0Price {
-  readonly price: Token.AnyTokenPrice;
+  readonly price: Price.AnyTokenPrice;
   readonly tick: Tick.Tick;
 }
 
@@ -101,7 +102,8 @@ export interface Slot0 extends Slot0Price {
  * ```
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3Pool}
  */
-export interface PoolState { // TODO: it's not a state. It's lie PoolId or PoolDefinition
+export interface PoolState {
+  // TODO: it's not a state. It's lie PoolId or PoolDefinition
   readonly token0: Token.AnyToken;
   readonly token1: Token.AnyToken;
   readonly fee: Adt.FeeAmount;
@@ -226,7 +228,7 @@ export const fetchState: {
  */
 export const createAndInitialize: {
   (
-    price: Token.AnyTokenPrice,
+    price: Price.AnyTokenPrice,
     fee: Adt.FeeAmount,
   ): Effect.Effect<
     Option.Option<Slot0Price>,
@@ -235,7 +237,7 @@ export const createAndInitialize: {
   >;
   (
     pool: Context.Tag.Service<internal.PoolsTag>,
-    price: Token.AnyTokenPrice,
+    price: Price.AnyTokenPrice,
     fee: Adt.FeeAmount,
   ): Effect.Effect<
     Option.Option<Slot0Price>,

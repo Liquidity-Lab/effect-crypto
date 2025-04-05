@@ -3,13 +3,22 @@ import { Brand, Context, Effect, Layer, Option } from "effect";
 import { Contract } from "ethers";
 import { Tagged } from "type-fest";
 
-import {Address, BigMath, Chain, Error, FatalError, Token, TokenVolume, Wallet} from "@liquidity_lab/effect-crypto";
+import {
+  Address,
+  BigMath,
+  Chain,
+  Error,
+  FatalError,
+  Token,
+  TokenVolume,
+  Wallet,
+} from "@liquidity_lab/effect-crypto";
 import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
 import * as Pool from "./pool.js";
-import * as Tick from "./tick.js";
 import * as internal from "./position.internal.js";
+import * as Tick from "./tick.js";
 
 /**
  * Represents a draft of an Uniswap V3 position before it is minted.
@@ -18,27 +27,27 @@ import * as internal from "./position.internal.js";
  * @see {@link https://docs.uniswap.org/concepts/protocol/concentrated-liquidity}
  */
 export interface PositionDraft {
-    readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
 
-    /** The identifier for the pool containing token pair and fee information */
-    readonly poolId: Pool.PoolState;
+  /** The identifier for the pool containing token pair and fee information */
+  readonly poolId: Pool.PoolState;
 
-    /** The lower tick boundary of the position - defines the lower price limit */
-    readonly tickLower: Tick.Tick;
-    /** The upper tick boundary of the position - defines the upper price limit */
-    readonly tickUpper: Tick.Tick;
-    /** The current tick of the pool - represents the current price */
-    readonly tickCurrent: Tick.Tick;
+  /** The lower tick boundary of the position - defines the lower price limit */
+  readonly tickLower: Tick.Tick;
+  /** The upper tick boundary of the position - defines the upper price limit */
+  readonly tickUpper: Tick.Tick;
+  /** The current tick of the pool - represents the current price */
+  readonly tickCurrent: Tick.Tick;
 
-    /** The optimal amount of token0 calculated for the position */
-    readonly desiredAmount0: Adt.Amount0;
-    /** The optimal amount of token1 calculated for the position */
-    readonly desiredAmount1: Adt.Amount1;
+  /** The optimal amount of token0 calculated for the position */
+  readonly desiredAmount0: Adt.Amount0;
+  /** The optimal amount of token1 calculated for the position */
+  readonly desiredAmount1: Adt.Amount1;
 
-    /** The amount of liquidity to be provided to the position */
-    readonly liquidity: Pool.Liquidity;
-    /** The current price as a square root of token1/token0 ratio */
-    readonly sqrtRatio: BigMath.Ratio;
+  /** The amount of liquidity to be provided to the position */
+  readonly liquidity: Pool.Liquidity;
+  /** The current price as a square root of token1/token0 ratio */
+  readonly sqrtRatio: BigMath.Ratio;
 }
 
 /**
@@ -47,12 +56,11 @@ export interface PositionDraft {
  * or doesn't exist on the current network.
  */
 export interface PoolIsNotFoundError {
-    readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError";
-    readonly token0: Token.Erc20LikeToken;
-    readonly token1: Token.Erc20LikeToken;
-    readonly fee: Adt.FeeAmount;
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError";
+  readonly token0: Token.Erc20LikeToken;
+  readonly token1: Token.Erc20LikeToken;
+  readonly fee: Adt.FeeAmount;
 }
-
 
 /**
  * Adds liquidity to a Uniswap V3 pool by minting new positions.

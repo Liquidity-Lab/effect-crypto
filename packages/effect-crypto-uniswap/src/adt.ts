@@ -1,9 +1,9 @@
+import { Big, BigDecimal } from "bigdecimal.js";
 import { Brand } from "effect";
-import { Branded } from "effect/Brand";
 import { Arbitrary } from "fast-check";
+import { MathContext, RoundingMode } from "bigdecimal.js";
 
 import * as internal from "./adt.internal.js";
-import {Big, BigDecimal} from "bigdecimal.js";
 
 export { FeeAmount } from "./adt.internal.js";
 
@@ -31,25 +31,5 @@ export const Amount1: Brand.Brand.Constructor<Amount1> & {
   zero: internal.makeAmount1(Big(0)),
   max: internal.MAX_AMOUNT_1,
 });
-
-function isTickValid(tickIdx: number, fee: number): boolean {
-  let tickSpacing: number;
-
-  switch (fee) {
-    case 0.0005:
-      tickSpacing = 1;
-      break;
-    case 0.003:
-      tickSpacing = 60;
-      break;
-    case 0.01:
-      tickSpacing = 200;
-      break;
-    default:
-      throw new Error("Unsupported fee tier");
-  }
-
-  return tickIdx % tickSpacing === 0;
-}
 
 export const feeAmountGen: Arbitrary<internal.FeeAmount> = internal.feeAmountGen;

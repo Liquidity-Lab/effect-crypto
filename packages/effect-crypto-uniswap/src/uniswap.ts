@@ -1,4 +1,3 @@
-
 import { Tagged } from "type-fest";
 
 import * as internal from "./uniswap.internal.js";

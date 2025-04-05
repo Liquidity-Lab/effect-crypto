@@ -7,7 +7,6 @@ import { Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-c
 
 import * as internal from "./price.internal.js";
 
-
 /**
  * Represents a regular price value expressed as a ratio between two tokens.
  * This is the standard representation for price values, where the value directly
@@ -231,6 +230,10 @@ export const makeFromSqrtQ64_96: {
   ): Either.Either<TokenPrice<TBase | TQuote>, string>;
 } = internal.makeTokenPriceFromSqrtQ64_96Impl;
 
+export const asRatio: {
+  <T extends Token.TokenType>(price: TokenPrice<T>): BigMath.Ratio;
+} = internal.asRatioImpl;
+
 /**
  * Gets the price as a decimal string in quote currency units per base currency unit.
  *
@@ -390,6 +393,7 @@ export const prettyPrint: {
  * Generates token price for the given pair of tokens
  */
 export const tokenPriceGen: {
+  // TODO: docs
   <T0 extends Token.TokenType, T1 extends Token.TokenType>(
     token0: Token.Token<T0>,
     token1: Token.Token<T1>,
@@ -399,5 +403,12 @@ export const tokenPriceGen: {
       maxScale?: number;
     },
   ): Arbitrary<TokenPrice<T0 | T1>>;
+  <T extends Token.TokenType>(
+    tokenType: T,
+    constraints?: {
+      min?: BigMath.Ratio;
+      max?: BigMath.Ratio;
+      maxScale?: number;
+    },
+  ): Arbitrary<TokenPrice<T>>;
 } = internal.tokenPriceGenImpl;
-

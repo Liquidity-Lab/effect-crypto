@@ -1,13 +1,14 @@
 import { Big, BigDecimal, MathContext } from "bigdecimal.js";
 import { Effect, Either, Option } from "effect";
 
-import {BigMath, Price, Token, Wallet} from "@liquidity_lab/effect-crypto";
+import { BigMath, Token, Wallet } from "@liquidity_lab/effect-crypto";
 import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
 import * as Internal from "./internal.js";
 import * as Pool from "./pool.js";
 import type * as T from "./position.js";
+import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
 class PoolIsNotFoundErrorLive implements T.PoolIsNotFoundError {
@@ -66,41 +67,40 @@ class PositionDraftLive implements T.PositionDraft {
 export const makePositionDraft = PositionDraftLive.make;
 
 export function calculatePositionDraftFromLiquidity(
-    poolId: Pool.PoolState,
-    sqrtPrice: BigMath.Ratio,
-    liquidity: Pool.Liquidity,
-    tickLower: Tick.Tick,
-    tickUpper: Tick.Tick,
-    tickCurrent: Tick.Tick,
+  poolId: Pool.PoolState,
+  sqrtPrice: BigMath.Ratio,
+  liquidity: Pool.Liquidity,
+  tickLower: Tick.Tick,
+  tickUpper: Tick.Tick,
+  tickCurrent: Tick.Tick,
 ) {
   const [amount0Desired, amount1Desired] = mintAmountsImpl(
-      tickCurrent,
-      tickLower,
-      tickUpper,
-      liquidity,
-      sqrtPrice,
+    tickCurrent,
+    tickLower,
+    tickUpper,
+    liquidity,
+    sqrtPrice,
   );
 
   return makePositionDraft(
-      poolId,
-      tickLower,
-      tickUpper,
-      tickCurrent,
-      amount0Desired,
-      amount1Desired,
-      liquidity,
-      sqrtPrice,
+    poolId,
+    tickLower,
+    tickUpper,
+    tickCurrent,
+    amount0Desired,
+    amount1Desired,
+    liquidity,
+    sqrtPrice,
   );
 }
 
-
 export function calculatePositionDraftFromAmounts(
-    poolId: Pool.PoolState,
-    slot0: Pool.Slot0,
-    maxAmount0: Adt.Amount0,
-    maxAmount1: Adt.Amount1,
-    tickLower: Tick.Tick,
-    tickUpper: Tick.Tick,
+  poolId: Pool.PoolState,
+  slot0: Pool.Slot0,
+  maxAmount0: Adt.Amount0,
+  maxAmount1: Adt.Amount1,
+  tickLower: Tick.Tick,
+  tickUpper: Tick.Tick,
 ) {
   // It is safe to construct a ratio from the sqrt of the price since we know that the value is always positive
   const sqrtPrice = Price.asSqrt(slot0.price);
@@ -108,21 +108,21 @@ export function calculatePositionDraftFromAmounts(
   const sqrtRatioB = Tick.getSqrtRatio(tickUpper);
 
   const liquidity = maxLiquidityForAmountsImpl(
-      sqrtPrice,
-      sqrtRatioA,
-      sqrtRatioB,
-      maxAmount0,
-      maxAmount1,
-      Internal.mathContext,
+    sqrtPrice,
+    sqrtRatioA,
+    sqrtRatioB,
+    maxAmount0,
+    maxAmount1,
+    Internal.mathContext,
   );
 
   return calculatePositionDraftFromLiquidity(
-      poolId,
-      sqrtPrice,
-      liquidity,
-      tickLower,
-      tickUpper,
-      slot0.tick,
+    poolId,
+    sqrtPrice,
+    liquidity,
+    tickLower,
+    tickUpper,
+    slot0.tick,
   );
 }
 

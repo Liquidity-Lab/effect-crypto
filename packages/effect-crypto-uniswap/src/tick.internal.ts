@@ -1,12 +1,13 @@
 import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
 import { Brand } from "effect";
+import { Arbitrary } from "fast-check";
 
-import { BigMath } from "@liquidity_lab/effect-crypto";
+import { fc } from "@fast-check/ava";
+import { BigMath, Token } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
+import * as Price from "./price.js";
 import * as T from "./tick.js";
-import {fc} from "@fast-check/ava";
-import {Arbitrary} from "fast-check";
 
 export type TickTypeId = "@liquidity_lab/effect-crypto-uniswap/tick#Tick";
 
@@ -32,9 +33,7 @@ export const makeTick = Brand.all(
 );
 
 export function tickGen(): Arbitrary<T.Tick> {
-  return fc
-      .integer({ min: MIN_TICK + 1, max: MAX_TICK - 1 })
-      .map((value) => makeTick(value));
+  return fc.integer({ min: MIN_TICK + 1, max: MAX_TICK - 1 }).map((value) => makeTick(value));
 }
 
 const unsafeMakeTickSpacing = Brand.nominal<T.TickSpacing>();
@@ -65,7 +64,7 @@ export const MAX_SQRT_RATIO: BigDecimal = getSqrtRatioAtTickImpl(MAX_TICK);
  * 1.0001 ^ tick
  */
 export function getRatio(tick: T.Tick): BigDecimal {
-  return TICK_BASE.pow(tick, MATH_CONTEXT_HIGH_PRECISION)
+  return TICK_BASE.pow(tick, MATH_CONTEXT_HIGH_PRECISION);
 }
 
 /** Calculates sqrt(1.0001 ^ tick)
@@ -76,10 +75,20 @@ export function getSqrtRatioAtTickImpl(tick: T.Tick): BigDecimal {
 }
 
 // Calculates log[1.0001, ratio] and round down the result
-export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {// TODO: seems like BigDecimal in not a good type
+export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {
+  // TODO: seems like BigDecimal in not a good type
   const rawTickIdx = BigMath.log(TICK_BASE, ratio, MATH_CONTEXT_HIGH_PRECISION);
 
   return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());
+}
+
+export function getTickAtPriceImpl<T extends Token.TokenType>(price: Price.TokenPrice<T>): T.Tick {
+  switch (price.underlying._tag) {
+    case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
+      return getTickAtRatioImpl(price.underlying.value.pow(2, MATH_CONTEXT_HIGH_PRECISION));
+    case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
+      return getTickAtRatioImpl(price.underlying.value);
+  }
 }
 
 /**

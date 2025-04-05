@@ -1,22 +1,47 @@
+import * as fc from "fast-check";
 import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option, Order } from "effect";
+import { Arbitrary } from "fast-check";
 
 import { Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
 import { BrandUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import type * as T from "./price.js";
 
+/**
+ * The sqrt ratio corresponding to the minimum tick that could be used on any pool.
+ */
+const MIN_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(BigMath.Q64x96(4295128739n));
+
+/**
+ * The sqrt ratio corresponding to the maximum tick that could be used on any pool.
+ */
+const MAX_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(
+  BigMath.Q64x96(1461446703485210103287273052203988822378723970342n),
+);
+
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 
 class PriceValueUnitsLive implements T.PriceValueUnits {
   readonly _tag = "@liquidity_lab/effect-crypto/price#PriceValueUnits";
 
-  constructor(readonly value: BigMath.Ratio) {}
+  private constructor(readonly value: BigMath.Ratio) {}
 
   get flip(): this {
     return new PriceValueUnitsLive(
       BigMath.Ratio(Big(1).divideWithMathContext(this.value, mathContext)),
     ) as this;
+  }
+
+  static make(value: BigMath.Ratio, token1: Token.AnyToken) {
+    if (value.setScale(token1.decimals, RoundingMode.FLOOR).compareTo(0) <= 0) {
+      return Either.left(
+        `Cannot create price from units, it's value is too small [${value.toPlainString()}] ` +
+          `according to token1.decimals[${token1.decimals}]`,
+      );
+    }
+
+    return Either.right(new PriceValueUnitsLive(value));
   }
 
   toString(): string {
@@ -31,12 +56,23 @@ class PriceValueUnitsLive implements T.PriceValueUnits {
 class PriceValueSqrtUnitsLive implements T.PriceValueSqrtUnits {
   readonly _tag = "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits";
 
-  constructor(readonly value: BigMath.Ratio) {}
+  private constructor(readonly value: BigMath.Ratio) {}
 
   get flip(): this {
     return new PriceValueSqrtUnitsLive(
       BigMath.Ratio(Big(1).divideWithMathContext(this.value, mathContext)),
     ) as this;
+  }
+
+  static make(sqrtValue: BigMath.Ratio): Either.Either<T.PriceValueSqrtUnits, string> {
+    if (sqrtValue.greaterThanOrEquals(MIN_SQRT_RATIO) && sqrtValue.lowerThan(MAX_SQRT_RATIO)) {
+      return Either.right(new PriceValueSqrtUnitsLive(sqrtValue));
+    }
+
+    return Either.left(
+      `Cannot create price from sqrt value: the given value[${sqrtValue.toPlainString()}] should be in range ` +
+        `[${MIN_SQRT_RATIO.toPlainString()}, ${MAX_SQRT_RATIO.toPlainString()}]`,
+    );
   }
 
   toString(): string {
@@ -102,6 +138,15 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     }
   }
 
+  // Custom JSON serialization
+  toJSON() {
+    return {
+      token0: this.token0.address,
+      token1: this.token1.address,
+      value: asUnitsImpl(this).toPlainString(),
+    };
+  }
+
   toString(): string {
     return this.underlying.toString();
   }
@@ -120,7 +165,9 @@ export function makeTokenPriceFromRatioImpl<
   quoteCurrency: Token.Token<TQuote>,
   ratio: BigMath.Ratio,
 ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
-  return TokenPriceLive.make(baseCurrency, quoteCurrency, new PriceValueUnitsLive(ratio));
+  return Either.flatMap(PriceValueUnitsLive.make(ratio, quoteCurrency), (ratio) =>
+    TokenPriceLive.make(baseCurrency, quoteCurrency, ratio),
+  );
 }
 
 /** @internal */
@@ -132,7 +179,9 @@ export function makeTokenPriceFromSqrt<
   quoteCurrency: Token.Token<TQuote>,
   sqrtValue: BigMath.Ratio,
 ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
-  return TokenPriceLive.make(baseCurrency, quoteCurrency, new PriceValueSqrtUnitsLive(sqrtValue));
+  return Either.flatMap(PriceValueSqrtUnitsLive.make(sqrtValue), (sqrtValue) =>
+    TokenPriceLive.make(baseCurrency, quoteCurrency, sqrtValue),
+  );
 }
 
 /** @internal */
@@ -161,10 +210,14 @@ export function makeTokenPriceFromSqrtQ64_96Impl<
 ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
   return BigMath.Ratio.either(BigMath.q64x96ToBigDecimal(value)).pipe(
     Either.mapLeft(BrandUtils.stringifyBrandErrors),
-    Either.flatMap((value) =>
-      makeTokenPriceFromSqrt(baseCurrency, quoteCurrency, value),
-    )
+    Either.flatMap((value) => makeTokenPriceFromSqrt(baseCurrency, quoteCurrency, value)),
   );
+}
+
+/** @internal */
+export function asRatioImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigMath.Ratio {
+  // Should be safe, as underlying is a ratio
+  return BigMath.Ratio(toPriceRatio(price.underlying));
 }
 
 /** @internal */
@@ -234,20 +287,145 @@ export function prettyPrintImpl<T extends Token.TokenType>(price: T.TokenPrice<T
 }
 
 /** @internal */
-export function tokenPriceGenImpl<T0 extends Token.TokenType, T1 extends Token.TokenType>(
+export const tokenPriceGenImpl: {
+  <T0 extends Token.TokenType, T1 extends Token.TokenType>(
+    token0: Token.Token<T0>,
+    token1: Token.Token<T1>,
+    constraints?: {
+      min?: BigMath.Ratio;
+      max?: BigMath.Ratio;
+      maxScale?: number;
+    },
+  ): Arbitrary<T.TokenPrice<T0 | T1>>;
+  <T extends Token.TokenType>(
+    tokenType: T,
+    constraints?: {
+      min?: BigMath.Ratio;
+      max?: BigMath.Ratio;
+      maxScale?: number;
+    },
+  ): Arbitrary<T.TokenPrice<T>>;
+} = function (
+  ...args:
+    | Parameters<typeof tokenPriceGenImplWithTokens>
+    | Parameters<typeof tokenPriceGenImplWithoutTokens>
+) {
+  function isArgs1(args: any[]): args is Parameters<typeof tokenPriceGenImplWithTokens> {
+    return (
+      (args.length === 2 || args.length === 3) &&
+      Token.isAnyToken(args[0]) &&
+      Token.isAnyToken(args[1])
+    );
+  }
+
+  if (isArgs1(args)) {
+    return tokenPriceGenImplWithTokens(...args);
+  }
+  return tokenPriceGenImplWithoutTokens(...args);
+};
+
+/** @internal */
+export function tokenPriceSqrtQ64x96Gen<T0 extends Token.TokenType, T1 extends Token.TokenType>(
   token0: Token.Token<T0>,
   token1: Token.Token<T1>,
   constraints?: {
     min?: BigMath.Ratio;
     max?: BigMath.Ratio;
-    maxScale?: number;
   },
 ) {
-  return BigMath.ratioGen(constraints).map((ratio) => {
-    return Either.getOrThrowWith(
-      makeTokenPriceFromRatioImpl(token0, token1, ratio),
-      (cause) => new Error(`Failed to create TokenPrice from ratio: ${cause}`),
+  if (Token.order(token0, token1) > 0) {
+    return tokenPriceSqrtQ64x96Gen(token1, token0, constraints);
+  }
+
+  // tokens are in correct order
+  const prog = Either.gen(function* () {
+    const minPossibleSqrtQ64x96 = yield* Either.fromOption(
+      BigMath.convertToQ64x96(getMinimalRatio(token1).sqrt(mathContext).add(1)),
+      () => "Cannot create minSqrtQ64x96",
     );
+    const maxPossibleSqrtQ64x96 = yield* Either.fromOption(
+      BigMath.convertToQ64x96(
+        Big(1)
+          .divideWithMathContext(getMinimalRatio(token1), mathContext)
+          .setScale(token0.decimals, RoundingMode.FLOOR)
+          .sqrt(mathContext)
+          .subtract(1n),
+      ),
+      () => "Cannot create maxSqrtQ64x96",
+    );
+
+    const minSqrtQ64x96Constraint = BigMath.minBigInt(
+      BigMath.maxBigInt(
+        minPossibleSqrtQ64x96,
+        constraints?.min?.sqrt(mathContext).unscaledValue() || minPossibleSqrtQ64x96,
+      ),
+      maxPossibleSqrtQ64x96,
+    );
+    const maxSqrtQ64x96Constraint = BigMath.maxBigInt(
+      BigMath.minBigInt(
+        maxPossibleSqrtQ64x96,
+        constraints?.max?.sqrt(mathContext).unscaledValue() || maxPossibleSqrtQ64x96,
+      ),
+      minPossibleSqrtQ64x96,
+    );
+
+    return fc
+      .bigInt({ min: minSqrtQ64x96Constraint, max: maxSqrtQ64x96Constraint })
+      .map((rawSqrt64x96Value) => {
+        return makeTokenPriceFromSqrtQ64_96Impl(token0, token1, BigMath.Q64x96(rawSqrt64x96Value));
+        // return BigMath.Ratio.either(Big(rawSqrt64x96Value).scaleByPowerOfTen(-1 * token1.decimals)).pipe(
+        //   Either.mapLeft(BrandUtils.stringifyBrandErrors),
+        //   Either.map((ratio) => makeTokenPriceFromRatioImpl(token0, token1, ratio)),
+        //   Either.getOrThrowWith(
+        //     (cause) => new Error(`Failed to create TokenPrice from ratio: ${cause}`),
+        //   ),
+        // );
+      });
+  });
+
+  return Either.getOrThrowWith(
+    prog,
+    (cause) =>
+      new Error(
+        `Failed to create token price generator for token0[${token0}] token1[${token1}]: ${cause}`,
+      ),
+  );
+}
+
+/** @internal */
+export function tokenPriceGenImplWithTokens<T0 extends Token.TokenType, T1 extends Token.TokenType>(
+  token0: Token.Token<T0>,
+  token1: Token.Token<T1>,
+  constraints?: {
+    min?: BigMath.Ratio;
+    max?: BigMath.Ratio;
+  },
+) {
+  return tokenPriceSqrtQ64x96Gen(token0, token1, constraints).map((priceOrError) => {
+    return Either.getOrThrowWith(
+      priceOrError,
+      (cause) => new Error(`Failed to create TokenPrice from sqrtQ64x96: ${cause}`),
+    );
+    // return BigMath.Ratio.either(Big(sqrtQ64x96).scaleByPowerOfTen(-1 * token1.decimals)).pipe(
+    //   Either.mapLeft(BrandUtils.stringifyBrandErrors),
+    //   Either.flatMap((ratio) => makeTokenPriceFromRatioImpl(token0, token1, ratio)),
+    //   Either.getOrThrowWith(
+    //     (cause) => new Error(`Failed to create TokenPrice from ratio: ${cause}`),
+    //   ),
+    // );
+  });
+}
+
+/** @internal */
+export function tokenPriceGenImplWithoutTokens<T extends Token.TokenType>(
+  tokenType: T,
+  constraints?: {
+    min?: BigMath.Ratio;
+    max?: BigMath.Ratio;
+  },
+) {
+  return Token.tokenPairGen(tokenType).chain(([token0, token1]) => {
+    return tokenPriceGenImplWithTokens(token0, token1, constraints);
   });
 }
 
@@ -263,4 +441,8 @@ function toPriceRatio(value: T.PriceValue): BigDecimal {
     case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
       return value.value.pow(2);
   }
+}
+
+function getMinimalRatio<T extends Token.TokenType>(token: Token.Token<T>): BigMath.Ratio {
+  return BigMath.Ratio(Big(1).scaleByPowerOfTen(-1 * token.decimals));
 }

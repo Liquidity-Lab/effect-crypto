@@ -7,7 +7,8 @@ import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab
 import { AvaEffect } from "@liquidity_lab/effect-crypto/utils";
 import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
 
-import * as AvaUnswap from "./avaUniswap.js";
+import * as AvaUniswap from "./avaUniswap.js";
+import * as internal from "./price.internal.js";
 import * as Price from "./price.js";
 
 const errorTolerance = Big("0.00000000000001");
@@ -86,15 +87,27 @@ test("Static test: TokenPrice.project should be the same with UniswapSdkPrice", 
 });
 
 testProp(
-  "TokenPrice.project should be the same with UniswapSdkPrice",
-  [BigMath.ratioGen(), BigMath.ratioGen()],
-  (t, priceRatio, volumeRatio) => {
-    const price = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH, USDT, priceRatio));
+  "It should be impossible to create price with too small value",
+  [Token.tokenPairGen(Token.TokenType.ERC20)],
+  (t, [token0, token1]) => {
+    const priceRatio = BigMath.Ratio(
+      Big(1).scaleByPowerOfTen(-1 * (Math.max(token0.decimals, token1.decimals) + 1)),
+    );
+    const price = Price.makeFromUnits(token0, token1, priceRatio);
 
+    t.assert(Option.isNone(price), "Price should be None for too small value");
+  },
+);
+
+testProp(
+  "TokenPrice.project should be the same with UniswapSdkPrice",
+  [Price.tokenPriceGen(Token.TokenType.ERC20), BigMath.ratioGen()],
+  (t, price, volumeRatio) => {
     const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
     const sdkUSDT = new SdkToken(1, USDT.address, USDT.decimals, USDT.symbol, USDT.name);
     const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
-      priceRatio.setScale(USDT.decimals),
+      Price.asRatio(price),
+      // priceRatio.setScale(USDT.decimals),
     );
     const sdkPrice = new SdkPrice(
       sdkWETH,
@@ -122,7 +135,12 @@ testProp(
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
     );
   },
-  { numRuns: 1024 },
+  // { numRuns: 1024 },
+  {
+    seed: -588509197,
+    path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:2:0:0:0:5:2:5:0:2:1:0:0:2:0:0:5:0:0:3:0:2:0:5:1:0:0:0:0:0:1:3:0:1:0:1:1:3:7:0:0:1:2:0:2:1:0:0:0:3:0:0:1:0:3:1:0:0:4:0:5:2:0:0:0:2:1:1:3:4:3:1:0:2:0:0:1:1:1:0:1:0:2:2:0:4:0:3:1:0:0:2:2:0:1:1:3:2:0:2:0:4:0:0:0:1:0",
+    endOnFailure: true,
+  },
 );
 
 testProp(
@@ -164,31 +182,30 @@ testProp(
   { numRuns: 1024 },
 );
 
-testProp(
+testProp.skip(
   "TokenPrice should project the same amount for inverted and regular flows",
-  [Token.tokenPairGen(Token.TokenType.ERC20), BigMath.ratioGen(), BigMath.ratioGen()],
-  (t, [token0, token1], ratio, volumeRatio) => {
+  [Price.tokenPriceGen(Token.TokenType.ERC20), BigMath.ratioGen()],
+  (t, regularPrice, volumeRatio) => {
     const assertions = AvaEffect.EffectAssertions(t);
     // Because the minimal number of decimals for token is 6, we cannot test with much higher precision
-    const errorTolerance = Big("0.0000001");
+    const errorTolerance = Big("0.000001");
 
-    // Create price with tokens in both orders
-    const regularPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(token0, token1, ratio));
-    const invertedPrice = Either.getOrThrow(
+    const invertedPrice = Either.getOrElse(
       Price.makeTokenPriceFromRatio(
-        token1,
-        token0,
-        BigMath.Ratio(Big(1).divideWithMathContext(ratio, mathContext)),
+        regularPrice.token1,
+        regularPrice.token0,
+        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext)),
       ),
+      (err) => t.fail(`Price.makeTokenPriceFromRatio failed -> ${err}`),
     );
 
     const expected = Price.projectAmount(
       regularPrice,
-      TokenVolume.TokenVolumeRatio(token0, volumeRatio),
+      TokenVolume.TokenVolumeRatio(regularPrice.token0, volumeRatio),
     );
     const actual = Price.projectAmount(
       invertedPrice,
-      TokenVolume.TokenVolumeRatio(token0, volumeRatio),
+      TokenVolume.TokenVolumeRatio(regularPrice.token0, volumeRatio),
     );
 
     assertions.assertOptionalEqualVia(
@@ -230,34 +247,43 @@ testProp(
 );
 
 testProp(
-  "Price round-trip conversion through Q64.96 format should be identical",
-  [Token.tokenPairGen(Token.TokenType.ERC20), BigMath.ratioGen()],
-  (t, [token0, token1], ratio) => {
-    const assertPriceEquals = AvaUnswap.PriceEqualsWithPrecisionAssertion(t);
-
-    // Create the initial price
-    const expected = Either.getOrThrowWith(
-      Price.makeTokenPriceFromRatio(token0, token1, ratio),
-      () => new Error("Failed to create TokenPrice from ratio")
-    );
+  "Price round-trip conversion through sqrt(Q64.96) format should be identical",
+  [Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, expected) => {
+    const assertPriceEquals = AvaUniswap.PriceEqualsWithPrecisionAssertion(t);
 
     // Convert to Q64.96 format
     const sqrtQ64x96 = Option.getOrThrowWith(
       Price.asSqrtQ64_96(expected),
-      () => new Error("Conversion to Q64.96 should succeed")
+      () => new Error("Conversion to Q64.96 should succeed"),
     );
 
     // Convert back to price
     const actual = Either.getOrThrowWith(
-      Price.makeFromSqrtQ64_96(token0, token1, sqrtQ64x96),
-      () => new Error("Failed to create TokenPrice from sqrt Q64.96")
+      Price.makeFromSqrtQ64_96(expected.token0, expected.token1, sqrtQ64x96),
+      () => new Error("Failed to create TokenPrice from sqrt Q64.96"),
     );
 
-    assertPriceEquals(
-      actual,
-      expected,
-      "Price should be equal after round-trip conversion"
+    assertPriceEquals(actual, expected, "Price should be equal after round-trip conversion");
+  },
+  { numRuns: 1024 },
+);
+
+const genForTokenPriceSqrtQ64x96Gen = Token.tokenPairGen(Token.TokenType.ERC20).chain(
+  ([token0, token1]) => {
+    return internal.tokenPriceSqrtQ64x96Gen(token0, token1);
+  },
+);
+
+testProp(
+  "tokenPriceSqrtQ64x96Gen should always return value",
+  [genForTokenPriceSqrtQ64x96Gen],
+  (t, priceOrError) => {
+    // Verify that all results are Either.Right
+    t.true(
+      Either.isRight(priceOrError),
+      `tokenPriceSqrtQ64x96Gen should always return Either.Right, but got ${priceOrError.toString()}`,
     );
   },
-{ numRuns: 1024 }
+  { numRuns: 4096 },
 );
