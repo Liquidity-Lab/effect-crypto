@@ -23,6 +23,7 @@
     "@ava/typescript": "5.0.0",
     "@arbitrum/token-bridge-contracts": "1.2.3",
     "@effect/eslint-plugin": "0.2.0",
+    "@effect/language-service": "0.5.1",
     "@eslint/js": "9.2.0",
     "@fast-check/ava": "1.2.1",
     "@trivago/prettier-plugin-sort-imports": "4.3.0",
