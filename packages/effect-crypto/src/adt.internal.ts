@@ -41,6 +41,11 @@ export function makeFatalErrorFromUnknown(cause: unknown): T.FatalError {
   return makeFatalErrorFromString(`Unknown error happened: ${JSON.stringify(cause)}`);
 }
 
+export function mapErrorMessageImpl(a: T.FatalError, f: (msg: string) => string): T.FatalError {
+  // Copy stack and all other properties from original error
+  return makeFatalError(Object.assign({}, a.underlying, { message: f(a.underlying.message) }));
+}
+
 export type AddressTypeId = "com/liquidity_lab/effect-crypto/adt#Address";
 
 const addressConstructor = Brand.nominal<T.Address>();

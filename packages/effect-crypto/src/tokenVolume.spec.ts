@@ -1,6 +1,6 @@
 import testAny from "ava";
 import { Big } from "bigdecimal.js";
-import { Option } from "effect";
+import { Either, Option } from "effect";
 
 import { fc, testProp } from "@fast-check/ava";
 
@@ -8,6 +8,7 @@ import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
 import * as BigMath from "./bigMath.js";
 import * as Token from "./token.js";
+import * as internal from "./tokenVolume.internal.js";
 import * as TokenVolume from "./tokenVolume.js";
 
 const USDT = Token.Erc20Token(
@@ -19,7 +20,7 @@ const USDT = Token.Erc20Token(
 );
 
 testAny("TokenVolumeUnits creates correct volume", (t) => {
-  const volume = TokenVolume.TokenVolumeUnits(USDT, BigMath.NonNegativeDecimal(Big("1000.123456")));
+  const volume = TokenVolume.tokenVolumeUnits(USDT, BigMath.NonNegativeDecimal(Big("1000.123456")));
 
   t.is(TokenVolume.asUnits(volume).toString(), "1000.123456");
   t.is(TokenVolume.asUnscaled(volume), 1000123456n);
@@ -27,7 +28,7 @@ testAny("TokenVolumeUnits creates correct volume", (t) => {
 
 testAny("TokenVolumeRatio creates correct volume", (t) => {
   const ratio = BigMath.Ratio(Big(1000123456n).divide(1000000n));
-  const volume = TokenVolume.TokenVolumeRatio(USDT, ratio);
+  const volume = TokenVolume.tokenVolumeRatio(USDT, ratio);
 
   t.is(TokenVolume.asUnits(volume).toString(), "1000.123456");
   t.is(TokenVolume.asUnscaled(volume), 1000123456n);
@@ -51,7 +52,7 @@ testAny("tokenVolumeFromUnscaled returns None for negative values", (t) => {
 });
 
 testAny("TokenVolumeZero creates zero volume", (t) => {
-  const volume = TokenVolume.TokenVolumeZero(USDT);
+  const volume = TokenVolume.tokenVolumeZero(USDT);
 
   t.is(TokenVolume.asUnits(volume).numberValue(), 0);
   t.is(TokenVolume.asUnscaled(volume), 0n);
@@ -85,7 +86,7 @@ testProp(
   "TokenVolume assertable comparison works correctly",
   [TokenVolume.tokenVolumeGen(USDT)],
   (t, expected) => {
-    const actual = TokenVolume.TokenVolumeUnits(
+    const actual = TokenVolume.tokenVolumeUnits(
       USDT,
       BigMath.NonNegativeDecimal(
         TokenVolume.asUnits(expected).setScale(expected.underlyingValue.scale() * 2),
@@ -100,7 +101,6 @@ testProp(
 const constraints = {
   min: BigMath.NonNegativeDecimal(Big(100)),
   max: BigMath.NonNegativeDecimal(Big(200)),
-  maxScale: 2,
 };
 testProp(
   "TokenVolume generator respects constraints",
@@ -110,6 +110,29 @@ testProp(
 
     t.true(units.compareTo(Big(100)) >= 0);
     t.true(units.compareTo(Big(200)) <= 0);
-    t.true(volume.underlyingValue.scale() <= 2);
+    t.assert(
+      volume.underlyingValue.scale() <= USDT.decimals,
+      `Expected scale to be less than or equal to ${USDT.decimals}`,
+    );
   },
+);
+
+testProp(
+  "TokenVolume generator produces values suitable for the token",
+  [internal.tokenVolumeOrErrGen(USDT)],
+  (t, volume) => {
+    t.true(
+      Either.isRight(volume),
+      `Expected to get a valid token volume, but got an error: ${volume.toString()}`,
+    );
+
+    t.true(
+      volume.pipe(
+        Either.map((volume) => TokenVolume.asUnits(volume).gt(0)),
+        Either.getOrElse(() => false),
+      ),
+      `Expected to get a positive token volume, but got: ${volume.toString()}`,
+    );
+  },
+  { numRuns: 1024 },
 );

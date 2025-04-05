@@ -418,7 +418,7 @@ function withApproval<E, R>(
     const rollbackOnError = (_: unknown, e: Exit.Exit<unknown, unknown>) =>
       Exit.match(e, {
         onFailure: () =>
-          transferApproval(TokenVolume.TokenVolumeZero(volume.token), to, api.signer).pipe(
+          transferApproval(TokenVolume.tokenVolumeZero(volume.token), to, api.signer).pipe(
             Effect.as(void 0),
             Effect.orElseSucceed(() => void 0),
             Effect.provideService(Token.TxTag, tokenOp),

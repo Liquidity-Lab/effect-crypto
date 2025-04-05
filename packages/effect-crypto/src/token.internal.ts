@@ -8,8 +8,10 @@ import {
   tuple,
 } from "fast-check";
 
-import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
-import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
+// prettier-ignore
+import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json" assert { type: "json" };
+// prettier-ignore
+import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json" assert { type: "json" };
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
@@ -29,8 +31,10 @@ export enum TokenType {
   Native = "Native",
 }
 
+export const TokenTag = "@liquidity_lab/effect-crypto/token#Token" as const;
+
 class TokenLive<T extends TokenType> implements T.Token<T> {
-  readonly _tag: "Token" = "Token" as const;
+  readonly _tag: typeof TokenTag = TokenTag;
   readonly meta: T.TokenMetaShape<T>;
 
   readonly address: Adt.Address;
@@ -146,6 +150,10 @@ export function makeNativeTokenMeta(): T.TokenMetaShape<TokenType.Native> {
     _tag: "NativeTokenMeta",
     tokenType: TokenType.Native,
   };
+}
+
+export function isAnyTokenImpl(a: unknown): a is T.AnyToken {
+  return typeof a === "object" && a !== null && "_tag" in a && a["_tag"] === TokenTag;
 }
 
 export function isErc20Token(a: T.Token<TokenType>): a is T.Token<TokenType.ERC20> {
@@ -531,9 +539,9 @@ export function tokenPairGenImpl<T extends TokenType>(
     maxDecimals?: number;
   },
 ): Arbitrary<[T.Token<T>, T.Token<T>]> {
-  return tuple(tokenGenImpl(tokenType, constraints), tokenGenImpl(tokenType, constraints)).filter(
-    ([token0, token1]) => {
+  return tuple(tokenGenImpl(tokenType, constraints), tokenGenImpl(tokenType, constraints))
+    .filter(([token0, token1]) => {
       return token0.address !== token1.address;
-    },
-  );
+    })
+    .map((tokens) => tokens.sort(tokenOrder));
 }

@@ -36,7 +36,15 @@ export const makeNonNegativeDecimal = Brand.refined<T.NonNegativeDecimal>(
 
 export type Q64x96TypeId = "com/liquidity_lab/effect-crypto/bigMath#Q64x96";
 
-const Q64x96_MAX_VALUE = 2n ** (64n + 96n);
+export const Q64x96_MAX_VALUE = Brand.nominal<T.Q64x96>()(2n ** (64n + 96n) - 1n);
+
+/**
+ * Maximum value for uint256 (2^256 - 1)
+ * This is the maximum value that can be stored in a uint256 in Ethereum
+ */
+export const MAX_UINT256_VALUE = Big(
+  BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+);
 
 export const makeQ64x96 = Brand.refined<T.Q64x96>(
   (raw) => raw <= Q64x96_MAX_VALUE && raw >= 0n,
@@ -149,6 +157,14 @@ export function assertEqualWithPercentage(
   });
 }
 
+export function minBigIntImpl(a: bigint, ...nums: readonly bigint[]): bigint {
+  return nums.reduce((a, b) => (a < b ? a : b), a);
+}
+
+export function maxBigIntImpl(a: bigint, ...nums: readonly bigint[]): bigint {
+  return nums.reduce((a, b) => (a > b ? a : b), a);
+}
+
 export function bigDecimalGen(constraints?: {
   min?: BigDecimal;
   max?: BigDecimal;
@@ -157,13 +173,12 @@ export function bigDecimalGen(constraints?: {
   const scale = Math.max(0, Math.floor(constraints?.scale ?? 0));
 
   const min = constraints?.min ? constraints.min.setScale(scale, RoundingMode.FLOOR) : Big(0n);
-  const max =
-    constraints?.max ?
-      constraints.max.setScale(scale, RoundingMode.FLOOR)
-    : Big(BigInt(Number.MAX_SAFE_INTEGER) * 10n ** BigInt(scale));
 
   return fc
-    .bigInt(min.unscaledValue(), max.unscaledValue())
+    .bigInt({
+      min: min.unscaledValue(),
+      max: constraints?.max?.setScale(scale, RoundingMode.FLOOR).unscaledValue(),
+    })
     .chain((unscaled) =>
       fc
         .nat(scale)
@@ -171,7 +186,7 @@ export function bigDecimalGen(constraints?: {
           Big(unscaled).divideWithMathContext(10n ** BigInt(scale), MATH_CONTEXT_HIGH_PRECISION),
         ),
     )
-    .map((value) => value.min(max).max(min));
+    .map((value) => value.min(constraints?.max ?? value).max(min));
 }
 
 export function ratioGen(constraints?: { min?: T.Ratio; max?: T.Ratio; maxScale?: number }) {

@@ -1,6 +1,5 @@
 import { Brand, Either, Function, Option } from "effect";
 
-
 /*export function smartConstructor<A extends Brand.Brand<any>>(
   f: (
     unbranded: Brand.Brand.Unbranded<A>,
