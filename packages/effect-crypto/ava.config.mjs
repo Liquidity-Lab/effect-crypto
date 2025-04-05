@@ -4,6 +4,8 @@ export default {
     "!src/**/*.compileerror.spec.ts"
   ],
   typescript: {
+    rewritePaths: {
+    },
     compile: false,
   },
   nodeArguments: ["--import=tsx"],
