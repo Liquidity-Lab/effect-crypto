@@ -1,7 +1,7 @@
 export default {
   files: [
-    "src/**/*.spec.ts",
-    "!src/**/*.compileerror.spec.ts"
+    "packages/*/src/**/*.spec.ts",
+    "!packages/*/src/**/*.compileerror.spec.ts"
   ],
   typescript: {
     rewritePaths: {
