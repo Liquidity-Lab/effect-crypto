@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+**Instructions for using these commands:**
+
+1.  **Identify the Target Package:** Determine the specific package you want to build or test. This corresponds to a directory within the `packages/` folder (e.g., `effect-crypto`, `effect-crypto-uniswap`). Let's call this the `{moduleName}`.
+2.  **Find the Package Name:** Look inside the `packages/{moduleName}/package.json` file for the `name` field. It will typically be in the format `@liquidity_lab/{moduleName}`.
+3.  **Construct the Command:** Use the full package name found in step 2 with the `-w` flag in the `npm run` commands below. Replace `{moduleName}` in the section titles and examples with the specific name you identified.
+4. **Current packages**:
+  4.1 `effect-crypto`, aka core
+  4.2 `effect-crypto-uniswap`, aka uniswap
+  4.3 `sol-artifacts`, aka artifacts
+  4.4. `jsbi-reimported`, aka jsbi
+
+# Build specific {moduleName}
+
+```bash
+# Replace @liquidity_lab/{moduleName} with the actual package name from its package.json
+npm run build -w @liquidity_lab/{moduleName}
+
+# Example for 'effect-crypto':
+npm run build -w @liquidity_lab/effect-crypto
+```
+
+# Test specific module {moduleName}
+
+```bash
+# Replace @liquidity_lab/{moduleName} with the actual package name from its package.json
+npm run test -w @liquidity_lab/{moduleName}
+
+# Example for 'effect-crypto':
+npm run test -w @liquidity_lab/effect-crypto
+```
+
+
