@@ -333,6 +333,7 @@ export const asSqrtQ64_96: {
  *   // usdtAmount.value will be 75000.00 USDT
  * }
  * ```
+ * @deprecated DO NOT USE THIS FUNCTION. IT NOT TESTED AND NOT GUARANTEED TO BE CORRECT.
  */
 export const projectAmount: {
   <T extends Token.TokenType>(
@@ -340,6 +341,36 @@ export const projectAmount: {
     inputAmount: TokenVolume.TokenVolume<T>,
   ): Option.Option<TokenVolume.TokenVolume<T>>;
 } = internal.projectAmountImpl;
+
+/**
+ * Given a price and one of its tokens, returns the other token.
+ * Returns `Option.none()` if the input token is not part of the price pair.
+ *
+ * @example
+ * ```typescript
+ * import { Token, BigMath } from "@liquidity_lab/effect-crypto";
+ * import { Price } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Option } from "effect";
+ *
+ * declare const BTC: Token.Erc20Token;
+ * declare const USDT: Token.Erc20Token;
+ *
+ * // Use Price.makeFromUnits to create the price
+ * const btcPrice = Option.getOrThrow(
+ *   Price.makeFromUnits(BTC, USDT, BigMath.Ratio(Big("70001.00")))
+ * );
+ *
+ * // Use Price.projectedToken
+ * const otherToken1 = Price.projectedToken(btcPrice, BTC); // Option.some(USDT)
+ * const otherToken2 = Price.projectedToken(btcPrice, USDT); // Option.some(BTC)
+ *
+ * declare const ETH: Token.NativeToken;
+ * const otherToken3 = Price.projectedToken(btcPrice, ETH); // Option.none()
+ * ```
+ */
+export const projectedToken: {
+  <T extends Token.TokenType>(price: TokenPrice<T>, inputToken: Token.Token<T>): Option.Option<Token.Token<T>>;
+} = internal.projectedTokenImpl;
 
 /**
  * Returns true if the given token is either the base or quote currency.

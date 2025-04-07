@@ -274,6 +274,21 @@ export function projectAmountImpl<T extends Token.TokenType>(
 }
 
 /** @internal */
+export function projectedTokenImpl<T extends Token.TokenType>(
+  price: T.TokenPrice<T>,
+  inputToken: Token.Token<T>,
+): Option.Option<Token.Token<T>> {
+  switch (inputToken.address) {
+    case price.token0.address:
+      return Option.some(price.token1);
+    case price.token1.address:
+      return Option.some(price.token0);
+    default:
+      return Option.none();
+  }
+}
+
+/** @internal */
 export function containsImpl<T extends Token.TokenType>(
   price: T.TokenPrice<T>,
   token: Token.Token<Token.TokenType>,
@@ -420,6 +435,74 @@ export function tokenPriceGenImplWithoutTokens<T extends Token.TokenType>(
   return Token.tokenPairGen(tokenType).chain(([token0, token1]) => {
     return tokenPriceGenImplWithTokens(token0, token1, constraints);
   });
+}
+
+/*
+I need to adjust `priceWithVolumeGen`.
+
+I'd like to produce values in safe range, so we wont face percision-related issues when converting from\to units or SDK implementation.
+
+For a given `price` I'd like to generate a volume which: 
+* will be >= min possible volume for token * 2
+* will be < max possible volume * 0.9
+* will be projected into a volume >= min possible volume for projected token * 2
+* will be projected into a volume < max possible projected volume * 0.9
+* token should be picked randomly from `price.tokens`
+
+Maybe you can propose other limitaions. Main goal is to create safe price with volume gen.
+
+  eslint-disable-next-line @typescript-eslint/no-unused-vars
+*/
+export function safePriceAndVolumeGen<T extends Token.TokenType>(tokenType: T): Arbitrary<{
+  price: T.TokenPrice<T>;
+  tokenVolume: TokenVolume.TokenVolume<T>;
+}> {
+  return tokenPriceGenImpl(tokenType)
+    // .chain((price) => fc.constantFrom(...price.tokens).map((token) => [price, token] as const))
+    .map((price) => [price, price.token0] as const)
+    .chain(([price, inputToken]) => {
+      const outputToken = Option.getOrThrowWith(
+        projectedTokenImpl(price, inputToken),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
+
+      const minDirectVolume = TokenVolume.asUnits(TokenVolume.minVolumeForToken(inputToken)).multiply(2);
+      const maxDirectVolume = TokenVolume.asUnits(TokenVolume.maxVolumeForToken(inputToken)).multiply(0.9);
+
+      const minInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(
+          price,
+          TokenVolume.maxVolumeForToken(outputToken)
+        ),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
+      const maxInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(
+          price,
+          TokenVolume.minVolumeForToken(outputToken)
+        ),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
+
+      // const allVolumes = [
+      //   TokenVolume.asUnits(minDirectVolume).multiply(2),
+      //   TokenVolume.asUnits(maxDirectVolume).multiply(0.9),
+      //   TokenVolume.asUnits(minInverseVolume),
+      //   TokenVolume.asUnits(maxInverseVolume),
+      // ];
+
+      const constraints = {
+        min: BigMath.NonNegativeDecimal(minDirectVolume.max(TokenVolume.asUnits(minInverseVolume))),
+        max: BigMath.NonNegativeDecimal(maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume))),
+      }
+
+      return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
+        return {
+          price,
+          tokenVolume,
+        };
+      });
+    });
 }
 
 /**
