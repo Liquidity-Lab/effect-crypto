@@ -103,44 +103,40 @@ testProp(
   "TokenPrice.project should be the same with UniswapSdkPrice",
   [Price.tokenPriceGen(Token.TokenType.ERC20), BigMath.ratioGen()],
   (t, price, volumeRatio) => {
-    const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
-    const sdkUSDT = new SdkToken(1, USDT.address, USDT.decimals, USDT.symbol, USDT.name);
+    const skdToken0 = new SdkToken(1, price.token0.address, price.token0.decimals, price.token0.symbol, price.token0.name);
+    const sdkToken1 = new SdkToken(1, price.token1.address, price.token1.decimals, price.token1.symbol, price.token1.name);
     const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
-      Price.asRatio(price),
+      Price.asUnits(price),
       // priceRatio.setScale(USDT.decimals),
     );
     const sdkPrice = new SdkPrice(
-      sdkWETH,
-      sdkUSDT,
+      skdToken0,
+      sdkToken1,
       priceDenominator.toString(),
       priceNominator.toString(),
     );
 
     const [volumeNominator, volumeDenominator] = BigMath.asNumeratorAndDenominator(volumeRatio);
 
-    const tokenVolume = TokenVolume.tokenVolumeRatio(WETH, volumeRatio);
+    const tokenVolume = TokenVolume.tokenVolumeRatio(price.token0, volumeRatio);
     const actual = Price.projectAmount(price, tokenVolume);
     const expectedSdkValue = sdkPrice.quote(
       CurrencyAmount.fromFractionalAmount(
-        sdkWETH,
-        (volumeNominator * 10n ** BigInt(USDT.decimals)).toString(),
+        skdToken0,
+        volumeNominator.toString(),
         volumeDenominator.toString(),
       ),
     );
     const expected = Option.some(BigMath.Ratio(Big(expectedSdkValue.toExact())));
 
     AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
-      Option.map(actual, (a) => a.underlyingValue),
+      Option.map(actual, TokenVolume.asUnits),
       expected,
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
     );
   },
   // { numRuns: 1024 },
-  {
-    seed: -588509197,
-    path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:2:0:0:0:5:2:5:0:2:1:0:0:2:0:0:5:0:0:3:0:2:0:5:1:0:0:0:0:0:1:3:0:1:0:1:1:3:7:0:0:1:2:0:2:1:0:0:0:3:0:0:1:0:3:1:0:0:4:0:5:2:0:0:0:2:1:1:3:4:3:1:0:2:0:0:1:1:1:0:1:0:2:2:0:4:0:3:1:0:0:2:2:0:1:1:3:2:0:2:0:4:0:0:0:1:0",
-    endOnFailure: true,
-  },
+  { seed: -588509197, path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:1:0:2:0:0:0:5:2:5:0:2:1:0:0:2:0:0:5:0:0:3:0:2:0:5:1:0:0:0:0:0:1:3:0:1:0:1:1:3:7:0:0:1:2:0:2:1:0:0:0:3:0:0:1:0:3:1:0:0:4:0:5:2:0:0:0:2:1:1:3:4:3:1:0:2:0:0:1:1:1:0:1:0:2:2:0:4:0:3:1:0:0:2:2:0:1:1:3:2:0:2:0:4:0:0:0:1:0", endOnFailure: true },
 );
 
 testProp(

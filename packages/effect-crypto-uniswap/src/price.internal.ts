@@ -373,13 +373,6 @@ export function tokenPriceSqrtQ64x96Gen<T0 extends Token.TokenType, T1 extends T
       .bigInt({ min: minSqrtQ64x96Constraint, max: maxSqrtQ64x96Constraint })
       .map((rawSqrt64x96Value) => {
         return makeTokenPriceFromSqrtQ64_96Impl(token0, token1, BigMath.Q64x96(rawSqrt64x96Value));
-        // return BigMath.Ratio.either(Big(rawSqrt64x96Value).scaleByPowerOfTen(-1 * token1.decimals)).pipe(
-        //   Either.mapLeft(BrandUtils.stringifyBrandErrors),
-        //   Either.map((ratio) => makeTokenPriceFromRatioImpl(token0, token1, ratio)),
-        //   Either.getOrThrowWith(
-        //     (cause) => new Error(`Failed to create TokenPrice from ratio: ${cause}`),
-        //   ),
-        // );
       });
   });
 

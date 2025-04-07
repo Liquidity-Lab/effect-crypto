@@ -125,6 +125,62 @@ export function calculatePositionDraftFromAmounts(
   );
 }
 
+/*export const mint = FunctionUtils.withOptionalServiceApi(Pool.Tag, mintImpl).value;
+
+function mintImpl(descriptor: Pool.PoolsDescriptor, params: T.PositionDraft) /!*: Effect.Effect<
+  Option.Option<string>,
+  Error.BlockchainError | Error.TransactionFailedError | FatalError,
+  Wallet.Tag
+>*!/ {
+  return Wallet.withApproval(
+    [params.maxVolume0, params.maxVolume1],
+    descriptor.positionManagerAddress,
+  )((walletAddress) =>
+    Effect.gen(function* () {
+      const poolId = yield* getPoolId();
+      const [slot0, liquidity] = yield* Effect.all([Pool.slot0(poolId), Pool.liquidity(poolId)], {
+        concurrency: "unbounded",
+      });
+
+      const sqrtPrice = Big(slot0.price.asUnits).sqrt(Internal.mathContext);
+      const sqrtRatioA = Tick.getSqrtRatio(params.tickLower);
+      const sqrtRatioB = Tick.getSqrtRatio(params.tickUpper);
+      const targetLiquidity = maxLiquidityForAmountsImpl(
+        sqrtPrice,
+        sqrtRatioA,
+        sqrtRatioB,
+        params.maxAmount0,
+        params.maxAmount1,
+        Internal.mathContext,
+      );
+
+      const [amount0Desired, amount1Desired] = mintAmountsImpl(
+        slot0.tick,
+        params.tickLower,
+        params.tickUpper,
+        targetLiquidity,
+        sqrtPrice,
+      );
+
+      // TODO: add slippage support
+    }),
+  );
+
+  function getPoolId() {
+    return Effect.flatMap(
+      Pool.fetchState(descriptor, params.token0, params.token1, params.fee),
+      (poolIdOpt) =>
+        Option.match(poolIdOpt, {
+          onSome: Effect.succeed,
+          onNone: () =>
+            Effect.fail<T.PoolIsNotFoundError>(
+              new PoolIsNotFoundErrorLive(params.token0, params.token1, params.fee),
+            ),
+        }),
+    );
+  }
+}*/
+
 export function maxLiquidityForAmountsImpl(
   sqrtRatioCurrent: BigDecimal,
   sqrtRatioA: BigDecimal,
