@@ -13,7 +13,6 @@ import {
 } from "@uniswap/v3-sdk";
 
 import * as Adt from "./adt.js";
-import * as internal from "./internal.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 

@@ -8,10 +8,8 @@ import {
   tuple,
 } from "fast-check";
 
-// prettier-ignore
-import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json" assert { type: "json" };
-// prettier-ignore
-import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json" assert { type: "json" };
+import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json" with { type: "json" };
+import ERC20 from "@liquidity_lab/sol-artifacts/artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json" with { type: "json" };
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";

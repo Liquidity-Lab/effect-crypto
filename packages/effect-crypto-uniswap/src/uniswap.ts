@@ -1,7 +1,5 @@
 import { Tagged } from "type-fest";
 
-import * as internal from "./uniswap.internal.js";
-
 export { UniswapTxTag as TxTag } from "./uniswap.internal.js";
 export { UniswapTag as Tag } from "./uniswap.internal.js";
 

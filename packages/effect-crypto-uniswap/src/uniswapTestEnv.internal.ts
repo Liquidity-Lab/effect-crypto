@@ -1,7 +1,7 @@
 import { Context, Effect, Either, Layer } from "effect";
 import { encodeBytes32String } from "ethers";
 
-import { Chain, Deploy, Error, TestEnv, Wallet } from "@liquidity_lab/effect-crypto";
+import { Chain, Deploy, Error, FatalError, TestEnv, Wallet } from "@liquidity_lab/effect-crypto";
 import UniswapV3Factory from "@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json";
 import NonfungiblePositionManager from "@uniswap/v3-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json";
 import NonfungibleTokenPositionDescriptor from "@uniswap/v3-periphery/artifacts/contracts/NonfungibleTokenPositionDescriptor.sol/NonfungibleTokenPositionDescriptor.json";
@@ -204,7 +204,11 @@ export function uniswapTestEnvLayer(): Layer.Layer<
   );
 }
 
-export function poolDeployLayer() {
+export function poolDeployLayer(): Layer.Layer<
+  Pool.Tag,
+  FatalError | Error.BlockchainError,
+  UniswapTestEnvTag
+> {
   return Layer.unwrapEffect(
     Effect.gen(function* () {
       const uniswapTestEnv = yield* UniswapTestEnvTag;

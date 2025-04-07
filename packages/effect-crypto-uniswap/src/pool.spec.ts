@@ -3,13 +3,11 @@ import { Effect, Layer, Option } from "effect";
 
 import { AvaCrypto, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
 
-
 import * as Adt from "./adt.js";
 import * as AvaUniswap from "./avaUniswap.js";
 import * as Pool from "./pool.js";
 import * as Price from "./price.js";
 import * as UniswapTestEnv from "./uniswapTestEnv.js";
-
 
 type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag;
 

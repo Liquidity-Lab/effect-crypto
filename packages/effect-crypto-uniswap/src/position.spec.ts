@@ -1,49 +1,37 @@
 import test, { ExecutionContext } from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
-import { Either, Layer, Option } from "effect";
+import { Either, Option } from "effect";
 
 import * as uniswapSdkCore from "@uniswap/sdk-core";
 import * as uniswapV3Sdk from "@uniswap/v3-sdk";
 import { fc, testProp } from "@fast-check/ava";
-import {
-  Address,
-  AvaCrypto,
-  BigMath,
-  Chain,
-  TestEnv,
-  Token,
-  Wallet,
-} from "@liquidity_lab/effect-crypto";
+import { Address, BigMath, Token } from "@liquidity_lab/effect-crypto";
 import { jsbi } from "@liquidity_lab/jsbi-reimported";
 
 import * as Adt from "./adt.js";
 import * as Pool from "./pool.js";
 import * as internal from "./position.internal.js";
 import * as Tick from "./tick.js";
-import * as UniswapTestEnv from "./uniswapTestEnv.js";
 
 const JSBI = jsbi.default;
 const MaxUint256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 const errorTolerance = Big("0.000003");
 
-type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag;
+// type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag; // Removed unused type
 
-const services = Layer.empty.pipe(
-  Layer.provideMerge(UniswapTestEnv.uniswapTestEnvLayer()),
-  Layer.provideMerge(TestEnv.tokensLayer()),
-  Layer.provideMerge(TestEnv.testEnvLayer()),
-  Layer.provideMerge(Chain.defaultLayer()),
-);
+// const services = Layer.empty.pipe( // Removed unused variable
+//   Layer.provideMerge(UniswapTestEnv.uniswapTestEnvLayer()),
+//   Layer.provideMerge(TestEnv.tokensLayer()),
+//   Layer.provideMerge(TestEnv.testEnvLayer()),
+//   Layer.provideMerge(Chain.defaultLayer()),
+// );
 
-const deps: Layer.Layer<Services> = Layer.empty.pipe(
-  Layer.provideMerge(UniswapTestEnv.poolDeployLayer()),
-  Layer.provideMerge(services),
-  Layer.orDie,
-);
-
-const testEffect = AvaCrypto.makeTestEffect(deps, () => ({}));
-
+// const deps: Layer.Layer<Services> = Layer.empty.pipe(
+//   Layer.provideMerge(UniswapTestEnv.poolDeployLayer()),
+//   Layer.provideMerge(services),
+//   Layer.orDie,
+// );
 // Using precise calculations for maxLiquidityForAmounts
 
 test(

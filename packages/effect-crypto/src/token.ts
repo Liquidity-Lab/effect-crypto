@@ -4,7 +4,6 @@ import { Arbitrary } from "fast-check";
 
 import * as Adt from "./adt.js";
 import * as Assertable from "./assertable.js";
-
 import * as Chain from "./chain.js";
 import * as Error from "./error.js";
 import * as Signature from "./signature.js";
@@ -130,21 +129,21 @@ export const get: {
 export type AnyToken = Token<internal.TokenType>;
 
 /**
-   * Type guard to check if an unknown value is any type of Token.
-   *
-   * @param a - The value to check.
-   * @returns `true` if the value is a `Token`, `false` otherwise.
-   *
-   * @example
-   * ```typescript
-   * import { Token, isAnyToken, nativeETHToken } from "effect-crypto";
-   *
-   * const maybeToken: unknown = nativeETHToken;
-   * if (isAnyToken(maybeToken)) {
-   *   console.log(maybeToken.symbol); // Safe to access Token properties
-   * }
-   * ```
-   */
+ * Type guard to check if an unknown value is any type of Token.
+ *
+ * @param a - The value to check.
+ * @returns `true` if the value is a `Token`, `false` otherwise.
+ *
+ * @example
+ * ```typescript
+ * import { Token, isAnyToken, nativeETHToken } from "effect-crypto";
+ *
+ * const maybeToken: unknown = nativeETHToken;
+ * if (isAnyToken(maybeToken)) {
+ *   console.log(maybeToken.symbol); // Safe to access Token properties
+ * }
+ * ```
+ */
 export const isAnyToken: {
   (a: unknown): a is AnyToken;
 } = internal.isAnyTokenImpl;

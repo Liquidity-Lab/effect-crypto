@@ -1,8 +1,7 @@
-import { Big, BigDecimal, MathContext } from "bigdecimal.js";
-import { Effect, Either, Option } from "effect";
+import { BigDecimal, MathContext } from "bigdecimal.js";
+import { Either } from "effect";
 
-import { BigMath, Token, Wallet } from "@liquidity_lab/effect-crypto";
-import { FunctionUtils } from "@liquidity_lab/effect-crypto/utils";
+import { BigMath } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
 import * as Internal from "./internal.js";
@@ -11,15 +10,15 @@ import type * as T from "./position.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
-class PoolIsNotFoundErrorLive implements T.PoolIsNotFoundError {
-  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError";
+// class PoolIsNotFoundErrorLive implements T.PoolIsNotFoundError {
+//   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError";
 
-  constructor(
-    readonly token0: Token.Erc20LikeToken,
-    readonly token1: Token.Erc20LikeToken,
-    readonly fee: Adt.FeeAmount,
-  ) {}
-}
+//   constructor(
+//     readonly token0: Token.Erc20LikeToken,
+//     readonly token1: Token.Erc20LikeToken,
+//     readonly fee: Adt.FeeAmount,
+//   ) {}
+// }
 
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
@@ -125,62 +124,6 @@ export function calculatePositionDraftFromAmounts(
     slot0.tick,
   );
 }
-
-/*export const mint = FunctionUtils.withOptionalServiceApi(Pool.Tag, mintImpl).value;
-
-function mintImpl(descriptor: Pool.PoolsDescriptor, params: T.PositionDraft) /!*: Effect.Effect<
-  Option.Option<string>,
-  Error.BlockchainError | Error.TransactionFailedError | FatalError,
-  Wallet.Tag
->*!/ {
-  return Wallet.withApproval(
-    [params.maxVolume0, params.maxVolume1],
-    descriptor.positionManagerAddress,
-  )((walletAddress) =>
-    Effect.gen(function* () {
-      const poolId = yield* getPoolId();
-      const [slot0, liquidity] = yield* Effect.all([Pool.slot0(poolId), Pool.liquidity(poolId)], {
-        concurrency: "unbounded",
-      });
-
-      const sqrtPrice = Big(slot0.price.asUnits).sqrt(Internal.mathContext);
-      const sqrtRatioA = Tick.getSqrtRatio(params.tickLower);
-      const sqrtRatioB = Tick.getSqrtRatio(params.tickUpper);
-      const targetLiquidity = maxLiquidityForAmountsImpl(
-        sqrtPrice,
-        sqrtRatioA,
-        sqrtRatioB,
-        params.maxAmount0,
-        params.maxAmount1,
-        Internal.mathContext,
-      );
-
-      const [amount0Desired, amount1Desired] = mintAmountsImpl(
-        slot0.tick,
-        params.tickLower,
-        params.tickUpper,
-        targetLiquidity,
-        sqrtPrice,
-      );
-
-      // TODO: add slippage support
-    }),
-  );
-
-  function getPoolId() {
-    return Effect.flatMap(
-      Pool.fetchState(descriptor, params.token0, params.token1, params.fee),
-      (poolIdOpt) =>
-        Option.match(poolIdOpt, {
-          onSome: Effect.succeed,
-          onNone: () =>
-            Effect.fail<T.PoolIsNotFoundError>(
-              new PoolIsNotFoundErrorLive(params.token0, params.token1, params.fee),
-            ),
-        }),
-    );
-  }
-}*/
 
 export function maxLiquidityForAmountsImpl(
   sqrtRatioCurrent: BigDecimal,

@@ -35,7 +35,6 @@ export const feeAmountGen: Arbitrary<FeeAmount> = fc.constantFrom(
  */
 const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
-
 export type Amount0TypeId = "com/liquidity_lab/crypto/blockchain/uniswap#amount0";
 
 export const makeAmount0 = Brand.refined<T.Amount0>(verifyAmount, (rawAmount) => {
@@ -51,7 +50,6 @@ export const amount0Gen = (constraints?: { min?: T.Amount0; max?: T.Amount0 }) =
     min: constraints?.min?.toBigInt(),
     max: constraints?.max?.toBigInt(),
   }).map(makeAmount0);
-
 
 export type Amount1TypeId = "com/liquidity_lab/crypto/blockchain/uniswap#amount1";
 
