@@ -101,7 +101,7 @@ export function makeMinVolumeForTokenImpl<T extends Token.TokenType>(
   // We create a NonNegativeDecimal from the unscaled value 1n.
   // This should never fail as 1n is positive and within bounds.
   const minValue = BigMath.NonNegativeDecimal(Big(1n, token.decimals));
-  
+
   return new TokenVolumeLive(token, minValue);
 }
 
@@ -112,8 +112,10 @@ export function makeMaxVolumeForTokenImpl<T extends Token.TokenType>(
   // The maximum volume corresponds to the MAX_UINT256 value.
   // We create a BigDecimal from MAX_UINT256 and the token's decimals,
   // then create the NonNegativeDecimal brand.
-  const maxValue = BigMath.NonNegativeDecimal(Big(BigMath.MAX_UINT256.subtract(1n).toBigInt(), token.decimals));
-  
+  const maxValue = BigMath.NonNegativeDecimal(
+    Big(BigMath.MAX_UINT256.subtract(1n).toBigInt(), token.decimals),
+  );
+
   return new TokenVolumeLive(token, maxValue);
 }
 

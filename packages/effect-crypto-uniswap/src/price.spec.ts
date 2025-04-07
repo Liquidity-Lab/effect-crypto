@@ -1,6 +1,7 @@
 import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
+import { Arbitrary } from "fast-check";
 
 import { testProp } from "@fast-check/ava";
 import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -10,7 +11,6 @@ import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/s
 import * as AvaUniswap from "./avaUniswap.js";
 import * as internal from "./price.internal.js";
 import * as Price from "./price.js";
-import { Arbitrary } from "fast-check";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -102,10 +102,27 @@ testProp(
 
 testProp.skip(
   "TokenPrice.project should be the same with UniswapSdkPrice",
-  [null as any as Arbitrary<{price: Price.TokenPrice<Token.TokenType.ERC20>, tokenVolume: TokenVolume.TokenVolume<Token.TokenType.ERC20>}>],
-  (t, {price, tokenVolume}) => {
-    const skdToken0 = new SdkToken(1, price.token0.address, price.token0.decimals, price.token0.symbol, price.token0.name);
-    const sdkToken1 = new SdkToken(1, price.token1.address, price.token1.decimals, price.token1.symbol, price.token1.name);
+  [
+    null as any as Arbitrary<{
+      price: Price.TokenPrice<Token.TokenType.ERC20>;
+      tokenVolume: TokenVolume.TokenVolume<Token.TokenType.ERC20>;
+    }>,
+  ],
+  (t, { price, tokenVolume }) => {
+    const skdToken0 = new SdkToken(
+      1,
+      price.token0.address,
+      price.token0.decimals,
+      price.token0.symbol,
+      price.token0.name,
+    );
+    const sdkToken1 = new SdkToken(
+      1,
+      price.token1.address,
+      price.token1.decimals,
+      price.token1.symbol,
+      price.token1.name,
+    );
     const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
       Price.asUnits(price),
       // priceRatio.setScale(USDT.decimals),
@@ -117,7 +134,9 @@ testProp.skip(
       priceNominator.toString(),
     );
 
-    const [volumeNominator, volumeDenominator] = BigMath.asNumeratorAndDenominator(TokenVolume.asUnits(tokenVolume));
+    const [volumeNominator, volumeDenominator] = BigMath.asNumeratorAndDenominator(
+      TokenVolume.asUnits(tokenVolume),
+    );
 
     const actual = Price.projectAmount(price, tokenVolume);
     const expectedSdkValue = sdkPrice.quote(
@@ -129,7 +148,16 @@ testProp.skip(
     );
     const expected = Option.some(Big(expectedSdkValue.toExact()));
 
-    console.log('price', price.toString(), 'tokenVolume', tokenVolume.toString(), 'token0Decimals', price.token0.decimals, 'token1Decimals', price.token1.decimals);
+    console.log(
+      "price",
+      price.toString(),
+      "tokenVolume",
+      tokenVolume.toString(),
+      "token0Decimals",
+      price.token0.decimals,
+      "token1Decimals",
+      price.token1.decimals,
+    );
 
     AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
       Option.map(actual, TokenVolume.asUnits),
@@ -138,7 +166,11 @@ testProp.skip(
     );
   },
   // { numRuns: 1024 },
-  { seed: 1197968557, path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0", endOnFailure: true }
+  {
+    seed: 1197968557,
+    path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0",
+    endOnFailure: true,
+  },
 );
 
 testProp.skip(

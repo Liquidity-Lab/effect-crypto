@@ -369,7 +369,10 @@ export const projectAmount: {
  * ```
  */
 export const projectedToken: {
-  <T extends Token.TokenType>(price: TokenPrice<T>, inputToken: Token.Token<T>): Option.Option<Token.Token<T>>;
+  <T extends Token.TokenType>(
+    price: TokenPrice<T>,
+    inputToken: Token.Token<T>,
+  ): Option.Option<Token.Token<T>>;
 } = internal.projectedTokenImpl;
 
 /**

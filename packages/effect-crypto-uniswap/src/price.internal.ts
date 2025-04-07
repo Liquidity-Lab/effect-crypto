@@ -453,56 +453,62 @@ Maybe you can propose other limitaions. Main goal is to create safe price with v
 
   eslint-disable-next-line @typescript-eslint/no-unused-vars
 */
-export function safePriceAndVolumeGen<T extends Token.TokenType>(tokenType: T): Arbitrary<{
+export function safePriceAndVolumeGen<T extends Token.TokenType>(
+  tokenType: T,
+): Arbitrary<{
   price: T.TokenPrice<T>;
   tokenVolume: TokenVolume.TokenVolume<T>;
 }> {
-  return tokenPriceGenImpl(tokenType)
-    // .chain((price) => fc.constantFrom(...price.tokens).map((token) => [price, token] as const))
-    .map((price) => [price, price.token0] as const)
-    .chain(([price, inputToken]) => {
-      const outputToken = Option.getOrThrowWith(
-        projectedTokenImpl(price, inputToken),
-        () => new Error(`Failed to project token for price ${price.toString()}`),
-      );
+  return (
+    tokenPriceGenImpl(tokenType)
+      // .chain((price) => fc.constantFrom(...price.tokens).map((token) => [price, token] as const))
+      .map((price) => [price, price.token0] as const)
+      .chain(([price, inputToken]) => {
+        const outputToken = Option.getOrThrowWith(
+          projectedTokenImpl(price, inputToken),
+          () => new Error(`Failed to project token for price ${price.toString()}`),
+        );
 
-      const minDirectVolume = TokenVolume.asUnits(TokenVolume.minVolumeForToken(inputToken)).multiply(2);
-      const maxDirectVolume = TokenVolume.asUnits(TokenVolume.maxVolumeForToken(inputToken)).multiply(0.9);
+        const minDirectVolume = TokenVolume.asUnits(
+          TokenVolume.minVolumeForToken(inputToken),
+        ).multiply(2);
+        const maxDirectVolume = TokenVolume.asUnits(
+          TokenVolume.maxVolumeForToken(inputToken),
+        ).multiply(0.9);
 
-      const minInverseVolume = Option.getOrThrowWith(
-        projectAmountImpl(
-          price,
-          TokenVolume.maxVolumeForToken(outputToken)
-        ),
-        () => new Error(`Failed to project token for price ${price.toString()}`),
-      );
-      const maxInverseVolume = Option.getOrThrowWith(
-        projectAmountImpl(
-          price,
-          TokenVolume.minVolumeForToken(outputToken)
-        ),
-        () => new Error(`Failed to project token for price ${price.toString()}`),
-      );
+        const minInverseVolume = Option.getOrThrowWith(
+          projectAmountImpl(price, TokenVolume.maxVolumeForToken(outputToken)),
+          () => new Error(`Failed to project token for price ${price.toString()}`),
+        );
+        const maxInverseVolume = Option.getOrThrowWith(
+          projectAmountImpl(price, TokenVolume.minVolumeForToken(outputToken)),
+          () => new Error(`Failed to project token for price ${price.toString()}`),
+        );
 
-      // const allVolumes = [
-      //   TokenVolume.asUnits(minDirectVolume).multiply(2),
-      //   TokenVolume.asUnits(maxDirectVolume).multiply(0.9),
-      //   TokenVolume.asUnits(minInverseVolume),
-      //   TokenVolume.asUnits(maxInverseVolume),
-      // ];
+        // const allVolumes = [
+        //   TokenVolume.asUnits(minDirectVolume).multiply(2),
+        //   TokenVolume.asUnits(maxDirectVolume).multiply(0.9),
+        //   TokenVolume.asUnits(minInverseVolume),
+        //   TokenVolume.asUnits(maxInverseVolume),
+        // ];
 
-      const constraints = {
-        min: BigMath.NonNegativeDecimal(minDirectVolume.max(TokenVolume.asUnits(minInverseVolume))),
-        max: BigMath.NonNegativeDecimal(maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume))),
-      }
-
-      return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
-        return {
-          price,
-          tokenVolume,
+        const constraints = {
+          min: BigMath.NonNegativeDecimal(
+            minDirectVolume.max(TokenVolume.asUnits(minInverseVolume)),
+          ),
+          max: BigMath.NonNegativeDecimal(
+            maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume)),
+          ),
         };
-      });
-    });
+
+        return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
+          return {
+            price,
+            tokenVolume,
+          };
+        });
+      })
+  );
 }
 
 /**
