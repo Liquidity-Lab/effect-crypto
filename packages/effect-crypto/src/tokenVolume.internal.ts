@@ -94,6 +94,30 @@ export function prettyPrintImpl<T extends Token.TokenType>(volume: T.TokenVolume
 }
 
 /** @internal */
+export function makeMinVolumeForTokenImpl<T extends Token.TokenType>(
+  token: Token.Token<T>,
+): T.TokenVolume<T> {
+  // The smallest representable positive volume corresponds to 1 smallest unit (e.g., 1 wei).
+  // We create a NonNegativeDecimal from the unscaled value 1n.
+  // This should never fail as 1n is positive and within bounds.
+  const minValue = BigMath.NonNegativeDecimal(Big(1n, token.decimals));
+  
+  return new TokenVolumeLive(token, minValue);
+}
+
+/** @internal */
+export function makeMaxVolumeForTokenImpl<T extends Token.TokenType>(
+  token: Token.Token<T>,
+): T.TokenVolume<T> {
+  // The maximum volume corresponds to the MAX_UINT256 value.
+  // We create a BigDecimal from MAX_UINT256 and the token's decimals,
+  // then create the NonNegativeDecimal brand.
+  const maxValue = BigMath.NonNegativeDecimal(Big(BigMath.MAX_UINT256.subtract(1n).toBigInt(), token.decimals));
+  
+  return new TokenVolumeLive(token, maxValue);
+}
+
+/** @internal */
 export function tokenVolumeOrErrGen<T extends Token.TokenType>(
   token: Token.Token<T>,
   constraints?: {

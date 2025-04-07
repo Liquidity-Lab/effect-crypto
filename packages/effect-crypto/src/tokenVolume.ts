@@ -211,3 +211,43 @@ export const tokenVolumeGen: {
     },
   ): Arbitrary<TokenVolume<T>>;
 } = internal.tokenVolumeGenImpl;
+
+/**
+ * Returns the minimum possible positive token volume for a given token.
+ * This corresponds to the smallest representable unit (e.g., 1 wei for ETH).
+ *
+ * @example
+ *   import { Token, TokenVolume } from "effect-crypto";
+ *
+ *   // Assume USDT has 6 decimals
+ *   const USDT: Token.AnyToken = ???;
+ *   const minVolume = TokenVolume.minVolumeForToken(USDT);
+ *   // TokenVolume.asUnits(minVolume) will be 0.000001
+ *   // TokenVolume.asUnscaled(minVolume) will be 1n
+ *
+ * @param token - The token for which to get the minimum volume.
+ * @returns TokenVolume<T> - The minimum token volume.
+ */
+export const minVolumeForToken: {
+  <T extends Token.TokenType>(token: Token.Token<T>): TokenVolume<T>;
+} = internal.makeMinVolumeForTokenImpl;
+
+/**
+ * Returns the maximum possible token volume for a given token.
+ * This corresponds to the maximum uint256 value scaled according to the token's decimals.
+ *
+ * @example
+ *   import { Token, TokenVolume } from "effect-crypto";
+ *
+ *   // Assume USDT has 6 decimals
+ *   const USDT: Token.AnyToken = ???;
+ *   const maxVolume = TokenVolume.maxVolumeForToken(USDT);
+ *   // TokenVolume.asUnscaled(maxVolume) will be 2n**256n - 1n
+ *   // TokenVolume.asUnits(maxVolume) will be (2n**256n - 1n) / (10n**6n)
+ *
+ * @param token - The token for which to get the maximum volume.
+ * @returns TokenVolume<T> - The maximum token volume.
+ */
+export const maxVolumeForToken: {
+  <T extends Token.TokenType>(token: Token.Token<T>): TokenVolume<T>;
+} = internal.makeMaxVolumeForTokenImpl;

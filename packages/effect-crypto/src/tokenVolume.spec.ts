@@ -1,5 +1,5 @@
 import testAny from "ava";
-import { Big } from "bigdecimal.js";
+import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
 
 import { fc, testProp } from "@fast-check/ava";
@@ -10,6 +10,10 @@ import * as BigMath from "./bigMath.js";
 import * as Token from "./token.js";
 import * as internal from "./tokenVolume.internal.js";
 import * as TokenVolume from "./tokenVolume.js";
+
+// Constants for precision comparison
+const errorTolerance = Big("0.000000000000000001"); // Adjust tolerance as needed
+const mathContext = new MathContext(128, RoundingMode.HALF_UP); // Use appropriate precision
 
 const USDT = Token.Erc20Token(
   Adt.Address.unsafe("0x0000000000000000000000000000000000000001"),
@@ -135,4 +139,62 @@ testProp(
     );
   },
   { numRuns: 1024 },
+);
+
+testAny("minVolumeForToken returns the smallest possible positive volume", (t) => {
+  const minVolume = TokenVolume.minVolumeForToken(USDT);
+  const expectedUnscaled = 1n;
+  const expectedUnits = Big(expectedUnscaled, USDT.decimals);
+
+  // Verify unscaled value is exactly 1n
+  t.is(TokenVolume.asUnscaled(minVolume), expectedUnscaled);
+
+  // Verify the units representation (BigDecimal) matches using precision comparison
+  BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(
+    TokenVolume.asUnits(minVolume),
+    expectedUnits,
+    "Units representation should match the expected value within tolerance",
+  );
+});
+
+testAny("maxVolumeForToken returns the largest possible volume (MAX_UINT256)", (t) => {
+  const maxVolume = TokenVolume.maxVolumeForToken(USDT);
+  const expectedUnscaled = BigMath.MAX_UINT256.unscaledValue() - 1n;
+  const expectedUnits = Big(expectedUnscaled, USDT.decimals);
+
+  // Verify unscaled value is exactly MAX_UINT256 - 1n
+  t.is(TokenVolume.asUnscaled(maxVolume), expectedUnscaled);
+
+  // Verify the units representation (BigDecimal) matches using precision comparison
+  BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext)(
+    TokenVolume.asUnits(maxVolume),
+    expectedUnits,
+    "Units representation should match the expected value within tolerance",
+  );
+});
+
+testProp(
+  "minVolumeForToken is less than or equal to any generated positive volume",
+  [TokenVolume.tokenVolumeGen(USDT)], // Using the default generator which creates positive values
+  (t, generatedVolume) => {
+    const minVolume = TokenVolume.minVolumeForToken(USDT);
+
+    // Compare using underlying NonNegativeDecimal values
+    t.true(minVolume.underlyingValue.compareTo(generatedVolume.underlyingValue) <= 0);
+    // Also compare unscaled values
+    t.true(TokenVolume.asUnscaled(minVolume) <= TokenVolume.asUnscaled(generatedVolume));
+  },
+);
+
+testProp(
+  "maxVolumeForToken is greater than or equal to any generated volume",
+  [TokenVolume.tokenVolumeGen(USDT)], // Generator respects MAX_UINT256 implicitly
+  (t, generatedVolume) => {
+    const maxVolume = TokenVolume.maxVolumeForToken(USDT);
+
+    // Compare using underlying NonNegativeDecimal values
+    t.true(maxVolume.underlyingValue.compareTo(generatedVolume.underlyingValue) >= 0);
+    // Also compare unscaled values
+    t.true(TokenVolume.asUnscaled(maxVolume) >= TokenVolume.asUnscaled(generatedVolume));
+  },
 );
