@@ -346,3 +346,25 @@ export const nonNegativeDecimalGen: (constraints?: {
   max?: NonNegativeDecimal;
   scale?: number;
 }) => Arbitrary<NonNegativeDecimal> = internal.nonNegativeDecimalGen;
+
+/**
+ * Generates an arbitrary Q64x96 (bigint) value for property-based testing.
+ *
+ * @returns An Arbitrary that generates valid Q64x96 values.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { BigMath } from "effect-crypto";
+ *
+ * const q64x96Arbitrary = BigMath.q64x96Gen();
+ *
+ * fc.assert(
+ *   fc.property(q64x96Arbitrary, (qVal) => {
+ *     // Test properties of the generated Q64x96 bigint
+ *     return typeof qVal === 'bigint' && qVal >= 0n;
+ *   })
+ * );
+ * ```
+ */
+export const q64x96Gen: () => Arbitrary<Q64x96> = internal.q64x96Gen;

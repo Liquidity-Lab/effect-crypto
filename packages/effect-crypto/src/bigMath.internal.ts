@@ -208,3 +208,12 @@ export function nonNegativeDecimalGen(constraints?: {
 }): Arbitrary<T.NonNegativeDecimal> {
   return bigDecimalGen(constraints).map(makeNonNegativeDecimal);
 }
+
+/**
+ * Generates an arbitrary Q64x96 (bigint) value for property-based testing.
+ *
+ * @returns An Arbitrary that generates valid Q64x96 values.
+ */
+export function q64x96Gen(): Arbitrary<T.Q64x96> {
+  return fc.bigInt({ min: 0n, max: Q64x96_MAX_VALUE }).map(Brand.nominal<T.Q64x96>());
+}

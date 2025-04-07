@@ -460,7 +460,7 @@ function awaitForTransaction(
 
     return yield* Option.match(receipt, {
       // TODO: perhaps we going to need to check some fields in the receipt
-      onSome: (receipt) => Effect.as(Effect.log("Transaction receipt:", receipt), receipt),
+      onSome: (receipt) => Effect.as(Effect.logDebug("Transaction receipt:", receipt), receipt),
       onNone: () => Effect.fail(Error.TransactionFailedError("Transaction: got no receipt")),
     });
   });
