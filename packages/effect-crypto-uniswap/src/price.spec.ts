@@ -34,7 +34,7 @@ test("TokenPrice.project converts quote currency amounts correctly", (t) => {
   const quoteAmount = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
   const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
-    Price.projectAmount(price, TokenVolume.TokenVolumeUnits(USDT, quoteAmount)),
+    Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount)),
   );
   const expected = BigMath.NonNegativeDecimal(Big("2.5"));
 
@@ -50,7 +50,7 @@ test("TokenPrice.project converts base currency amounts correctly", (t) => {
   const baseAmount = BigMath.NonNegativeDecimal(Big("2.5"));
 
   const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
-    Price.projectAmount(price, TokenVolume.TokenVolumeUnits(WETH, baseAmount)),
+    Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)),
   );
   const expected = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
@@ -74,7 +74,7 @@ test("Static test: TokenPrice.project should be the same with UniswapSdkPrice", 
 
   const actual = Price.projectAmount(
     price,
-    TokenVolume.TokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(0.855555))),
+    TokenVolume.tokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(0.855555))),
   );
   const expected = sdkPrice.quote(CurrencyAmount.fromFractionalAmount(sdkWETH, 855555, 1000000));
 
@@ -118,7 +118,7 @@ testProp(
 
     const [volumeNominator, volumeDenominator] = BigMath.asNumeratorAndDenominator(volumeRatio);
 
-    const tokenVolume = TokenVolume.TokenVolumeRatio(WETH, volumeRatio);
+    const tokenVolume = TokenVolume.tokenVolumeRatio(WETH, volumeRatio);
     const actual = Price.projectAmount(price, tokenVolume);
     const expectedSdkValue = sdkPrice.quote(
       CurrencyAmount.fromFractionalAmount(
@@ -165,11 +165,11 @@ testProp(
     const volumeRatio = BigMath.Ratio(Big(2.5));
     const expected = Price.projectAmount(
       regularPrice,
-      TokenVolume.TokenVolumeRatio(WETH, volumeRatio),
+      TokenVolume.tokenVolumeRatio(WETH, volumeRatio),
     );
     const actual = Price.projectAmount(
       invertedPrice,
-      TokenVolume.TokenVolumeRatio(WETH2, volumeRatio),
+      TokenVolume.tokenVolumeRatio(WETH2, volumeRatio),
     );
 
     assertions.assertOptionalEqualVia(
@@ -201,11 +201,11 @@ testProp.skip(
 
     const expected = Price.projectAmount(
       regularPrice,
-      TokenVolume.TokenVolumeRatio(regularPrice.token0, volumeRatio),
+      TokenVolume.tokenVolumeRatio(regularPrice.token0, volumeRatio),
     );
     const actual = Price.projectAmount(
       invertedPrice,
-      TokenVolume.TokenVolumeRatio(regularPrice.token0, volumeRatio),
+      TokenVolume.tokenVolumeRatio(regularPrice.token0, volumeRatio),
     );
 
     assertions.assertOptionalEqualVia(

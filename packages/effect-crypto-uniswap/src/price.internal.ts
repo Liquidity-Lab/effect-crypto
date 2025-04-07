@@ -258,7 +258,7 @@ export function projectAmountImpl<T extends Token.TokenType>(
     case price.token0.address:
       return Option.map(
         BigMath.Ratio.option(ratio.multiply(TokenVolume.asUnits(inputAmount))),
-        (output) => TokenVolume.TokenVolumeRatio(price.token1, output),
+        (output) => TokenVolume.tokenVolumeRatio(price.token1, output),
       );
     case price.token1.address:
       return Option.map(
@@ -266,7 +266,7 @@ export function projectAmountImpl<T extends Token.TokenType>(
           TokenVolume.asUnits(inputAmount).divideWithMathContext(ratio, mathContext),
         ),
         // BigMath.Ratio.option(ratio.divide(TokenVolume.asUnits(inputAmount))),
-        (output) => TokenVolume.TokenVolumeRatio(price.token0, output),
+        (output) => TokenVolume.tokenVolumeRatio(price.token0, output),
       );
     default:
       return Option.none();

@@ -1,7 +1,6 @@
 import { Big, BigDecimal } from "bigdecimal.js";
 import { Brand } from "effect";
 import { Arbitrary } from "fast-check";
-import { MathContext, RoundingMode } from "bigdecimal.js";
 
 import * as internal from "./adt.internal.js";
 

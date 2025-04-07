@@ -1,20 +1,15 @@
-import { Big, MathContext, RoundingMode } from "bigdecimal.js";
+import { Big } from "bigdecimal.js";
 import { Effect, Layer, Option } from "effect";
 
 import { AvaCrypto, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
-import { jsbi } from "@liquidity_lab/jsbi-reimported";
+
 
 import * as Adt from "./adt.js";
 import * as AvaUniswap from "./avaUniswap.js";
 import * as Pool from "./pool.js";
 import * as Price from "./price.js";
 import * as UniswapTestEnv from "./uniswapTestEnv.js";
-import * as Token from "./token.js";
 
-const JSBI = jsbi.default;
-const MaxUint256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-const mathContext = new MathContext(192, RoundingMode.HALF_UP);
-const errorTolerance = Big("0.000003");
 
 type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag;
 

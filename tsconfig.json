@@ -1,10 +1,7 @@
 {
   "files": [],
   "compilerOptions": {
-    "baseUrl": "./packages",
-    "plugins": [
-      { "name": "@effect/language-service" }
-    ]
+    "baseUrl": "./packages"
   },
   "references": [
     {

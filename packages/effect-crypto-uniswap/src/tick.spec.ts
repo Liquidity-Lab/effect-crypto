@@ -1,6 +1,5 @@
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
-import { RuntimeException } from "effect/Cause";
 import { Arbitrary } from "fast-check";
 
 import { fc, testProp } from "@fast-check/ava";
