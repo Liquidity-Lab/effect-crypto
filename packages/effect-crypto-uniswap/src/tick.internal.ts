@@ -1,5 +1,5 @@
 import { Big, BigDecimal, MathContext, RoundingMode } from "bigdecimal.js";
-import { Brand } from "effect";
+import { Brand, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import { fc } from "@fast-check/ava";
@@ -97,4 +97,62 @@ export function nearestUsableTick(tick: T.Tick, tickSpacing: T.TickSpacing): T.T
   if (rounded < MIN_TICK) return makeTick(rounded + tickSpacing);
   else if (rounded > MAX_TICK) return makeTick(rounded - tickSpacing);
   else return makeTick(rounded);
+}
+
+// Implementation class for UsableTick
+// Implements the interface defined in tick.ts
+class UsableTickLive implements T.UsableTick {
+  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick";
+  constructor(
+    readonly unwrap: T.Tick,
+    readonly spacing: T.TickSpacing,
+  ) {}
+}
+
+// Factory function for UsableTickLive
+export function makeUsableTick(tick: T.Tick, spacing: T.TickSpacing): T.UsableTick {
+  const nearest = nearestUsableTick(tick, spacing);
+
+  return new UsableTickLive(nearest, spacing);
+}
+
+// Implementation for adding N ticks
+export function addNTicksImpl(usableTick: T.UsableTick, n: number): Option.Option<T.UsableTick> {
+  const newTickValue = usableTick.unwrap + n * usableTick.spacing;
+
+  // Use makeTick.option to handle validation and creation
+  return Option.map(
+    makeTick.option(newTickValue),
+    (newTick) => new UsableTickLive(newTick, usableTick.spacing),
+  );
+}
+
+// Implementation for subtracting N ticks
+export function subtractNTicksImpl(
+  usableTick: T.UsableTick,
+  n: number,
+): Option.Option<T.UsableTick> {
+  const newTickValue = usableTick.unwrap - n * usableTick.spacing;
+
+  // Use makeTick.option to handle validation and creation
+  return Option.map(
+    makeTick.option(newTickValue),
+    (newTick) => new UsableTickLive(newTick, usableTick.spacing),
+  );
+}
+
+/**
+ * Calculates the distance between two ticks in terms of spacing units.
+ * It finds the nearest usable ticks for both input ticks based on the spacing
+ * and returns the difference divided by the spacing.
+ */
+export function subtractImpl(tick1: T.Tick, tick2: T.Tick, spacing: T.TickSpacing): number {
+  const usableTick1 = nearestUsableTick(tick1, spacing);
+  const usableTick2 = nearestUsableTick(tick2, spacing);
+
+  const difference = usableTick1 - usableTick2;
+
+  // Since usableTick1 and usableTick2 are multiples of spacing, the difference is also a multiple.
+  // The division should always result in an integer.
+  return difference / spacing;
 }
