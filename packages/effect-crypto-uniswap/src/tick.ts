@@ -41,6 +41,7 @@ export type Tick = Brand.Branded<number, internal.TickTypeId>;
  *
  *  // Generate random ticks for testing
  *  const arbitraryTick = Tick.gen.sample()
+ *  const arbitraryUsableTick = Tick.usableTickGen.sample()
  *  ```
  *
  * The minimum and maximum tick values correspond to the price range that can be
@@ -50,10 +51,17 @@ export const Tick: Brand.Brand.Constructor<Tick> & {
   MIN: Tick;
   MAX: Tick;
   gen: Arbitrary<Tick>;
+  /**
+   * Generates arbitrary UsableTick values for property-based testing.
+   * @param feeAmountGen Optional arbitrary for FeeAmount. Defaults to Adt.feeAmountGen.
+   * @see {@link internal.usableTickGen}
+   */
+  usableTickGen: (feeAmountGen?: Arbitrary<Adt.FeeAmount>) => Arbitrary<UsableTick>;
 } = Object.assign(internal.makeTick, {
   MAX: internal.MAX_TICK,
   MIN: internal.MIN_TICK,
   gen: internal.tickGen(),
+  usableTickGen: internal.usableTickGen,
 });
 
 /**
@@ -139,13 +147,13 @@ export const getTickAtPrice: {
  *   ```typescript
  *   const tick = Tick(105)
  *   const spacing = toTickSpacing(FeeAmount.MEDIUM) // 60
- *   const nearest = nearestUsableTick(tick, spacing) // Returns 120
+ *   const nearest = nearestUsableTick(tick, spacing) // Returns UsableTick with unwrap: 120
  *   ```
  *
  * @see {@link https://docs.uniswap.org/concepts/protocol/fees#tick-spacing}
  */
 export const nearestUsableTick: {
-  (tick: Tick, tickSpacing: TickSpacing): Tick;
+  (tick: Tick, tickSpacing: TickSpacing): UsableTick;
 } = internal.nearestUsableTick;
 
 /**
@@ -179,30 +187,6 @@ export interface UsableTick {
   readonly unwrap: Tick; // The actual tick number (e.g., 120)
   readonly spacing: TickSpacing; // The tick spacing used (e.g., 60)
 }
-
-/**
- * Creates a new UsableTick from a tick and its spacing.
- * If the provided tick is not perfectly aligned with the spacing,
- * it will be adjusted to the nearest usable tick.
- *
- * @example
- * ```typescript
- * import { FeeAmount, Tick } from "@liquidity_lab/effect-crypto-uniswap";
- *
- * const tick = Tick.Tick(105);
- * const spacing = Tick.toTickSpacing(FeeAmount.MEDIUM); // 60
- * const usableTick = Tick.UsableTick(tick, spacing); // Creates UsableTick with unwrap: 120
- * console.log(usableTick.unwrap); // Output: 120
- *
- * const alreadyUsableTick = Tick.Tick(120);
- * const usableTick2 = Tick.UsableTick(alreadyUsableTick, spacing);
- * console.log(usableTick2.unwrap); // Output: 120
- * ```
- * @constructor
- */
-export const UsableTick: {
-  (tick: Tick, spacing: TickSpacing): UsableTick;
-} = internal.makeUsableTick;
 
 /**
  * Adds N steps (each step is `spacing` wide) to a UsableTick while maintaining proper spacing.

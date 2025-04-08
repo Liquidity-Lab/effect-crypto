@@ -36,6 +36,26 @@ export function tickGen(): Arbitrary<T.Tick> {
   return fc.integer({ min: MIN_TICK + 1, max: MAX_TICK - 1 }).map((value) => makeTick(value));
 }
 
+/**
+ * Generates arbitrary UsableTick values for property-based testing.
+ * It first selects a FeeAmount (and thus TickSpacing), then generates a raw Tick,
+ * and finally creates a UsableTick using nearestUsableTick.
+ *
+ * @param feeAmountGen Optional arbitrary for FeeAmount. Defaults to Adt.feeAmountGen.
+ * @returns An Arbitrary that generates UsableTick instances.
+ * @internal
+ */
+export function usableTickGen(feeAmountGen: Arbitrary<Adt.FeeAmount> = Adt.feeAmountGen): Arbitrary<T.UsableTick> {
+  return feeAmountGen.chain((feeAmount) => {
+    const spacing = toTickSpacing(feeAmount);
+    // Generate a raw tick first
+    return tickGen().map((rawTick) => {
+      // Ensure the generated tick is usable for the selected spacing
+      return nearestUsableTick(rawTick, spacing);
+    });
+  });
+}
+
 const unsafeMakeTickSpacing = Brand.nominal<T.TickSpacing>();
 
 /**
@@ -86,44 +106,49 @@ export function getTickAtPriceImpl<T extends Token.TokenType>(price: Price.Token
   return getTickAtRatioImpl(Price.asRatio(price));
 }
 
-/**
- * Returns the closest tick that is nearest a given tick and usable for the given tick spacing
- * @param tick the target tick
- * @param tickSpacing the spacing of the pool
- */
-export function nearestUsableTick(tick: T.Tick, tickSpacing: T.TickSpacing): T.Tick {
-  const rounded = Math.round(tick / tickSpacing) * tickSpacing;
-
-  if (rounded < MIN_TICK) return makeTick(rounded + tickSpacing);
-  else if (rounded > MAX_TICK) return makeTick(rounded - tickSpacing);
-  else return makeTick(rounded);
-}
-
 // Implementation class for UsableTick
 // Implements the interface defined in tick.ts
 class UsableTickLive implements T.UsableTick {
   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick";
-  constructor(
+
+  // Constructor made private
+  private constructor(
     readonly unwrap: T.Tick,
     readonly spacing: T.TickSpacing,
   ) {}
+
+  // Static factory method to handle creation and normalization
+  static make(unwrap: T.Tick, spacing: T.TickSpacing): UsableTickLive {
+    // Normalize potential -0 to 0 here by adding 0
+    return new UsableTickLive(unsafeMakeTick(unwrap + 0), spacing);
+  }
 }
 
-// Factory function for UsableTickLive
-export function makeUsableTick(tick: T.Tick, spacing: T.TickSpacing): T.UsableTick {
-  const nearest = nearestUsableTick(tick, spacing);
+/**
+ * Returns the closest tick that is nearest a given tick and usable for the given tick spacing
+ * @param tick the target tick
+ * @param tickSpacing the spacing of the pool
+ * @internal
+ */
+export function nearestUsableTick(tick: T.Tick, tickSpacing: T.TickSpacing): T.UsableTick {
+  const rounded = Math.round(tick / tickSpacing) * tickSpacing;
 
-  return new UsableTickLive(nearest, spacing);
+  // Use the static make method instead of the constructor
+  if (rounded < MIN_TICK) return UsableTickLive.make(makeTick(rounded + tickSpacing), tickSpacing);
+  else if (rounded > MAX_TICK) return UsableTickLive.make(makeTick(rounded - tickSpacing), tickSpacing);
+  else return UsableTickLive.make(makeTick(rounded), tickSpacing);
 }
 
 // Implementation for adding N ticks
 export function addNTicksImpl(usableTick: T.UsableTick, n: number): Option.Option<T.UsableTick> {
+  // Removed '+ 0' normalization from here
   const newTickValue = usableTick.unwrap + n * usableTick.spacing;
 
   // Use makeTick.option to handle validation and creation
   return Option.map(
     makeTick.option(newTickValue),
-    (newTick) => new UsableTickLive(newTick, usableTick.spacing),
+    // Use the static make method here
+    (newTick) => UsableTickLive.make(newTick, usableTick.spacing),
   );
 }
 
@@ -132,12 +157,14 @@ export function subtractNTicksImpl(
   usableTick: T.UsableTick,
   n: number,
 ): Option.Option<T.UsableTick> {
+  // Removed '+ 0' normalization from here
   const newTickValue = usableTick.unwrap - n * usableTick.spacing;
 
   // Use makeTick.option to handle validation and creation
   return Option.map(
     makeTick.option(newTickValue),
-    (newTick) => new UsableTickLive(newTick, usableTick.spacing),
+    // Use the static make method here
+    (newTick) => UsableTickLive.make(newTick, usableTick.spacing),
   );
 }
 
@@ -150,7 +177,7 @@ export function subtractImpl(tick1: T.Tick, tick2: T.Tick, spacing: T.TickSpacin
   const usableTick1 = nearestUsableTick(tick1, spacing);
   const usableTick2 = nearestUsableTick(tick2, spacing);
 
-  const difference = usableTick1 - usableTick2;
+  const difference = usableTick1.unwrap - usableTick2.unwrap;
 
   // Since usableTick1 and usableTick2 are multiples of spacing, the difference is also a multiple.
   // The division should always result in an integer.
