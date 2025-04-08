@@ -80,17 +80,15 @@ testProp(
   (t, sqrtPrice) => {
     // Get tick using our implementation
     const actualTick = Tick.getTickAtPrice(sqrtPrice);
-    console.log("sqrtPrice_11111", sqrtPrice);
     // Convert to Uniswap format (Q96.64)
     const sqrtPriceX96 = Price.asSqrtQ64_96(sqrtPrice).pipe(
       Option.map((sqrtPrice) => JSBI.BigInt(sqrtPrice.toString())),
       Option.getOrElse(() => t.fail("Cannot convert to sqrt(Q96.64) SDK price")),
       // Option.getOrThrowWith(() => new RuntimeException("Cannot convert to sqrt(Q96.64) SDK price")),
     );
-    console.log("sqrtPrice_222222", sqrtPrice);
     // Get tick using Uniswap's implementation
     const expectedTick = SdkTickMath.getTickAtSqrtRatio(sqrtPriceX96);
-    console.log("sqrtPrice_33333", sqrtPrice);
+
     t.deepEqual(actualTick, expectedTick, "tick index should be equal");
   },
   { numRuns: 512 },

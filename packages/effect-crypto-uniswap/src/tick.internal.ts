@@ -83,12 +83,7 @@ export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {
 }
 
 export function getTickAtPriceImpl<T extends Token.TokenType>(price: Price.TokenPrice<T>): T.Tick {
-  switch (price.underlying._tag) {
-    case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
-      return getTickAtRatioImpl(price.underlying.value.pow(2, MATH_CONTEXT_HIGH_PRECISION));
-    case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
-      return getTickAtRatioImpl(price.underlying.value);
-  }
+  return getTickAtRatioImpl(Price.asRatio(price));
 }
 
 /**
