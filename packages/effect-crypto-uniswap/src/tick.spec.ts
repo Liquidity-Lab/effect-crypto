@@ -158,7 +158,9 @@ testProp(
  *
  * @returns An Arbitrary that generates tuples of [UsableTick, UsableTick] with matching spacing.
  */
-function consistentUsableTickPairGen(): Arbitrary<[Tick.UsableTick, Tick.UsableTick, Tick.TickSpacing]> {
+function consistentUsableTickPairGen(): Arbitrary<
+  [Tick.UsableTick, Tick.UsableTick, Tick.TickSpacing]
+> {
   return Adt.feeAmountGen.chain((feeAmount) => {
     const feeAmountConstGen = fc.constant(feeAmount);
     // Use the internal generator with the constant feeAmount generator for both ticks
@@ -180,9 +182,10 @@ testProp(
     const actualSubtractedResultOpt = Tick.subtractNTicks(usableTick1, distance);
     // Compare unwrapped values within the Option
     t.deepEqual(
-    actualSubtractedResultOpt,
-     Option.some(usableTick2),
-     `Subtracting distance (${distance}) from usableTick1 (${usableTick1.unwrap}) should result in Option.some(usableTick2: ${usableTick2.unwrap}))`);
+      actualSubtractedResultOpt,
+      Option.some(usableTick2),
+      `Subtracting distance (${distance}) from usableTick1 (${usableTick1.unwrap}) should result in Option.some(usableTick2: ${usableTick2.unwrap}))`,
+    );
 
     // Test: Adding the calculated distance to usableTick2 should yield usableTick1
     // usableTick2 + distance = usableTick1

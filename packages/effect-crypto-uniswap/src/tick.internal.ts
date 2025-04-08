@@ -45,7 +45,9 @@ export function tickGen(): Arbitrary<T.Tick> {
  * @returns An Arbitrary that generates UsableTick instances.
  * @internal
  */
-export function usableTickGen(feeAmountGen: Arbitrary<Adt.FeeAmount> = Adt.feeAmountGen): Arbitrary<T.UsableTick> {
+export function usableTickGen(
+  feeAmountGen: Arbitrary<Adt.FeeAmount> = Adt.feeAmountGen,
+): Arbitrary<T.UsableTick> {
   return feeAmountGen.chain((feeAmount) => {
     const spacing = toTickSpacing(feeAmount);
     // Generate a raw tick first
@@ -135,7 +137,8 @@ export function nearestUsableTick(tick: T.Tick, tickSpacing: T.TickSpacing): T.U
 
   // Use the static make method instead of the constructor
   if (rounded < MIN_TICK) return UsableTickLive.make(makeTick(rounded + tickSpacing), tickSpacing);
-  else if (rounded > MAX_TICK) return UsableTickLive.make(makeTick(rounded - tickSpacing), tickSpacing);
+  else if (rounded > MAX_TICK)
+    return UsableTickLive.make(makeTick(rounded - tickSpacing), tickSpacing);
   else return UsableTickLive.make(makeTick(rounded), tickSpacing);
 }
 
