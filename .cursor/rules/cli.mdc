@@ -32,7 +32,13 @@ npm run build -w @liquidity_lab/effect-crypto
 npm run test -w @liquidity_lab/{moduleName}
 
 # Example for 'effect-crypto':
-npm run test -w @liquidity_lab/effect-crypto
+npm run test -w @liquidity_lab/effect-crypto --timeout 2m
+
+# Template for running tests for specific file. filePath from the repository root
+npx ava -v {filePath} --timeout 2m
+
+# Example for effect-crypto-uniswap and file [tick.spec.ts](mdc:packages/effect-crypto-uniswap/src/tick.spec.ts)
+npx ava -v packages/effect-crypto-uniswap/src/tick.spec.ts --timeout 2m
 ```
 
 

@@ -118,7 +118,7 @@ When developing new features or making changes, follow this iterative process:
 - Run tests with Node.js v22+:
   ```bash
   nvm use v22 # Ensure correct Node version from .nvmrc
-  node --import tsx node_modules/ava/entrypoints/cli.mjs -v path/to/your.spec.ts
+  node --import tsx node_modules/ava/entrypoints/cli.mjs -v path/to/your.spec.ts --timeout 2m
   ```
 
 ### Blockchain Integration
