@@ -5,7 +5,6 @@ import { Option } from "effect";
 import { fc, testProp } from "@fast-check/ava";
 
 import * as BigMath from "./bigMath.js";
-import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -261,15 +260,19 @@ test("Q64x96 conversion handles edge cases correctly", (t) => {
 
 testProp(
   "Q64x96 round-trip conversion should preserve the original value",
-  [BigMath.nonNegativeDecimalGen()],
-  (t, original) => {
-    const result = Option.map(BigMath.convertToQ64x96(original), BigMath.q64x96ToBigDecimal);
+  [BigMath.q64x96Gen()],
+  (t, originalQ64x96) => {
+    // Convert Q64x96 to BigDecimal
+    const originalBigDecimal = BigMath.q64x96ToBigDecimal(originalQ64x96);
 
-    AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
-      result,
-      Option.some(original),
-      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
-    );
+    // Convert BigDecimal back to Q64x96
+    const resultQ64x96Opt = BigMath.convertToQ64x96(originalBigDecimal);
+
+    // Check if the resulting Q64x96 matches the original Q64x96
+    // We use deepEqual here because Q64x96 is a branded bigint
+    // and assertEqualWithPercentage is for BigDecimal comparisons.
+    // Direct bigint comparison should be precise enough for this round trip.
+    t.deepEqual(resultQ64x96Opt, Option.some(originalQ64x96));
   },
   { numRuns: 1024 },
 );

@@ -8,6 +8,17 @@ import * as internal from "./adt.internal.js";
 
 /**
  * FatalError is a tagged type that represents a fatal error.
+ *
+ * @property _tag - The unique identifier for the FatalError type.
+ * @property underlying - The original Error object that caused the fatal error.
+ *
+ * @example
+ * ```typescript
+ * // Represents a fatal error wrapping a standard JavaScript Error
+ * declare const myFatalError: FatalError;
+ * console.log(myFatalError._tag); // "@liquidity_lab/effect-crypto/adt#FatalError"
+ * console.log(myFatalError.underlying); // The original Error object
+ * ```
  */
 export interface FatalError {
   readonly _tag: "@liquidity_lab/effect-crypto/adt#FatalError";
@@ -68,7 +79,51 @@ export const FatalErrorUnknown: (cause: unknown) => FatalError = internal.makeFa
 export const isFatalError: (err: unknown) => err is FatalError = internal.isFatalError;
 
 /**
+ * Maps the error message of a FatalError using the provided function.
+ *
+ * @param a - The FatalError instance to modify.
+ * @param f - A function that takes the current error message string and returns a new message string.
+ * @returns A new FatalError instance with the updated error message.
+ *
+ * @example
+ *   import { FatalErrorString, mapErrorMessage } from "effect-crypto";
+ *
+ *   const originalError = FatalErrorString("Initial failure");
+ *   const updatedError = mapErrorMessage(originalError, msg => `FATAL: ${msg.toUpperCase()}`);
+ *
+ *   console.log(updatedError.underlying.message); // Output: "FATAL: INITIAL FAILURE"
+ */
+export const mapErrorMessage: {
+  (a: FatalError, f: (msg: string) => string): FatalError;
+} = internal.mapErrorMessageImpl;
+
+/**
  * Address is a tagged type that represents a blockchain address.
+ * It's a branded string, ensuring type safety for Ethereum addresses.
+ *
+ * @example
+ * ```typescript
+ * import { Address, FatalError } from "effect-crypto";
+ * import { Either } from "effect";
+ *
+ * const validAddressString = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
+ * const invalidAddressString = "0xInvalid";
+ *
+ * const maybeAddress1: Either.Either<Address, FatalError> = Address(validAddressString);
+ * const maybeAddress2: Either.Either<Address, FatalError> = Address(invalidAddressString);
+ * const unsafeAddress: Address = Address.unsafe(validAddressString); // Use with caution
+ * const zeroAddr: Address = Address.zero;
+ *
+ * if (Either.isRight(maybeAddress1)) {
+ *   const address: Address = maybeAddress1.right;
+ *   console.log("Valid address:", address);
+ * } else {
+ *   console.error("Failed to create address:", maybeAddress1.left.underlying.message);
+ * }
+ *
+ * console.log("Unsafe address:", unsafeAddress);
+ * console.log("Zero address:", zeroAddr);
+ * ```
  */
 export type Address = Brand.Branded<string, internal.AddressTypeId>;
 

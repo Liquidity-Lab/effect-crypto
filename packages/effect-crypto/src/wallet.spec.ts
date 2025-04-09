@@ -23,7 +23,7 @@ function setupLayer(ctx: Context.Context<Services>) {
   const prog = Effect.gen(function* () {
     const WETH = yield* Token.get("WETH");
 
-    yield* Wallet.wrap(TokenVolume.TokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(1000))));
+    yield* Wallet.wrap(TokenVolume.tokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(1000))));
   });
 
   return Effect.provide(prog, ctx);
@@ -46,7 +46,7 @@ testEffect("Should transfer all tokens", (t) => {
     sourceWallet: Wallet.Wallet,
   ) {
     return Effect.gen(function* () {
-      const volume = TokenVolume.TokenVolumeUnits(token, BigMath.NonNegativeDecimal(Big(1000)));
+      const volume = TokenVolume.tokenVolumeUnits(token, BigMath.NonNegativeDecimal(Big(1000)));
 
       // TODO: Make transferToken work for all tokens including native
       yield* Wallet.transferToken(sourceWallet, volume, targetWallet.address);
