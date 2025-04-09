@@ -1,5 +1,4 @@
 // packages/effect-crypto-uniswap/src/position.spec.ts
-
 import test, { ExecutionContext } from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";

@@ -159,7 +159,6 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   readonly _sizeDefinitionMethod?: "liquidity" | "amount0" | "amount1" | "amounts";
 }
 
-
 /**
  * Represents the initial state of the builder after initialization with pool and slot0 data.
  * This state only contains the essential context required to start defining bounds or size.
@@ -234,7 +233,7 @@ export type AggregateBuilderError = {
  * declare const slot0: Pool.Slot0;
  * const currentTick = Tick.Tick(200000); // Example tick
  * const currentSqrtPrice = BigMath.Q64x96(Tick.getSqrtRatio(currentTick).value);
- * 
+ *
  * const builder = Position.draftBuilder(poolState, slot0);
  * // builder now contains { pool: poolState, slot0: slot0 }
  * ```
@@ -261,7 +260,7 @@ export const draftBuilder: {
  *
  * // Set lower bound 10 ticks below the current tick
  * const builderWithLowerTick = Position.setLowerTickBound(
- *   initialState, 
+ *   initialState,
  *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10)
  * );
  * ```
@@ -292,7 +291,7 @@ export const setLowerTickBound: {
  *
  * // Set upper bound 20 ticks above the current tick
  * const builderWithUpperTick = Position.setUpperTickBound(
- *   stateWithLowerBound, 
+ *   stateWithLowerBound,
  *   (currentUsableTick) => Tick.addNTicks(currentUsableTick, 20)
  * );
  *
@@ -337,9 +336,9 @@ export const setUpperTickBound: {
  *     targetRatio
  *   );
  *   // Handle potential error from makeTokenPriceFromRatio if needed, returning Option
- *   return Either.getRight(targetPriceEither); 
+ *   return Either.getRight(targetPriceEither);
  * });
- * 
+ *
  * ```
  */
 export const setLowerPriceBound: {
@@ -414,7 +413,7 @@ export const setUpperPriceBound: {
  *
  * // Define position size based on providing 1 WETH
  * declare const wethVolume; // "1.0 WETH"
- * 
+ *
  * const builderWithSize = Position.fromSingleAmount(stateWithBounds, wethVolume.value);
  *
  * ```
