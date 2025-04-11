@@ -426,7 +426,7 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
 
   const price = Either.getOrThrowWith(
     Price.makeFromSqrtQ64_96(token0, token1, BigMath.Q64x96(1n)),
-    () => new Error("Failed to create price from Q64.96"),
+    (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
   );
 
   const liquidity = Pool.Liquidity(Big(100e18));
@@ -458,12 +458,12 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
   // --- Use the Builder ---
   const builder = Position.draftBuilder(poolState, slot0);
 
-  // Set lower bound: Map Option<UsableTick> to Option<Tick> using t.unwrap
+  // Set lower bound
   const builderWithLower = Position.setLowerTickBound(builder, (usableTick) =>
     Tick.subtractNTicks(usableTick, 2),
   );
 
-  // Set upper bound: Map Option<UsableTick> to Option<Tick> using t.unwrap
+  // Set upper bound
   const builderWithBounds = Position.setUpperTickBound(builderWithLower, (usableTick) =>
     Tick.addNTicks(usableTick, 2),
   );
