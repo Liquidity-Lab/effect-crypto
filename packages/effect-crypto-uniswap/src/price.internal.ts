@@ -20,6 +20,10 @@ const MAX_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(
   BigMath.Q64x96(1461446703485210103287273052203988822378723970342n),
 );
 
+/** Math context for price operations
+ * 
+ * TODO: proper docs
+ */
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 
 class PriceValueUnitsLive implements T.PriceValueUnits {
