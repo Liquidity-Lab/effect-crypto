@@ -1,7 +1,6 @@
 import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
-import { Arbitrary } from "fast-check";
 
 import { testProp } from "@fast-check/ava";
 import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -11,6 +10,7 @@ import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/s
 import * as AvaUniswap from "./avaUniswap.js";
 import * as internal from "./price.internal.js";
 import * as Price from "./price.js";
+import { Arbitrary } from "fast-check";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -34,13 +34,13 @@ test("TokenPrice.project converts quote currency amounts correctly", (t) => {
   const price = BigMath.NonNegativeDecimal(Big("70000.015"));
   const quoteAmount = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
-  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
-    Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount)),
+  const actual = Either.flatMap(Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)), (price) =>
+    Either.right(Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount))),
   );
   const expected = BigMath.NonNegativeDecimal(Big("2.5"));
 
   AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
-    Option.map(actual, TokenVolume.asUnits),
+    Either.getOrElse(Either.map(actual, Option.map(TokenVolume.asUnits)), () => Option.none()),
     Option.some(expected),
     BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
   );
@@ -50,9 +50,10 @@ test("TokenPrice.project converts base currency amounts correctly", (t) => {
   const price = BigMath.NonNegativeDecimal(Big("70000.15"));
   const baseAmount = BigMath.NonNegativeDecimal(Big("2.5"));
 
-  const actual = Option.flatMap(Price.makeFromUnits(WETH, USDT, price), (price) =>
-    Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)),
-  );
+  const actual = Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)).pipe(
+    Either.getRight,
+    Option.flatMap((price) => Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)))
+  )
   const expected = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
   AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
@@ -64,9 +65,8 @@ test("TokenPrice.project converts base currency amounts correctly", (t) => {
 
 test("Static test: TokenPrice.project should be the same with UniswapSdkPrice", (t) => {
   const priceStr = Big("70000");
-  const price = Option.getOrThrowWith(
-    Price.makeFromUnits(WETH, USDT, priceStr),
-    () => new Error("Failed to create TokenPriceUnits"),
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(priceStr)),
   );
 
   const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
@@ -87,18 +87,7 @@ test("Static test: TokenPrice.project should be the same with UniswapSdkPrice", 
   );
 });
 
-testProp(
-  "It should be impossible to create price with too small value",
-  [Token.tokenPairGen(Token.TokenType.ERC20)],
-  (t, [token0, token1]) => {
-    const priceRatio = BigMath.Ratio(
-      Big(1).scaleByPowerOfTen(-1 * (Math.max(token0.decimals, token1.decimals) + 1)),
-    );
-    const price = Price.makeFromUnits(token0, token1, priceRatio);
 
-    t.assert(Option.isNone(price), "Price should be None for too small value");
-  },
-);
 
 testProp.skip(
   "TokenPrice.project should be the same with UniswapSdkPrice",
@@ -124,7 +113,7 @@ testProp.skip(
       price.token1.name,
     );
     const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
-      Price.asUnits(price),
+      Price.asRatio(price),
       // priceRatio.setScale(USDT.decimals),
     );
     const sdkPrice = new SdkPrice(
@@ -224,7 +213,7 @@ testProp.skip(
       Price.makeTokenPriceFromRatio(
         regularPrice.token1,
         regularPrice.token0,
-        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext)),
+        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext))
       ),
       (err) => t.fail(`Price.makeTokenPriceFromRatio failed -> ${err}`),
     );
@@ -319,9 +308,8 @@ testProp(
 );
 
 test("projectedToken returns the other token when input is token0", (t) => {
-  const price = Option.getOrThrowWith(
-    Price.makeFromUnits(WETH, USDT, Big("70000")),
-    () => "Failed to create initial test price for projectedToken test (token0)",
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
   );
   const actual = Price.projectedToken(price, WETH);
   const expected = Option.some(USDT);
@@ -329,9 +317,8 @@ test("projectedToken returns the other token when input is token0", (t) => {
 });
 
 test("projectedToken returns the other token when input is token1", (t) => {
-  const price = Option.getOrThrowWith(
-    Price.makeFromUnits(WETH, USDT, Big("70000")),
-    () => "Failed to create initial test price for projectedToken test (token1)",
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
   );
   const actual = Price.projectedToken(price, USDT);
   const expected = Option.some(WETH);
@@ -346,9 +333,8 @@ test("projectedToken returns None when input token is not in the price", (t) => 
     "Dai Stablecoin",
     Token.Erc20TokenMeta(),
   );
-  const price = Option.getOrThrowWith(
-    Price.makeFromUnits(WETH, USDT, Big("70000")),
-    () => "Failed to create initial test price for projectedToken test (non-member token)",
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
   );
   const actual = Price.projectedToken(price, DAI);
   const expected = Option.none();

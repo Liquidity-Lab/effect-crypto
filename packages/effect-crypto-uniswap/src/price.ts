@@ -1,5 +1,4 @@
 // External imports
-import { BigDecimal } from "bigdecimal.js";
 import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
@@ -197,31 +196,6 @@ export const TokenPriceSqrt: {
   ): Either.Either<TokenPrice<TBase | TQuote>, string>;
 } = internal.makeTokenPriceFromSqrt;
 
-/**
- * Creates a new token price instance interpreting the provided value as units
- * @example
- * ```typescript
- * import { Token, makeFromUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const USDT = Token.makeTestToken("USDT", 6)
- * const BTC = Token.makeTestToken("BTC", 8)
- *
- * const price = makeFromUnits(
- *   BTC,
- *   USDT,
- *   Big("70000.00015")
- * )
- * ```
- */
-export const makeFromUnits: {
-  <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
-    baseCurrency: Token.Token<TBase>,
-    quoteCurrency: Token.Token<TQuote>,
-    valueInQuoteCurrency: BigDecimal,
-  ): Option.Option<TokenPrice<TBase | TQuote>>;
-} = internal.makeTokenPriceFromUnits;
-
 export const makeFromSqrtQ64_96: {
   <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
     baseCurrency: Token.Token<TBase>,
@@ -233,52 +207,6 @@ export const makeFromSqrtQ64_96: {
 export const asRatio: {
   <T extends Token.TokenType>(price: TokenPrice<T>): BigMath.Ratio;
 } = internal.asRatioImpl;
-
-/**
- * Gets the price as a decimal string in quote currency units per base currency unit.
- *
- * @example
- * ```typescript
- * import { Token, makeFromUnits, asUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const BTC = Token.makeTestToken("BTC", 8)
- * const USDT = Token.makeTestToken("USDT", 6)
- *
- * const btcPrice = Option.getOrThrow(makeFromUnits(
- *   BTC,
- *   USDT,
- *   BigMath.Ratio(Big("50000.00"))
- * ))
- * const priceStr = asUnits(btcPrice) // 50000.00
- * ```
- */
-export const asUnits: {
-  <T extends Token.TokenType>(price: TokenPrice<T>): BigDecimal;
-} = internal.asUnitsImpl;
-
-/**
- * Gets the inverse price as a decimal string in base currency units per quote currency unit.
- *
- * @example
- * ```typescript
- * import { Token, makeFromUnits, asFlippedUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const BTC = Token.makeTestToken("BTC", 8)
- * const USDT = Token.makeTestToken("USDT", 6)
- *
- * const btcPrice = Option.getOrThrow(makeFromUnits(
- *   BTC,
- *   USDT,
- *   BigMath.Ratio.fromString("50000.00")
- * ))
- * const flippedStr = asFlippedUnits(btcPrice) // "0.00002"
- * ```
- */
-export const asFlippedUnits: {
-  <T extends Token.TokenType>(price: TokenPrice<T>): BigDecimal;
-} = internal.asFlippedUnitsImpl;
 
 /**
  * Gets the price in Uniswap v3's sqrt(Q64.96) format.

@@ -29,10 +29,9 @@ These constants will be used for comparisons. **Do not introduce new price range
     *   Delete the export `asUnits`.
     *   Delete the export `asFlippedUnits`.
     *   Consider adding a new export `asFlippedRatio: (price: TokenPrice<T>) => BigMath.Ratio;` if flipping the underlying ratio is a required feature. Add its type signature.
-    *   Update JSDoc comments for remaining public functions (like `makeFromRatio`, `makeFromSqrt`, `makeFromSqrtQ64_96`, `prettyPrint`) to remove any mention of `BigDecimal` and clarify that the internal representation is `Ratio`-based and validated against Uniswap V3 limits.
 *   **Changes in `price.spec.ts`:**
-    *   Remove all test cases (`test(...)`) related to `makeFromUnits`, `asUnits`, and `asFlippedUnits`.
-    *   If `asFlippedRatio` was added, add placeholder test cases for it (they will likely fail until the implementation is added later).
+    *   Remove all test cases (`test(...)`) which aimed to test only `makeFromUnits`, `asUnits`, and `asFlippedUnits`. 
+    * Do not delete the test cases that are aimed to test other functions but use `makeFromUnits`, `asUnits`, and `asFlippedUnits` internally, instead rewrite them to use the alternatives.
 *   **Verification:**
     *   Run `npm run build -w @liquidity_lab/effect-crypto-uniswap`. The build should now proceed past the point of resolving exports in tests, but it is still expected to fail due to the removed function *implementations* in `price.internal.ts`. This confirms the public API and test alignment.
 
