@@ -368,3 +368,23 @@ export const nonNegativeDecimalGen: (constraints?: {
  * ```
  */
 export const q64x96Gen: () => Arbitrary<Q64x96> = internal.q64x96Gen;
+
+/**
+ * Converts a BigDecimal to a normalized string representation, removing trailing zeros
+ * and ignoring the original scale. Ensures that numerically equal values with
+ * different scales produce the same string output (e.g., "1.00" and "1" both become "1").
+ *
+ * @param value - The BigDecimal value to convert.
+ * @returns A scale-independent string representation of the BigDecimal.
+ *
+ * @example
+ *  import { Big } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  BigMath.asNormalisedString(Big("1.500")); // "1.5"
+ *  BigMath.asNormalisedString(Big("1.0")); // "1"
+ *  BigMath.asNormalisedString(Big("0.00")); // "0"
+ */
+export const asNormalisedString: {
+  (value: BigDecimal): string
+} = internal.asNormalisedStringImpl;
