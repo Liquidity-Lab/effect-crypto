@@ -111,7 +111,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return Assertable.AssertableEntity({
       baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
       quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: asUnitsImpl(this).toPlainString(),
+      ratio: asRatioImpl(this).toPlainString(),
     });
   }
 
@@ -147,7 +147,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return {
       token0: this.token0.address,
       token1: this.token1.address,
-      value: asUnitsImpl(this).toPlainString(),
+      value: asRatioImpl(this).toPlainString(),
     };
   }
 
@@ -189,21 +189,6 @@ export function makeTokenPriceFromSqrt<
 }
 
 /** @internal */
-export function makeTokenPriceFromUnits<
-  TBase extends Token.TokenType,
-  TQuote extends Token.TokenType,
->(
-  baseCurrency: Token.Token<TBase>,
-  quoteCurrency: Token.Token<TQuote>,
-  valueInQuoteCurrency: BigDecimal,
-): Option.Option<T.TokenPrice<TBase | TQuote>> {
-  return Option.flatMap(
-    BigMath.Ratio.option(Big(valueInQuoteCurrency, undefined, mathContext)),
-    (ratio) => Either.getRight(makeTokenPriceFromRatioImpl(baseCurrency, quoteCurrency, ratio)),
-  );
-}
-
-/** @internal */
 export function makeTokenPriceFromSqrtQ64_96Impl<
   TBase extends Token.TokenType,
   TQuote extends Token.TokenType,
@@ -222,16 +207,6 @@ export function makeTokenPriceFromSqrtQ64_96Impl<
 export function asRatioImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigMath.Ratio {
   // Should be safe, as underlying is a ratio
   return BigMath.Ratio(toPriceRatio(price.underlying));
-}
-
-/** @internal */
-export function asUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return toPriceRatio(price.underlying).setScale(price.token1.decimals, RoundingMode.FLOOR);
-}
-
-/** @internal */
-export function asFlippedUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return toPriceRatio(price.underlying.flip).setScale(price.token0.decimals, RoundingMode.FLOOR);
 }
 
 /** @internal */
@@ -302,7 +277,7 @@ export function containsImpl<T extends Token.TokenType>(
 
 /** @internal */
 export function prettyPrintImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): string {
-  return `1 ${price.token0.symbol || "token0"} -> ${asUnitsImpl(price).toPlainString()} ${price.token1.symbol || "token1"}`;
+  return `1 ${price.token0.symbol || "token0"} -> ${asRatioImpl(price).toPlainString()} ${price.token1.symbol || "token1"}`;
 }
 
 /** @internal */

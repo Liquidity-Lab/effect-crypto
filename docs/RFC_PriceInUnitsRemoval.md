@@ -45,17 +45,6 @@ These constants will be used for comparisons. **Do not introduce new price range
     *   Delete the internal implementation function `makeTokenPriceFromUnits`.
     *   Delete the internal implementation function `asUnitsImpl`.
     *   Delete the internal implementation function `asFlippedUnitsImpl`.
-    *   **(Optional):** If `asFlippedRatio` was added, add a placeholder implementation `asFlippedRatioImpl` that likely throws an error or returns a default `Ratio`, just to satisfy the compiler for now.
-        ```typescript
-        // Example placeholder
-        const asFlippedRatioImpl = <T extends T.TokenPair>(
-          price: TokenPrice<T>,
-        ): BigMath.Ratio => {
-          // TODO: Implement actual logic
-          throw new Error("asFlippedRatioImpl not implemented");
-          // or return BigMath.one;
-        };
-        ```
 *   **Verification:**
     *   Run `npm run build -w @liquidity_lab/effect-crypto-uniswap`. The build *might* still fail due to type mismatches in how the remaining factory functions (`makeTokenPriceFromRatioImpl`, etc.) construct `TokenPrice`, as the internal structure might still implicitly assume `BigDecimal`-related types. If it *does* compile, it's likely because the core `TokenPrice` type hasn't been fully updated yet, which will happen in subsequent steps.
 
