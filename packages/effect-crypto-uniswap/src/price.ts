@@ -14,8 +14,8 @@ import * as internal from "./price.internal.js";
  * For example, if the value is 50000, it means 1 unit of the base token equals
  * 50000 units of the quote token.
  */
-export interface PriceValueUnits {
-  readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueUnits";
+export interface PriceValueRatio {
+  readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueRatio";
   readonly value: BigMath.Ratio;
 
   /**
@@ -52,7 +52,7 @@ export interface PriceValueSqrtUnits {
  *
  * This type is a union of two different price representations:
  *
- * 1. `PriceValueUnits` - The standard price representation, where the value
+ * 1. `PriceValueRatio` - The standard price representation, where the value
  *    directly represents the exchange rate between tokens.
  *
  * 2. `PriceValueSqrtUnits` - A specialized representation used primarily in
@@ -63,7 +63,7 @@ export interface PriceValueSqrtUnits {
  * Functions in this module handle both representations appropriately
  * based on the context of use.
  */
-export type PriceValue = PriceValueUnits | PriceValueSqrtUnits;
+export type PriceValue = PriceValueRatio | PriceValueSqrtUnits;
 
 /**
  * Represents a price ratio between two tokens with type T.
@@ -109,7 +109,7 @@ export interface TokenPrice<T extends Token.TokenType> extends Assertable.Assert
    * Underlying representation of the price
    *
    * This can be either:
-   * - A standard price value (`PriceValueUnits`), representing a direct exchange rate
+   * - A standard price value (`PriceValueRatio`), representing a direct exchange rate
    * - A square root price value (`PriceValueSqrtUnits`), as used in Uniswap V3 pools
    *
    * The appropriate functions in this module will handle both representations correctly.

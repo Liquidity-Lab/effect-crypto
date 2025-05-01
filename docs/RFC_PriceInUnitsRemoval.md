@@ -60,10 +60,9 @@ These constants will be used for comparisons. **Do not introduce new price range
     *   Modify the `PriceValueRatioLive.make` static factory method:
         *   Change the input parameter from `units: BigDecimal` to `ratio: BigMath.Ratio`.
         *   **Add Validation:**
-            1.  Calculate the square root of the input `ratio` using `BigMath.sqrt(ratio)`. Handle potential errors if `ratio` is negative (though prices should generally be positive). Let the result be `inputSqrtRatio: BigMath.Ratio`.
-            2.  Compare `inputSqrtRatio` against the pre-computed `MIN_SQRT_RATIO_AS_RATIO` and `MAX_SQRT_RATIO_AS_RATIO` using `BigMath.isLessThan` and `BigMath.isGreaterThan`.
-            3.  If `inputSqrtRatio < MIN_SQRT_RATIO_AS_RATIO` or `inputSqrtRatio > MAX_SQRT_RATIO_AS_RATIO`, return `Either.left(new E.PriceRangeError(...))` with a message like: `"Input price ratio ${ratio.toDecimal()} results in a sqrtRatio ${inputSqrtRatio.toDecimal()} which is outside the Uniswap V3 range [${MIN_SQRT_RATIO_AS_RATIO.toDecimal()}, ${MAX_SQRT_RATIO_AS_RATIO.toDecimal()}]"`. Use an appropriate error type (e.g., create or use `PriceRangeError`).
-            4.  If validation passes, return `Either.right(new PriceValueRatioLive(ratio))`.
+            1.  Compare `ratio` against the pre-computed `MIN_PRICE_RATIO` and `MAX_PRICE_RATIO` using `BigMath.isLessThan` and `BigMath.isGreaterThan`.
+            2.  If `inputSqrtRatio < MIN_PRICE_RATIO` or `inputSqrtRatio > MAX_PRICE_RATIO`, return `Either.left(new E.PriceRangeError(...))` with a message like: `"Input price ratio ${ratio.toDecimal()} results in a sqrtRatio ${inputSqrtRatio.toDecimal()} which is outside the Uniswap V3 range [${MIN_PRICE_RATIO.toDecimal()}, ${MAX_PRICE_RATIO.toDecimal()}]"`. Use an appropriate error type (e.g., create or use `PriceRangeError`).
+            3.  If validation passes, return `Either.right(new PriceValueRatioLive(ratio))`.
     *   Update the constructor `PriceValueRatioLive` to accept and store `ratio: BigMath.Ratio`.
     *   Update any methods within `PriceValueRatioLive` that previously used `BigDecimal` to use the stored `ratio`.
 *   **Verification:**
@@ -81,8 +80,8 @@ These constants will be used for comparisons. **Do not introduce new price range
     *   Modify the `PriceValueSqrtRatioLive.make` static factory method:
         *   Ensure the input parameter is `sqrtRatio: BigMath.Ratio`.
         *   **Add Validation:**
-            1.  Compare the input `sqrtRatio` directly against `MIN_SQRT_RATIO_AS_RATIO` and `MAX_SQRT_RATIO_AS_RATIO`.
-            2.  If `sqrtRatio < MIN_SQRT_RATIO_AS_RATIO` or `sqrtRatio > MAX_SQRT_RATIO_AS_RATIO`, return `Either.left(new E.PriceRangeError(...))` with a message like: `"Input sqrt price ratio ${sqrtRatio.toDecimal()} is outside the Uniswap V3 sqrt price range [${MIN_SQRT_RATIO_AS_RATIO.toDecimal()}, ${MAX_SQRT_RATIO_AS_RATIO.toDecimal()}]"`.
+            1.  Compare the input `sqrtRatio` directly against `MIN_PRICE_RATIO` and `MAX_PRICE_RATIO`.
+            2.  If `sqrtRatio < MIN_PRICE_RATIO` or `sqrtRatio > MAX_PRICE_RATIO`, return `Either.left(new PriceRangeError(...))` with a message like: `"Input sqrt price ratio ${sqrtRatio.toDecimal()} is outside the Uniswap V3 sqrt price range [${MIN_PRICE_RATIO.toDecimal()}, ${MAX_PRICE_RATIO.toDecimal()}]"`.
             3.  If validation passes, return `Either.right(new PriceValueSqrtRatioLive(sqrtRatio))`.
     *   Update the constructor `PriceValueSqrtRatioLive` to accept and store `sqrtRatio: BigMath.Ratio`.
     *   Update any methods within `PriceValueSqrtRatioLive` that previously used `BigDecimal` to use the stored `sqrtRatio`.
@@ -174,11 +173,11 @@ These constants will be used for comparisons. **Do not introduce new price range
 *   **Changes:**
     *   **Range Validation Tests:**
         *   For `makeTokenPriceFromRatio`:
-            *   Test with ratios whose square roots are exactly `MIN_SQRT_RATIO_AS_RATIO` and `MAX_SQRT_RATIO_AS_RATIO`. Expect `Either.right`.
+            *   Test with ratios whose square roots are exactly `MIN_PRICE_RATIO` and `MAX_PRICE_RATIO`. Expect `Either.right`.
             *   Test with ratios whose square roots are slightly *outside* this range. Expect `Either.left(PriceRangeError)`. Verify the error message content.
         *   For `makeTokenPriceFromSqrt`:
-            *   Test with `MIN_SQRT_RATIO_AS_RATIO` and `MAX_SQRT_RATIO_AS_RATIO`. Expect `Either.right`.
-            *   Test with values slightly outside this range (e.g., `BigMath.sub(MIN_SQRT_RATIO_AS_RATIO, smallEpsilon)`, `BigMath.add(MAX_SQRT_RATIO_AS_RATIO, smallEpsilon)`). Expect `Either.left(PriceRangeError)`. Verify error messages.
+            *   Test with `MIN_PRICE_RATIO` and `MAX_PRICE_RATIO`. Expect `Either.right`.
+            *   Test with values slightly outside this range (e.g., `BigMath.sub(MIN_PRICE_RATIO, smallEpsilon)`, `BigMath.add(MAX_PRICE_RATIO, smallEpsilon)`). Expect `Either.left(PriceRangeError)`. Verify error messages.
         *   For `makeTokenPriceFromSqrtQ64_96`:
             *   Test with `MIN_SQRT_RATIO` (bigint) and `MAX_SQRT_RATIO` (bigint). Expect `Either.right`.
             *   Test with values slightly outside (e.g., `MIN_SQRT_RATIO - 1n`, `MAX_SQRT_RATIO + 1n`). Expect `Either.left(PriceRangeError)`. Verify error messages. Test edge cases like `0n`, `1n`.
