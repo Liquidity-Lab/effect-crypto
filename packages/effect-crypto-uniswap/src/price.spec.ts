@@ -1,6 +1,7 @@
 import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
+import { Arbitrary } from "fast-check";
 
 import { testProp } from "@fast-check/ava";
 import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -10,7 +11,6 @@ import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/s
 import * as AvaUniswap from "./avaUniswap.js";
 import * as internal from "./price.internal.js";
 import * as Price from "./price.js";
-import { Arbitrary } from "fast-check";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -34,8 +34,10 @@ test("TokenPrice.project converts quote currency amounts correctly", (t) => {
   const price = BigMath.NonNegativeDecimal(Big("70000.015"));
   const quoteAmount = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
-  const actual = Either.flatMap(Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)), (price) =>
-    Either.right(Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount))),
+  const actual = Either.flatMap(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)),
+    (price) =>
+      Either.right(Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount))),
   );
   const expected = BigMath.NonNegativeDecimal(Big("2.5"));
 
@@ -52,8 +54,10 @@ test("TokenPrice.project converts base currency amounts correctly", (t) => {
 
   const actual = Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)).pipe(
     Either.getRight,
-    Option.flatMap((price) => Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)))
-  )
+    Option.flatMap((price) =>
+      Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)),
+    ),
+  );
   const expected = BigMath.NonNegativeDecimal(price.multiply("2.5"));
 
   AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
@@ -211,7 +215,7 @@ testProp.skip(
       Price.makeTokenPriceFromRatio(
         regularPrice.token1,
         regularPrice.token0,
-        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext))
+        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext)),
       ),
       (err) => t.fail(`Price.makeTokenPriceFromRatio failed -> ${err}`),
     );

@@ -31,7 +31,7 @@ const MAX_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(
 const MAX_PRICE_RATIO: BigMath.Ratio = BigMath.Ratio(MAX_SQRT_RATIO.pow(2));
 
 /** Math context for price operations
- * 
+ *
  * TODO: proper docs
  */
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
@@ -284,9 +284,11 @@ export function containsImpl<T extends Token.TokenType>(
 
 /** @internal */
 export function prettyPrintImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): string {
-  return `1 ${price.token0.symbol || "token0"}`
-    + ' -> '
-    +`${BigMath.asNormalisedString(asRatioImpl(price))} ${price.token1.symbol || "token1"}`;
+  return (
+    `1 ${price.token0.symbol || "token0"}` +
+    " -> " +
+    `${BigMath.asNormalisedString(asRatioImpl(price))} ${price.token1.symbol || "token1"}`
+  );
 }
 
 /** @internal */
@@ -447,48 +449,42 @@ export function safePriceAndVolumeGen<T extends Token.TokenType>(
   price: T.TokenPrice<T>;
   tokenVolume: TokenVolume.TokenVolume<T>;
 }> {
-  return (
-    tokenPriceGenImpl(tokenType)
-      .map((price) => [price, price.token0] as const)
-      .chain(([price, inputToken]) => {
-        const outputToken = Option.getOrThrowWith(
-          projectedTokenImpl(price, inputToken),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
+  return tokenPriceGenImpl(tokenType)
+    .map((price) => [price, price.token0] as const)
+    .chain(([price, inputToken]) => {
+      const outputToken = Option.getOrThrowWith(
+        projectedTokenImpl(price, inputToken),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
 
-        const minDirectVolume = TokenVolume.asUnits(
-          TokenVolume.minVolumeForToken(inputToken),
-        ).multiply(2);
-        const maxDirectVolume = TokenVolume.asUnits(
-          TokenVolume.maxVolumeForToken(inputToken),
-        ).multiply(0.9);
+      const minDirectVolume = TokenVolume.asUnits(
+        TokenVolume.minVolumeForToken(inputToken),
+      ).multiply(2);
+      const maxDirectVolume = TokenVolume.asUnits(
+        TokenVolume.maxVolumeForToken(inputToken),
+      ).multiply(0.9);
 
-        const minInverseVolume = Option.getOrThrowWith(
-          projectAmountImpl(price, TokenVolume.maxVolumeForToken(outputToken)),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
-        const maxInverseVolume = Option.getOrThrowWith(
-          projectAmountImpl(price, TokenVolume.minVolumeForToken(outputToken)),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
+      const minInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(price, TokenVolume.maxVolumeForToken(outputToken)),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
+      const maxInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(price, TokenVolume.minVolumeForToken(outputToken)),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
 
-        const constraints = {
-          min: BigMath.NonNegativeDecimal(
-            minDirectVolume.max(TokenVolume.asUnits(minInverseVolume)),
-          ),
-          max: BigMath.NonNegativeDecimal(
-            maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume)),
-          ),
+      const constraints = {
+        min: BigMath.NonNegativeDecimal(minDirectVolume.max(TokenVolume.asUnits(minInverseVolume))),
+        max: BigMath.NonNegativeDecimal(maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume))),
+      };
+
+      return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
+        return {
+          price,
+          tokenVolume,
         };
-
-        return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
-          return {
-            price,
-            tokenVolume,
-          };
-        });
-      })
-  );
+      });
+    });
 }
 
 /**

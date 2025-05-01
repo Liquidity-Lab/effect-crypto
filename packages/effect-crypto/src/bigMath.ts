@@ -386,5 +386,5 @@ export const q64x96Gen: () => Arbitrary<Q64x96> = internal.q64x96Gen;
  *  BigMath.asNormalisedString(Big("0.00")); // "0"
  */
 export const asNormalisedString: {
-  (value: BigDecimal): string
+  (value: BigDecimal): string;
 } = internal.asNormalisedStringImpl;
