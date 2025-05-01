@@ -1,5 +1,5 @@
 import type { ExecutionContext } from "ava";
-import { Big, BigDecimal, RoundingMode } from "bigdecimal.js";
+import { Big, BigDecimal } from "bigdecimal.js";
 import { Layer } from "effect";
 
 import { AvaCrypto, Token } from "@liquidity_lab/effect-crypto";
@@ -25,15 +25,15 @@ export function makePriceEqualsWithPrecisionAssertion<T>(
         )
       );
 
-    const actualValue = Price.asUnits(actual);
-    const expectedValue = Price.asUnits(expected);
+    const actualValue = Price.asRatio(actual);
+    const expectedValue = Price.asRatio(expected);
 
     if (actualValue.compareTo(expectedValue) === 0) {
       return t.assert(true, "Prices are exactly the same");
     }
 
     const diff = expectedValue
-      .divide(actualValue, maxDiff.scale() * 2, RoundingMode.HALF_UP)
+      .divide(actualValue, maxDiff.scale() * 2 /* Using original MathContext logic */)
       .abs()
       .subtract(1);
 

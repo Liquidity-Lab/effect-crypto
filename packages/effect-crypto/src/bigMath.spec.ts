@@ -276,3 +276,63 @@ testProp(
   },
   { numRuns: 1024 },
 );
+
+test("Q64x96 should not allow values greater than max", (t) => {
+  const input = BigMath.q64x96ToBigDecimal(BigMath.Q64x96.MAX).add(Big("1"));
+  const result = BigMath.convertToQ64x96(input);
+
+  t.assert(Option.isNone(result), "Value greater than max should return None");
+});
+
+// Test suite for BigMath.asNormalisedString
+test("BigMath.asNormalisedString should normalize BigDecimal strings", (t) => {
+  const testCases = [
+    { input: Big("1"), expected: "1" },
+    { input: Big("1.0"), expected: "1" },
+    { input: Big("1.000"), expected: "1" },
+    { input: Big("1.5"), expected: "1.5" },
+    { input: Big("1.50"), expected: "1.5" },
+    { input: Big("0"), expected: "0" },
+    { input: Big("0.0"), expected: "0" },
+    { input: Big("123.456"), expected: "123.456" },
+    { input: Big("123.45600"), expected: "123.456" },
+    // Add a case for negative numbers if supported/intended
+    { input: Big("-1.50"), expected: "-1.5" },
+    { input: Big("-1.00"), expected: "-1" },
+  ];
+
+  testCases.forEach(({ input, expected }, index) => {
+    const actual = BigMath.asNormalisedString(input);
+
+    t.is(
+      actual,
+      expected,
+      `Test case ${index + 1}: Input ${input.toPlainString()} should normalize to ${expected}`,
+    );
+  });
+});
+
+testProp(
+  "BigMath.asNormalisedString should produce the same string for numerically equal BigDecimals with different scales",
+  [BigMath.bigDecimalGen()], // Generate a random BigDecimal
+  (t, originalDecimal) => {
+    // Create a second BigDecimal by increasing the scale without changing the numerical value.
+    // RoundingMode.UNNECESSARY ensures that if the value cannot be represented exactly
+    // with the new scale (which shouldn't happen when just adding trailing zeros),
+    // an error would be thrown, but for simply increasing scale, this is safe.
+    const newScale = originalDecimal.scale() + 2; // Increase scale by 2
+    const decimalWithIncreasedScale = originalDecimal.setScale(newScale, RoundingMode.UNNECESSARY);
+
+    // Normalize both decimals
+    const expected = BigMath.asNormalisedString(originalDecimal);
+    const actual = BigMath.asNormalisedString(decimalWithIncreasedScale);
+
+    // Assert that the normalized strings are equal
+    t.deepEqual(
+      actual,
+      expected,
+      `Normalised strings should be equal for ${originalDecimal.toPlainString()}`,
+    );
+  },
+  { numRuns: 1024 }, // Run with a sufficient number of test cases
+);

@@ -14,34 +14,47 @@ import type * as T from "./price.js";
 const MIN_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(BigMath.Q64x96(4295128739n));
 
 /**
+ * The minimum price ratio based on the minimum sqrt ratio.
+ */
+const MIN_PRICE_RATIO: BigMath.Ratio = BigMath.Ratio(MIN_SQRT_RATIO.pow(2));
+
+/**
  * The sqrt ratio corresponding to the maximum tick that could be used on any pool.
  */
 const MAX_SQRT_RATIO: BigDecimal = BigMath.q64x96ToBigDecimal(
   BigMath.Q64x96(1461446703485210103287273052203988822378723970342n),
 );
 
+/**
+ * The maximum price ratio based on the maximum sqrt ratio.
+ */
+const MAX_PRICE_RATIO: BigMath.Ratio = BigMath.Ratio(MAX_SQRT_RATIO.pow(2));
+
+/** Math context for price operations
+ *
+ * TODO: proper docs
+ */
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 
-class PriceValueUnitsLive implements T.PriceValueUnits {
-  readonly _tag = "@liquidity_lab/effect-crypto/price#PriceValueUnits";
+class PriceValueRatioLive implements T.PriceValueRatio {
+  readonly _tag = "@liquidity_lab/effect-crypto/price#PriceValueRatio";
 
   private constructor(readonly value: BigMath.Ratio) {}
 
   get flip(): this {
-    return new PriceValueUnitsLive(
-      BigMath.Ratio(Big(1).divideWithMathContext(this.value, mathContext)),
-    ) as this;
+    const flippedRatio = BigMath.Ratio(Big(1).divideWithMathContext(this.value, mathContext));
+    return new PriceValueRatioLive(flippedRatio) as this;
   }
 
-  static make(value: BigMath.Ratio, token1: Token.AnyToken) {
-    if (value.setScale(token1.decimals, RoundingMode.FLOOR).compareTo(0) <= 0) {
-      return Either.left(
-        `Cannot create price from units, it's value is too small [${value.toPlainString()}] ` +
-          `according to token1.decimals[${token1.decimals}]`,
-      );
+  static make(ratio: BigMath.Ratio): Either.Either<T.PriceValueRatio, string> {
+    if (ratio.greaterThanOrEquals(MIN_PRICE_RATIO) && ratio.lowerThan(MAX_PRICE_RATIO)) {
+      return Either.right(new PriceValueRatioLive(ratio));
     }
 
-    return Either.right(new PriceValueUnitsLive(value));
+    return Either.left(
+      `Cannot create price from ratio: the given ratio[${ratio.toPlainString()}] should be in range ` +
+        `[${MIN_PRICE_RATIO.toPlainString()}, ${MAX_PRICE_RATIO.toPlainString()})`,
+    );
   }
 
   toString(): string {
@@ -49,7 +62,7 @@ class PriceValueUnitsLive implements T.PriceValueUnits {
   }
 
   [Symbol.for("nodejs.util.inspect.custom")](): string {
-    return `PriceValueUnits(${this.value.toPlainString()})`;
+    return `PriceValueRatio(${this.value.toPlainString()})`;
   }
 }
 
@@ -107,7 +120,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return Assertable.AssertableEntity({
       baseCurrency: Assertable.asAssertableEntity(this.baseCurrency),
       quoteCurrency: Assertable.asAssertableEntity(this.quoteCurrency),
-      units: asUnitsImpl(this).toPlainString(),
+      ratio: BigMath.asNormalisedString(asRatioImpl(this)),
     });
   }
 
@@ -143,7 +156,7 @@ class TokenPriceLive<T extends Token.TokenType> implements T.TokenPrice<T> {
     return {
       token0: this.token0.address,
       token1: this.token1.address,
-      value: asUnitsImpl(this).toPlainString(),
+      value: asRatioImpl(this).toPlainString(),
     };
   }
 
@@ -165,8 +178,8 @@ export function makeTokenPriceFromRatioImpl<
   quoteCurrency: Token.Token<TQuote>,
   ratio: BigMath.Ratio,
 ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
-  return Either.flatMap(PriceValueUnitsLive.make(ratio, quoteCurrency), (ratio) =>
-    TokenPriceLive.make(baseCurrency, quoteCurrency, ratio),
+  return Either.flatMap(PriceValueRatioLive.make(ratio), (priceValueRatio) =>
+    TokenPriceLive.make(baseCurrency, quoteCurrency, priceValueRatio),
   );
 }
 
@@ -181,21 +194,6 @@ export function makeTokenPriceFromSqrt<
 ): Either.Either<T.TokenPrice<TBase | TQuote>, string> {
   return Either.flatMap(PriceValueSqrtUnitsLive.make(sqrtValue), (sqrtValue) =>
     TokenPriceLive.make(baseCurrency, quoteCurrency, sqrtValue),
-  );
-}
-
-/** @internal */
-export function makeTokenPriceFromUnits<
-  TBase extends Token.TokenType,
-  TQuote extends Token.TokenType,
->(
-  baseCurrency: Token.Token<TBase>,
-  quoteCurrency: Token.Token<TQuote>,
-  valueInQuoteCurrency: BigDecimal,
-): Option.Option<T.TokenPrice<TBase | TQuote>> {
-  return Option.flatMap(
-    BigMath.Ratio.option(Big(valueInQuoteCurrency, undefined, mathContext)),
-    (ratio) => Either.getRight(makeTokenPriceFromRatioImpl(baseCurrency, quoteCurrency, ratio)),
   );
 }
 
@@ -216,24 +214,13 @@ export function makeTokenPriceFromSqrtQ64_96Impl<
 
 /** @internal */
 export function asRatioImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigMath.Ratio {
-  // Should be safe, as underlying is a ratio
   return BigMath.Ratio(toPriceRatio(price.underlying));
-}
-
-/** @internal */
-export function asUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return toPriceRatio(price.underlying).setScale(price.token1.decimals, RoundingMode.FLOOR);
-}
-
-/** @internal */
-export function asFlippedUnitsImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigDecimal {
-  return toPriceRatio(price.underlying.flip).setScale(price.token0.decimals, RoundingMode.FLOOR);
 }
 
 /** @internal */
 export function asSqrtImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): BigMath.Ratio {
   switch (price.underlying._tag) {
-    case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
+    case "@liquidity_lab/effect-crypto/price#PriceValueRatio":
       return BigMath.Ratio(price.underlying.value.sqrt(mathContext));
     case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
       return price.underlying.value;
@@ -265,7 +252,6 @@ export function projectAmountImpl<T extends Token.TokenType>(
         BigMath.Ratio.option(
           TokenVolume.asUnits(inputAmount).divideWithMathContext(ratio, mathContext),
         ),
-        // BigMath.Ratio.option(ratio.divide(TokenVolume.asUnits(inputAmount))),
         (output) => TokenVolume.tokenVolumeRatio(price.token0, output),
       );
     default:
@@ -298,7 +284,11 @@ export function containsImpl<T extends Token.TokenType>(
 
 /** @internal */
 export function prettyPrintImpl<T extends Token.TokenType>(price: T.TokenPrice<T>): string {
-  return `1 ${price.token0.symbol || "token0"} -> ${asUnitsImpl(price).toPlainString()} ${price.token1.symbol || "token1"}`;
+  return (
+    `1 ${price.token0.symbol || "token0"}` +
+    " -> " +
+    `${BigMath.asNormalisedString(asRatioImpl(price))} ${price.token1.symbol || "token1"}`
+  );
 }
 
 /** @internal */
@@ -459,56 +449,42 @@ export function safePriceAndVolumeGen<T extends Token.TokenType>(
   price: T.TokenPrice<T>;
   tokenVolume: TokenVolume.TokenVolume<T>;
 }> {
-  return (
-    tokenPriceGenImpl(tokenType)
-      // .chain((price) => fc.constantFrom(...price.tokens).map((token) => [price, token] as const))
-      .map((price) => [price, price.token0] as const)
-      .chain(([price, inputToken]) => {
-        const outputToken = Option.getOrThrowWith(
-          projectedTokenImpl(price, inputToken),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
+  return tokenPriceGenImpl(tokenType)
+    .map((price) => [price, price.token0] as const)
+    .chain(([price, inputToken]) => {
+      const outputToken = Option.getOrThrowWith(
+        projectedTokenImpl(price, inputToken),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
 
-        const minDirectVolume = TokenVolume.asUnits(
-          TokenVolume.minVolumeForToken(inputToken),
-        ).multiply(2);
-        const maxDirectVolume = TokenVolume.asUnits(
-          TokenVolume.maxVolumeForToken(inputToken),
-        ).multiply(0.9);
+      const minDirectVolume = TokenVolume.asUnits(
+        TokenVolume.minVolumeForToken(inputToken),
+      ).multiply(2);
+      const maxDirectVolume = TokenVolume.asUnits(
+        TokenVolume.maxVolumeForToken(inputToken),
+      ).multiply(0.9);
 
-        const minInverseVolume = Option.getOrThrowWith(
-          projectAmountImpl(price, TokenVolume.maxVolumeForToken(outputToken)),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
-        const maxInverseVolume = Option.getOrThrowWith(
-          projectAmountImpl(price, TokenVolume.minVolumeForToken(outputToken)),
-          () => new Error(`Failed to project token for price ${price.toString()}`),
-        );
+      const minInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(price, TokenVolume.maxVolumeForToken(outputToken)),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
+      const maxInverseVolume = Option.getOrThrowWith(
+        projectAmountImpl(price, TokenVolume.minVolumeForToken(outputToken)),
+        () => new Error(`Failed to project token for price ${price.toString()}`),
+      );
 
-        // const allVolumes = [
-        //   TokenVolume.asUnits(minDirectVolume).multiply(2),
-        //   TokenVolume.asUnits(maxDirectVolume).multiply(0.9),
-        //   TokenVolume.asUnits(minInverseVolume),
-        //   TokenVolume.asUnits(maxInverseVolume),
-        // ];
+      const constraints = {
+        min: BigMath.NonNegativeDecimal(minDirectVolume.max(TokenVolume.asUnits(minInverseVolume))),
+        max: BigMath.NonNegativeDecimal(maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume))),
+      };
 
-        const constraints = {
-          min: BigMath.NonNegativeDecimal(
-            minDirectVolume.max(TokenVolume.asUnits(minInverseVolume)),
-          ),
-          max: BigMath.NonNegativeDecimal(
-            maxDirectVolume.min(TokenVolume.asUnits(maxInverseVolume)),
-          ),
+      return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
+        return {
+          price,
+          tokenVolume,
         };
-
-        return TokenVolume.tokenVolumeGen(price.token0, constraints).map((tokenVolume) => {
-          return {
-            price,
-            tokenVolume,
-          };
-        });
-      })
-  );
+      });
+    });
 }
 
 /**
@@ -518,10 +494,10 @@ export function safePriceAndVolumeGen<T extends Token.TokenType>(
  */
 function toPriceRatio(value: T.PriceValue): BigDecimal {
   switch (value._tag) {
-    case "@liquidity_lab/effect-crypto/price#PriceValueUnits":
+    case "@liquidity_lab/effect-crypto/price#PriceValueRatio":
       return value.value;
     case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
-      return value.value.pow(2);
+      return value.value.multiply(value.value);
   }
 }
 

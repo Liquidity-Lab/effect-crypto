@@ -1,7 +1,7 @@
 import { Big } from "bigdecimal.js";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Either, Layer, Option } from "effect";
 
-import { AvaCrypto, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
+import { AvaCrypto, BigMath, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
 import * as AvaUniswap from "./avaUniswap.js";
@@ -46,8 +46,9 @@ testEffect("Should create and initialize pool", (t) => {
     const USDC = yield* Token.get("USDC");
 
     const feeAmount = Adt.FeeAmount.MEDIUM;
-    const expectedPrice = Option.getOrElse(Price.makeFromUnits(WETH, USDC, Big("4000")), () =>
-      t.fail("Failed to create TokenPriceUnits"),
+    const expectedPrice = Either.getOrElse(
+      Price.makeTokenPriceFromRatio(WETH, USDC, BigMath.Ratio(Big("4000"))),
+      (err) => t.fail(`Failed to create TokenPriceUnits: ${err}`),
     );
 
     const slot0PriceOpt = yield* Pool.createAndInitialize(expectedPrice, feeAmount);
@@ -59,8 +60,9 @@ testEffect("Should create and initialize pool", (t) => {
     );
 
     const existingPoolPriceOpt = yield* Pool.createAndInitialize(
-      Option.getOrElse(Price.makeFromUnits(WETH, USDC, Big("5000")), () =>
-        t.fail("Failed to create TokenPriceUnits"),
+      Either.getOrElse(
+        Price.makeTokenPriceFromRatio(WETH, USDC, BigMath.Ratio(Big("5000"))),
+        (err) => t.fail(`Failed to create TokenPriceUnits: ${err}`),
       ),
       feeAmount,
     );

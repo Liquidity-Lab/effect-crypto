@@ -217,3 +217,11 @@ export function nonNegativeDecimalGen(constraints?: {
 export function q64x96Gen(): Arbitrary<T.Q64x96> {
   return fc.bigInt({ min: 0n, max: Q64x96_MAX_VALUE }).map(Brand.nominal<T.Q64x96>());
 }
+
+/** @internal */
+export function asNormalisedStringImpl(value: BigDecimal): string {
+  // stripTrailingZeros removes trailing zeros from the representation,
+  // effectively creating a scale-independent numerical value.
+  // Then convert the result to a plain string.
+  return value.stripTrailingZeros().toPlainString();
+}
