@@ -560,12 +560,19 @@ testProp(
 
     const tickSpacing = Tick.toTickSpacing(poolState.fee);
     const nearestUsableToCurrent = Tick.nearestUsableTick(slot0.tick, tickSpacing);
-    const expectedUsableTickOpt = Tick.subtractNTicks(nearestUsableToCurrent, nTicksToModify);
+
+    const expectedTick = Option.getOrElse(
+      Tick.subtractNTicks(nearestUsableToCurrent, nTicksToModify),
+      () =>
+        t.fail(
+          "tickFn (subtractNTicks) unexpectedly returned None in a test expecting successful modification.",
+        ),
+    );
 
     t.deepEqual(
       builderWithLowerBound.lowerBoundTick,
-      Either.right(expectedUsableTickOpt),
-      `Expected lowerBoundTick to be ${expectedUsableTickOpt} but got ${builderWithLowerBound.lowerBoundTick}`,
+      Either.right(expectedTick),
+      `Expected lowerBoundTick to be Either.Right containing the successfully calculated UsableTick. Expected UsableTick: ${JSON.stringify(expectedTick)}, Actual Either: ${JSON.stringify(builderWithLowerBound.lowerBoundTick)}`,
     );
   },
 );
@@ -602,6 +609,74 @@ testProp(
       builderWithBound.lowerBoundTick,
       Either.right(nearestUsableToCurrent),
       `Expected lowerBoundTick to be ${nearestUsableToCurrent} but got ${builderWithBound.lowerBoundTick}`,
+    );
+  },
+  { numRuns: 64 },
+);
+
+testProp(
+  "setUpperTickBound should successfully set upperBoundTick when tickFn modifies the input usable tick",
+  [poolStateAndSlot0Gen, fc.integer({ min: 1, max: 5 })],
+  (t, [poolState, slot0], nTicksToModify) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const nearestUsableToCurrent = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    // For upper bound, we usually add ticks
+    const tickFn = (inputUsableTick: Tick.UsableTick): Option.Option<Tick.UsableTick> =>
+      Tick.addNTicks(inputUsableTick, nTicksToModify);
+
+    const builderWithUpperBound = Position.setUpperTickBound(initialBuilder, tickFn);
+
+    const expectedTick = Option.getOrElse(
+      Tick.addNTicks(nearestUsableToCurrent, nTicksToModify),
+      () =>
+        t.fail(
+          "tickFn (addNTicks) unexpectedly returned None in a test expecting successful modification.",
+        ),
+    );
+
+    t.deepEqual(
+      builderWithUpperBound.upperBoundTick,
+      Either.right(expectedTick),
+      `Expected upperBoundTick to be Either.Right containing the successfully calculated UsableTick. Expected UsableTick: ${JSON.stringify(expectedTick)}, Actual Either: ${JSON.stringify(builderWithUpperBound.upperBoundTick)}`,
+    );
+  },
+);
+
+testProp(
+  "setUpperTickBound should store a BuilderError when tickFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithUpperBound = Position.setUpperTickBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithUpperBound.upperBoundTick),
+      "upperBoundTick property should be a Left (BuilderError) when tickFn returns None",
+    );
+  },
+);
+
+testProp(
+  "setUpperTickBound should set upperBoundTick to the current usable tick when tickFn returns its input",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const nearestUsableToCurrent = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    // tickFn returns the input usable tick, wrapped in Option.some
+    const builderWithBound = Position.setUpperTickBound(initialBuilder, (inputUsableTick) =>
+      Option.some(inputUsableTick),
+    );
+
+    t.deepEqual(
+      builderWithBound.upperBoundTick,
+      Either.right(nearestUsableToCurrent),
+      `Expected upperBoundTick to be Right(${nearestUsableToCurrent}) but got ${JSON.stringify(builderWithBound.upperBoundTick)}`,
     );
   },
   { numRuns: 64 },

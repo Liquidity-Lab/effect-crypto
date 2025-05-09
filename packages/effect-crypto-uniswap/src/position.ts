@@ -320,7 +320,7 @@ export const setUpperTickBound: {
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithUpperBound;
-} = null as any;
+} = internal.setUpperTickBoundImpl;
 
 /**
  * Sets the lower tick boundary based on a target price relative to the current price.
