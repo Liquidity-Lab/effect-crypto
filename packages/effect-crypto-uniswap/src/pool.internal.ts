@@ -1,6 +1,8 @@
 import { Brand, Effect, Either, Function, Layer, Option } from "effect";
 import { RuntimeException } from "effect/Cause";
 import { Interface, Log, LogDescription } from "ethers";
+import { Arbitrary } from "fast-check";
+import fc from "fast-check";
 
 import {
   Address,
@@ -10,6 +12,7 @@ import {
   FatalError,
   Token,
   Wallet,
+  addressGen,
   isZeroAddress,
   toHex,
 } from "@liquidity_lab/effect-crypto";
@@ -22,6 +25,7 @@ import * as Adt from "./adt.js";
 import type * as T from "./pool.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
+import { feeAmountGen } from "./adt.internal.js";
 import { Slot0Price } from "./pool.js";
 
 /** @internal */
@@ -209,5 +213,18 @@ export function fetchPoolStateImpl(
       fee,
       address: poolAddress,
     } as T.PoolState);
+  });
+}
+
+/** @internal */
+export function poolStateGenImpl(): Arbitrary<T.PoolState> {
+  // Token.tokenPairGen already returns tokens in Uniswap order (token0.address < token1.address)
+  return Token.tokenPairGen(Token.TokenType.ERC20).chain(([token0, token1]) => {
+    return fc.record({
+      token0: fc.constant(token0),
+      token1: fc.constant(token1),
+      fee: feeAmountGen,
+      address: addressGen(),
+    });
   });
 }
