@@ -228,3 +228,30 @@ export function poolStateGenImpl(): Arbitrary<T.PoolState> {
     });
   });
 }
+
+/** @internal */
+export function slot0GenImpl(
+  poolStateArb: Arbitrary<T.PoolState> = poolStateGenImpl(),
+): Arbitrary<T.Slot0> {
+  return poolStateArb.chain((poolState) => {
+    // Generate a price based on the tokens from the poolState
+    const priceArb = Price.tokenPriceGen(poolState.token0, poolState.token1);
+
+    return priceArb.chain((price) => {
+      // Calculate the tick from the generated price
+      const tick = Tick.nearestUsableTick(
+        Tick.getTickAtPrice(price),
+        Tick.toTickSpacing(poolState.fee),
+      );
+
+      // observationIndex can be generated independently for now
+      const observationIndexArb = fc.nat().map((n) => n.toString());
+
+      return observationIndexArb.map((observationIndex) => ({
+        price,
+        tick: tick.unwrap,
+        observationIndex,
+      }));
+    });
+  });
+}

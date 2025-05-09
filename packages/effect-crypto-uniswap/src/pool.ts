@@ -464,3 +464,23 @@ export interface PoolConfig {
 export const poolStateGen: {
   (): Arbitrary<PoolState>;
 } = internal.poolStateGenImpl;
+
+/**
+ * Generates arbitrary `Slot0` values for property-based testing.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * fc.assert(fc.property(Pool.slot0Gen(), (slot0) => {
+ *   // Your test assertions here
+ *   console.log(slot0.price);
+ *   console.log(slot0.tick);
+ *   console.log(slot0.observationIndex);
+ * }));
+ * ```
+ */
+export const slot0Gen: {
+  (poolStateArb?: Arbitrary<PoolState>): Arbitrary<Slot0>;
+} = internal.slot0GenImpl;
