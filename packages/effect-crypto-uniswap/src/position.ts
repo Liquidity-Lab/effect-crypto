@@ -129,8 +129,8 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   readonly slot0: Pool.Slot0; // Current pool state (sqrtPriceX96, tick, etc.)
 
   // --- Optional bounds (stored as Either to capture calculation/validation errors) ---
-  readonly lowerBoundTick?: Either.Either<Tick.Tick, BuilderError<"lowerBoundTick">>;
-  readonly upperBoundTick?: Either.Either<Tick.Tick, BuilderError<"upperBoundTick">>;
+  readonly lowerBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"lowerBoundTick">>;
+  readonly upperBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"upperBoundTick">>;
 
   // --- Optional amount/liquidity definition (stored as Either to capture calculation/validation errors) ---
   /**
@@ -273,10 +273,10 @@ export const draftBuilder: {
  *
  * declare const initialState: Position.EmptyState;
  *
- * // Set lower bound 10 ticks below the current tick
+ * // Set lower bound 10 ticks below the current tick's nearest usable tick
  * const builderWithLowerTick = Position.setLowerTickBound(
  *   initialState,
- *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10)
+ *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10) // Assuming Tick.subtractNTicks returns Option<Tick.UsableTick>
  * );
  * ```
  */
@@ -285,7 +285,7 @@ export const setLowerTickBound: {
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithLowerBound;
-} = null as any;
+} = internal.setLowerTickBoundImpl;
 
 /**
  * Sets the upper tick boundary based on a function relative to the nearest usable tick.
