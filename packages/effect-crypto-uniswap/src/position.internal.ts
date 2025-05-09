@@ -318,6 +318,16 @@ class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation
     return new BuilderErrorLive("lowerBoundTick", message);
   }
 
+  /**
+   * Creates a `BuilderError` specifically for issues related to the `upperBoundTick` field.
+   *
+   * @param message - The specific error message.
+   * @returns A new `BuilderErrorLive<"upperBoundTick">` instance, typed as `T.BuilderError<"upperBoundTick">`.
+   */
+  static upperBoundTick(message: string): T.BuilderError<"upperBoundTick"> {
+    return new BuilderErrorLive("upperBoundTick", message);
+  }
+
   // Add other specific static error constructors here as needed, e.g.:
   // static upperBoundTick(message: string): T.BuilderError<"upperBoundTick"> {
   //   return new BuilderErrorLive("upperBoundTick", message);
@@ -382,5 +392,55 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
   return {
     ...builder,
     lowerBoundTick,
+  };
+};
+
+/**
+ * @internal
+ * Internal implementation for setting the upper tick boundary of a position draft.
+ *
+ * This function takes the current builder state and a user-provided function (`tickFn`)
+ * to determine the upper tick boundary. It calculates the nearest usable tick based on
+ * the pool's current tick and fee tier (tick spacing). The `tickFn` is then applied to
+ * this nearest usable tick.
+ *
+ * The result, which is either the calculated upper tick or a `BuilderError` if any step fails
+ * (e.g., nearest usable tick cannot be determined, or `tickFn` returns `None`),
+ * is stored in the `upperBoundTick` field of the new builder state.
+ * As per current requirements, this function does NOT validate if upperTick > lowerTick.
+ *
+ * @template S - The type of the current builder state, which must at least be `T.EmptyState`.
+ * @param builder - The current state of the position draft builder.
+ * @param tickFn - A function that takes a `Tick.UsableTick` (the nearest usable tick to the current pool tick)
+ *                 and returns an `Option.Option<Tick.UsableTick>` representing the desired upper tick.
+ * @returns A new builder state (`S & T.StateWithUpperBound`) that includes the `upperBoundTick` field.
+ *          The `upperBoundTick` field will contain an `Either.Either<Tick.UsableTick, T.BuilderError<"upperBoundTick">>`.
+ */
+export const setUpperTickBoundImpl = <S extends T.EmptyState>(
+  builder: S,
+  tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+): S & T.StateWithUpperBound => {
+  const poolState = builder.pool;
+  const slot0 = builder.slot0;
+  const currentTick = slot0.tick;
+  const tickSpacing = Tick.toTickSpacing(poolState.fee);
+
+  // Step 1: Calculate the nearest usable tick to the current pool tick.
+  const nearestUsableTickForCurrent = Tick.nearestUsableTick(currentTick, tickSpacing);
+
+  // Step 2: Apply the user's tickFn to the nearest usable tick.
+  // The tickFn itself returns an Option, which we need to handle.
+  const upperBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
+    BuilderErrorLive.upperBoundTick(
+      // Use the new error type for upper bound
+      "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
+        "Ensure the function returns Some(UsableTick) for a valid upper bound.",
+    ),
+  );
+
+  // Step 3: Return the new builder state.
+  return {
+    ...builder,
+    upperBoundTick, // Set the upperBoundTick field
   };
 };

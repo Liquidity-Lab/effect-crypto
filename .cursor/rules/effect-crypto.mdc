@@ -118,6 +118,21 @@ When developing new features or making changes, follow this iterative process:
 - Use AVA as the test runner (`ava.config.mjs`)
 - Implement property-based testing with fast-check
 - Test files (`*.spec.ts`) must be colocated with their corresponding module files within the `src` directory.
+- Avoid using nested conditions to assert result when possible
+- Use `actual` and `expected` naming when possible
+- Use `Either.getOrElse` or `Option.getOrElse` in combination with `t.fail("detailed message")` in order to avoid code-nesting and fail-fast:
+  ```typescript
+  import { Option } from 'effect';
+
+  test("My test case", (t) => {
+    const value: Option.Option<{ myClass: string }> = /* ??? */;
+
+    const someValue = Option.getOrElse(
+      value,
+      () => t.fail("detailed error description"),
+    )
+  });
+  ```
 - Run tests with Node.js v22+:
   ```bash
   nvm use v22 # Ensure correct Node version from .nvmrc
