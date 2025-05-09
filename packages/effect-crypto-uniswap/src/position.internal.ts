@@ -1,5 +1,5 @@
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import { Either } from "effect";
+import { Either, Option } from "effect";
 
 import { BigMath } from "@liquidity_lab/effect-crypto";
 
@@ -288,11 +288,99 @@ function getAmount1Delta(
   return Adt.Amount1(liquidity.multiply(delta));
 }
 
+/**
+ * @internal
+ * Represents an error that occurs during the position draft builder process.
+ * This class implements the `T.BuilderError` interface.
+ */
+class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation" | "validation">
+  implements T.BuilderError<Field>
+{
+  readonly _tag = "BuilderError";
+
+  /**
+   * Private constructor to enforce the use of static factory methods.
+   * @param field - The specific field in the builder where the error occurred, or 'calculation'/'validation'.
+   * @param message - A descriptive error message.
+   */
+  private constructor(
+    readonly field: Field,
+    readonly message: string,
+  ) {}
+
+  /**
+   * Creates a `BuilderError` specifically for issues related to the `lowerBoundTick` field.
+   *
+   * @param message - The specific error message.
+   * @returns A new `BuilderErrorLive<"lowerBoundTick">` instance, typed as `T.BuilderError<"lowerBoundTick">`.
+   */
+  static lowerBoundTick(message: string): T.BuilderError<"lowerBoundTick"> {
+    return new BuilderErrorLive("lowerBoundTick", message);
+  }
+
+  // Add other specific static error constructors here as needed, e.g.:
+  // static upperBoundTick(message: string): T.BuilderError<"upperBoundTick"> {
+  //   return new BuilderErrorLive("upperBoundTick", message);
+  // }
+  // static calculation(message: string): T.BuilderError<"calculation"> {
+  //   return new BuilderErrorLive("calculation", message);
+  // }
+}
+
 export const draftBuilder: {
   (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState;
 } = (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState => {
   return {
     pool: pool,
     slot0: slot0,
+  };
+};
+
+/**
+ * @internal
+ * Internal implementation for setting the lower tick boundary of a position draft.
+ *
+ * This function takes the current builder state and a user-provided function (`tickFn`)
+ * to determine the lower tick boundary. It calculates the nearest usable tick based on
+ * the pool's current tick and fee tier (tick spacing). The `tickFn` is then applied to
+ * this nearest usable tick.
+ *
+ * The result, which is either the calculated lower tick or a `BuilderError` if any step fails
+ * (e.g., nearest usable tick cannot be determined, or `tickFn` returns `None`),
+ * is stored in the `lowerBoundTick` field of the new builder state.
+ *
+ * @template S - The type of the current builder state, which must at least be `T.EmptyState`.
+ * @param builder - The current state of the position draft builder.
+ * @param tickFn - A function that takes a `Tick.UsableTick` (the nearest usable tick to the current pool tick)
+ *                 and returns an `Option.Option<Tick.UsableTick>` representing the desired lower tick.
+ * @returns A new builder state (`S & T.StateWithLowerBound`) that includes the `lowerBoundTick` field.
+ *          The `lowerBoundTick` field will contain an `Either.Either<Tick.Tick, T.BuilderError<"lowerBoundTick">>`.
+ */
+export const setLowerTickBoundImpl = <S extends T.EmptyState>(
+  builder: S,
+  tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+): S & T.StateWithLowerBound => {
+  const poolState = builder.pool;
+  const slot0 = builder.slot0;
+  const currentTick = slot0.tick;
+  const tickSpacing = Tick.toTickSpacing(poolState.fee);
+
+  // Step 1: Calculate the nearest usable tick to the current pool tick.
+  // Tick.nearestUsableTick directly returns UsableTick, not Option<UsableTick>.
+  const nearestUsableTickForCurrent = Tick.nearestUsableTick(currentTick, tickSpacing);
+
+  // Step 2: Apply the user's tickFn to the nearest usable tick.
+  // The tickFn itself returns an Option, which we need to handle.
+  const lowerBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
+    BuilderErrorLive.lowerBoundTick(
+      "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
+        "Ensure the function returns Some(UsableTick) for a valid lower bound.",
+    ),
+  );
+
+  // Step 3: Return the new builder state.
+  return {
+    ...builder,
+    lowerBoundTick,
   };
 };

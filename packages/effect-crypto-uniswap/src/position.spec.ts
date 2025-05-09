@@ -22,6 +22,18 @@ const MaxUint256 = BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffff
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 const errorTolerance = Big("0.000003");
 
+// Helper generator for consistent PoolState and Slot0
+// Using fc.chain as an alternative to fc.let to potentially resolve linter issues.
+const poolStateAndSlot0Gen = Pool.poolStateGen().chain((poolState: Pool.PoolState) => {
+  const poolStateArb = fc.constant(poolState); // Arbitrary for the specific poolState
+  // Generate Slot0 based on poolStateArb, then map to a tuple of [PoolState, Slot0]
+  // However, Pool.slot0Gen already returns Arbitrary<Slot0>, so we need to structure the tuple inside chain's result.
+  // The goal is to return an Arbitrary<[PoolState, Slot0]> from the chain callback.
+  return Pool.slot0Gen(poolStateArb).map((slot0) => {
+    return [poolState, slot0] as [Pool.PoolState, Pool.Slot0]; // Explicitly cast tuple type
+  });
+});
+
 // type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag; // Removed unused type
 
 // const services = Layer.empty.pipe( // Removed unused variable
@@ -533,4 +545,64 @@ testProp(
     t.true("pool" in initialBuilderState, "Builder state should have 'pool' property.");
     t.true("slot0" in initialBuilderState, "Builder state should have 'slot0' property.");
   },
+);
+
+testProp(
+  "setLowerTickBound should successfully set lowerBoundTick when tickFn modifies the input usable tick",
+  [poolStateAndSlot0Gen, fc.integer({ min: 1, max: 5 })],
+  (t, [poolState, slot0], nTicksToModify) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const tickFn = (inputUsableTick: Tick.UsableTick): Option.Option<Tick.UsableTick> =>
+      Tick.subtractNTicks(inputUsableTick, nTicksToModify);
+
+    const builderWithLowerBound = Position.setLowerTickBound(initialBuilder, tickFn);
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const nearestUsableToCurrent = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+    const expectedUsableTickOpt = Tick.subtractNTicks(nearestUsableToCurrent, nTicksToModify);
+
+    t.deepEqual(
+      builderWithLowerBound.lowerBoundTick,
+      Either.right(expectedUsableTickOpt),
+      `Expected lowerBoundTick to be ${expectedUsableTickOpt} but got ${builderWithLowerBound.lowerBoundTick}`,
+    );
+  },
+);
+
+testProp(
+  "setLowerTickBound should store a BuilderError when tickFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithLowerBound = Position.setLowerTickBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithLowerBound.lowerBoundTick),
+      "lowerBoundTick property should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setLowerTickBound should set lowerBoundTick to the current usable tick when tickFn returns its input",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const nearestUsableToCurrent = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    const builderWithBound = Position.setLowerTickBound(initialBuilder, (inputUsableTick) =>
+      Option.some(inputUsableTick),
+    );
+
+    t.deepEqual(
+      builderWithBound.lowerBoundTick,
+      Either.right(nearestUsableToCurrent),
+      `Expected lowerBoundTick to be ${nearestUsableToCurrent} but got ${builderWithBound.lowerBoundTick}`,
+    );
+  },
+  { numRuns: 64 },
 );
