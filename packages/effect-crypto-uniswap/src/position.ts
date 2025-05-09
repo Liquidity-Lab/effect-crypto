@@ -6,6 +6,7 @@ import { TokenVolume } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
 import * as Pool from "./pool.js";
+import * as internal from "./position.internal.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
@@ -223,24 +224,38 @@ export type AggregateBuilderError = {
  *
  * @example
  * ```typescript
- * import { Token, BigMath } from "@liquidity_lab/effect-crypto";
- * import { Pool, Tick, Position, Adt } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Token, Address } from "@liquidity_lab/effect-crypto";
+ * import { Pool, Tick, Position, Price, FeeAmount } from "@liquidity_lab/effect-crypto-uniswap";
  *
- * // Mock data
- * declare const USDC;
- * declare const WETH;
- * declare const poolState: Pool.PoolState;
- * declare const slot0: Pool.Slot0;
+ * declare const USDC: Token.Erc20Token;
+ * declare const WETH: Token.Erc20Token;
+ * declare const poolAddress: Address.Address;
+ * declare const observationIndex: string;
+ *
+ * // Example construction for docs, actual values would come from context
+ * const poolState: Pool.PoolState = {
+ *   token0: USDC,
+ *   token1: WETH,
+ *   fee: FeeAmount.MEDIUM,
+ *   address: poolAddress
+ * };
+ *
  * const currentTick = Tick.Tick(200000); // Example tick
- * const currentSqrtPrice = BigMath.Q64x96(Tick.getSqrtRatio(currentTick).value);
+ * const currentPrice = Price.makeFromTickUnsafe(USDC, WETH, currentTick); // Simplified for example
+ *
+ * const slot0: Pool.Slot0 = {
+ *  price: currentPrice,
+ *  tick: currentTick,
+ *  observationIndex: observationIndex
+ * };
  *
  * const builder = Position.draftBuilder(poolState, slot0);
- * // builder now contains { pool: poolState, slot0: slot0 }
+ * // builder now contains { pool: poolState, slot0: slot0 } and is of type EmptyState
  * ```
  */
 export const draftBuilder: {
   (pool: Pool.PoolState, slot0: Pool.Slot0): EmptyState;
-} = null as any;
+} = internal.draftBuilder; // Point to the internal implementation
 
 /**
  * Sets the lower tick boundary based on a function relative to the nearest usable tick.

@@ -125,7 +125,10 @@ export function calculatePositionDraftFromAmounts(
   );
 }
 
-/*export const mint = FunctionUtils.withOptionalServiceApi(Pool.Tag, mintImpl).value;
+/* 
+// DO NOT REMOVE IT IS TEMPORARY COMMENTED CODE
+
+export const mint = FunctionUtils.withOptionalServiceApi(Pool.Tag, mintImpl).value;
 
 function mintImpl(descriptor: Pool.PoolsDescriptor, params: T.PositionDraft) /!*: Effect.Effect<
   Option.Option<string>,
@@ -284,3 +287,12 @@ function getAmount1Delta(
 
   return Adt.Amount1(liquidity.multiply(delta));
 }
+
+export const draftBuilder: {
+  (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState;
+} = (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState => {
+  return {
+    pool: pool,
+    slot0: slot0,
+  };
+};
