@@ -40,7 +40,7 @@ This rule defines the core project structure and coding standards for the Effect
     - `index.ts`: Main entry point for public exports.
     - Module files (e.g., `src/price.ts`, `src/order.ts`): Define specific functionalities.
       - Each module typically consists of 3 files (use `price` as an example):
-        - Public API (definitions only): `price.ts`
+        - Public API: `price.ts`, it countaios definitions only, all implementation should be places in separate file
         - Implementation `price.internal.ts`, all exported members should be annotated with `@internal`
         - Test files (e.g., `src/price.spec.ts`): Tests colocated with the source files they test.
       - Module is exported under the namespace from `index.ts` file. The only exception is `src/adt.ts` it exported on the top level of `index.ts`

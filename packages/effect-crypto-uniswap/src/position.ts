@@ -187,16 +187,9 @@ export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
 /**
  * Represents the builder state once a desired position size (defined by liquidity, a single amount, or both amounts)
  * has been set (successfully or with an error).
- * It requires the internal `_sizeDefinitionMethod` flag to track how the size was defined.
  * The specific fields (`liquidity`, `maxAmount0`, `maxAmount1`) included depend on the method used (`fromLiquidity`, `fromSingleAmount`, `fromAmounts`).
  */
-export type StateWithSize = Required<Pick<PositionDraftBuilder, "_sizeDefinitionMethod">> &
-  (
-    | Required<Pick<PositionDraftBuilder, "liquidity">>
-    | Required<Pick<PositionDraftBuilder, "maxAmount0">>
-    | Required<Pick<PositionDraftBuilder, "maxAmount1">>
-    | Required<Pick<PositionDraftBuilder, "maxAmount0" | "maxAmount1">> // For fromAmounts
-  );
+export type StateWithSize = Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
 
 /**
  * Represents a builder state that is structurally ready for the final calculation into a `PositionDraft`.
@@ -276,7 +269,7 @@ export const draftBuilder: {
  * // Set lower bound 10 ticks below the current tick's nearest usable tick
  * const builderWithLowerTick = Position.setLowerTickBound(
  *   initialState,
- *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10) // Assuming Tick.subtractNTicks returns Option<Tick.UsableTick>
+ *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10)
  * );
  * ```
  */
@@ -310,9 +303,6 @@ export const setLowerTickBound: {
  *   (currentUsableTick) => Tick.addNTicks(currentUsableTick, 20)
  * );
  *
- * // Access the result
- * const upperTick = builderWithUpperTick.upperBoundTick;
- * // upperTick: Either.Right<Tick.UsableTick> | Either.Left<Position.BuilderError>
  * ```
  */
 export const setUpperTickBound: {
@@ -429,11 +419,11 @@ export const setUpperPriceBound: {
  * // Define position size based on providing 1 WETH
  * declare const wethVolume; // "1.0 WETH"
  *
- * const builderWithSize = Position.fromSingleAmount(stateWithBounds, wethVolume.value);
+ * const builderWithSize = Position.setSizeFromSingleAmount(stateWithBounds, wethVolume.value);
  *
  * ```
  */
-export const fromSingleAmount: {
+export const setSizeFromSingleAmount: {
   <S extends EmptyState, T extends Token.TokenType>(
     builder: S,
     volume: TokenVolume.TokenVolume<T>,
@@ -463,13 +453,13 @@ export const fromSingleAmount: {
  * const liquidityValue = Pool.Liquidity(1234567890n);
  *
  * // Assume bounds are set in stateWithBounds
- * const builderWithSize = Position.fromLiquidity(stateWithBounds, liquidityValue);
+ * const builderWithSize = Position.setSizeFromLiquidity(stateWithBounds, liquidityValue);
  *
  * ```
  */
-export const fromLiquidity: {
+export const setSizeFromLiquidity: {
   <S extends EmptyState>(builder: S, liquidity: Pool.Liquidity): S & StateWithSize;
-} = null as any;
+} = internal.setSizeFromLiquidityImpl;
 
 /**
  * Attempts to finalize the PositionDraft creation from a builder state that is structurally complete.
