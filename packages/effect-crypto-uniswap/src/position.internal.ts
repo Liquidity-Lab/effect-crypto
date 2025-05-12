@@ -328,13 +328,16 @@ class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation
     return new BuilderErrorLive("upperBoundTick", message);
   }
 
-  // Add other specific static error constructors here as needed, e.g.:
-  // static upperBoundTick(message: string): T.BuilderError<"upperBoundTick"> {
-  //   return new BuilderErrorLive("upperBoundTick", message);
-  // }
-  // static calculation(message: string): T.BuilderError<"calculation"> {
-  //   return new BuilderErrorLive("calculation", message);
-  // }
+  /**
+   * Creates a `BuilderError` specifically for calculation-related issues.
+   *
+   * @param message - The specific error message.
+   * @returns A new `BuilderErrorLive<"calculation">` instance, typed as `T.BuilderError<"calculation">`.
+   */
+  static calculation(message: string): T.BuilderError<"calculation"> {
+    // Use the private constructor, setting the field explicitly
+    return new BuilderErrorLive("calculation", message);
+  }
 }
 
 export const draftBuilder: {
@@ -442,5 +445,18 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
   return {
     ...builder,
     upperBoundTick, // Set the upperBoundTick field
+  };
+};
+
+export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
+  builder: S,
+  liquidity: Pool.Liquidity, // Assumed pre-validated by its brand
+): S & T.StateWithSize => {
+  return {
+    ...builder,
+    liquidity: Either.right(liquidity),
+    maxAmount0: undefined,
+    maxAmount1: undefined,
+    _sizeDefinitionMethod: "liquidity" as const,
   };
 };

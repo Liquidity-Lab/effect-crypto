@@ -34,6 +34,9 @@ const poolStateAndSlot0Gen = Pool.poolStateGen().chain((poolState: Pool.PoolStat
   });
 });
 
+// Generator for Pool.Liquidity (positive BigDecimal values)
+const liquidityGen = fc.bigInt({ min: 1n }).map((v) => Pool.Liquidity(Big(v)));
+
 // type Services = Chain.Tag | Token.Tag | Wallet.Tag | Pool.Tag | TestEnv.Tag | UniswapTestEnv.Tag; // Removed unused type
 
 // const services = Layer.empty.pipe( // Removed unused variable
@@ -481,7 +484,7 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
   );
 
   // Set size using fromLiquidity
-  const builderWithSize = Position.fromLiquidity(builderWithBounds, liquidity);
+  const builderWithSize = Position.setSizeFromLiquidity(builderWithBounds, liquidity);
 
   // Finalize the draft
   const draft = Position.finalizeDraft(builderWithSize);
@@ -680,4 +683,36 @@ testProp(
     );
   },
   { numRuns: 64 },
+);
+
+testProp(
+  "setSizeFromLiquidity should successfully set liquidity and size definition method",
+  [poolStateAndSlot0Gen, liquidityGen],
+  (t, [poolState, slot0], liquidity) => {
+    // 1. Setup
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    // 2. Execution
+    // Use the inferred type, which is S & StateWithSize
+    const builderWithSize = Position.setSizeFromLiquidity(initialBuilder, liquidity);
+
+    // Check the new fields - Now correctly typed
+    t.deepEqual(
+      builderWithSize.liquidity,
+      Either.right(liquidity),
+      `Expected liquidity field to be Either.Right containing ${liquidity.toString()}`,
+    );
+
+    t.is(
+      builderWithSize.maxAmount0,
+      undefined,
+      "Expected maxAmount0 to be undefined after setting liquidity.",
+    );
+
+    t.is(
+      builderWithSize.maxAmount1,
+      undefined,
+      "Expected maxAmount1 to be undefined after setting liquidity.",
+    );
+  },
 );
