@@ -204,7 +204,7 @@ export type BuilderReady = EmptyState & StateWithBounds & StateWithSize;
  * This is used by `finalizeDraft` to return all collected errors if the build process fails at any stage.
  */
 export type AggregateBuilderError = {
-  readonly _tag: "AggregateBuilderError";
+  readonly _tag: "AggregateBuilderError"; // TODO: FIX TAGS
   readonly errors: ReadonlyArray<BuilderError>;
 };
 
@@ -494,7 +494,7 @@ export const setSizeFromLiquidity: {
  */
 export const finalizeDraft: {
   (state: BuilderReady): Either.Either<PositionDraft, AggregateBuilderError>;
-} = null as any;
+} = internal.finalizeDraftImpl;
 
 /**
  * Calls `finalizeDraft` and throws a custom error if it returns `Either.Left`.

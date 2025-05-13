@@ -4,5 +4,5 @@
   "terminal.integrated.defaultProfile.osx": "bash",
   "terminal.integrated.defaultProfile.linux": "bash",
   "cursor.terminal.usePreviewBox": true,
-  "terminal.integrated.automationProfile.osx": {},
+  "terminal.integrated.automationProfile.osx": {}
 }
