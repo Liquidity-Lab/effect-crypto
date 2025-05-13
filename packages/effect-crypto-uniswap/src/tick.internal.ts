@@ -89,10 +89,18 @@ export function getRatio(tick: T.Tick): BigDecimal {
   return TICK_BASE.pow(tick, MATH_CONTEXT_HIGH_PRECISION);
 }
 
+export function isUsableTickImpl(tick: unknown): tick is T.UsableTick {
+  return typeof tick === "object" && tick !== null && "_tag" in tick && tick._tag === "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick";
+}
+
 /** Calculates sqrt(1.0001 ^ tick)
  * @see https://github.com/Uniswap/v3-core/blob/8f3e4645a08850d2335ead3d1a8d0c64fa44f222/contracts/libraries/TickMath.sol#L23-L54
  */
-export function getSqrtRatioAtTickImpl(tick: T.Tick): BigDecimal {
+export function getSqrtRatioAtTickImpl(tick: T.Tick | T.UsableTick): BigDecimal {
+  if (isUsableTickImpl(tick)) {
+    return getSqrtRatioAtTickImpl(tick.unwrap);
+  }
+
   return getRatio(tick).sqrt(MATH_CONTEXT_HIGH_PRECISION);
 }
 
