@@ -19,6 +19,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.40.2"
+  },
   "devDependencies": {
     "@ava/typescript": "5.0.0",
     "@arbitrum/token-bridge-contracts": "1.2.3",
