@@ -20,6 +20,7 @@
   "license": "ISC",
   "description": "",
   "optionalDependencies": {
+    "@nomicfoundation/solidity-analyzer-linux-x64-gnu": "0.1.2",
     "@rollup/rollup-linux-x64-gnu": "4.40.2"
   },
   "devDependencies": {
