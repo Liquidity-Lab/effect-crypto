@@ -4,9 +4,7 @@
 import { Array, Either } from "effect";
 
 export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
-  eithers: readonly [
-    ...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> },
-  ],
+  eithers: readonly [...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> }],
   f: (values: [...Values]) => R,
 ): Either.Either<R, Array.NonEmptyArray<E>> => {
   if (eithers.length === 0) {
@@ -41,4 +39,4 @@ export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
 
   // No errors, all were Right
   return Either.right(f(collectedValues as unknown as [...Values]));
-}; 
+};

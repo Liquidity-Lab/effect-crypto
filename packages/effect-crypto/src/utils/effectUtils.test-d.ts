@@ -1,5 +1,6 @@
-import { expectTypeOf, assertType, test } from 'vitest';
 import { Array, Either } from "effect";
+import { assertType, test } from "vitest";
+
 import * as EffectUtils from "./effectUtils.js";
 
 declare type ErrorType = Array.NonEmptyArray<string>;
@@ -8,7 +9,7 @@ type Entity = {
   a: number;
   b: string;
   c: boolean;
-}
+};
 
 test("EffectUtils.mapParN should work ", () => {
   // This should typecheck: result is Either<Entity, ErrorType>
@@ -17,6 +18,6 @@ test("EffectUtils.mapParN should work ", () => {
   const c = Either.right(true);
 
   assertType<Either.Either<Entity, ErrorType>>(
-    EffectUtils.mapParN([a, b, c], ([a, b, c]) => ({ a, b, c } as Entity))
+    EffectUtils.mapParN([a, b, c], ([a, b, c]) => ({ a, b, c }) as Entity),
   );
 });
