@@ -3,6 +3,7 @@
  */
 import test, { type ExecutionContext } from "ava";
 import { Array, Either } from "effect";
+
 import { fc, testProp } from "@fast-check/ava";
 
 import * as Adt from "../adt.js";
@@ -69,7 +70,12 @@ test("mapParN - should return Right with mapped value for empty input tuple", (t
 
 testProp(
   "mapParN (property) - tuple size 1: should return same Either as input",
-  [EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer())],
+  [
+    EffectUtils.eitherGen(
+      fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>),
+      fc.integer(),
+    ),
+  ],
   (t, input) => {
     const result = EffectUtils.mapParN([input], ([x]) => x);
 
@@ -81,9 +87,18 @@ testProp(
   "mapParN (property) - tuple size 3: returns Right if all are Right, Left with all errors if any Left",
   [
     fc.tuple(
-      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
-      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
-      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
+      EffectUtils.eitherGen(
+        fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>),
+        fc.integer(),
+      ),
+      EffectUtils.eitherGen(
+        fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>),
+        fc.integer(),
+      ),
+      EffectUtils.eitherGen(
+        fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>),
+        fc.integer(),
+      ),
     ),
   ],
   (t, [a, b, c]) => {

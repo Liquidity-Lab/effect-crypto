@@ -1,9 +1,9 @@
 /**
  * @file packages/effect-crypto/src/utils/effectUtils.internal.ts
  */
+import * as fc from "fast-check";
 import { Array, Either } from "effect";
 import type { Arbitrary } from "fast-check";
-import * as fc from "fast-check";
 
 export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
   eithers: readonly [...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> }],
@@ -52,10 +52,10 @@ export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
  */
 export function eitherGenImpl<L, R>(
   leftGen: Arbitrary<L>,
-  rightGen: Arbitrary<R>
+  rightGen: Arbitrary<R>,
 ): Arbitrary<Either.Either<R, L>> {
   return fc.oneof(
     leftGen.map((l) => Either.left<L>(l)),
-    rightGen.map((r) => Either.right<R>(r))
+    rightGen.map((r) => Either.right<R>(r)),
   );
-};
+}

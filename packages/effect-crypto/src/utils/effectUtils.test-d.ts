@@ -43,7 +43,6 @@ test("EffectUtils.mapParN should compile if the input's error type is correct No
   );
 });
 
-
 test("EffectUtils.mapParN should not compile if the input's error types is not aligned", () => {
   const a = Either.left(Array.make(false));
   const b = Either.left(Array.make("2"));

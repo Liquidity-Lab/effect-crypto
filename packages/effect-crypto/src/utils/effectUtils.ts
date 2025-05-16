@@ -1,5 +1,26 @@
 import { Array, Effect, Either, Option } from "effect";
 import { LazyArg } from "effect/Function";
+/**
+ * Generates an Either value using the provided generators for left and right values.
+ *
+ * @example
+ *   import { fc } from "@fast-check/ava";
+ *   import { EffectUtils } from "effect-crypto/utils";
+ *   import { Either } from "effect";
+ *
+ *   const leftGen = fc.string();
+ *   const rightGen = fc.integer();
+ *   const eitherArb = EffectUtils.eitherGen(leftGen, rightGen);
+ *
+ *   fc.assert(
+ *     eitherArb.map(e => Either.isLeft(e) || Either.isRight(e))
+ *   );
+ *
+ * @param leftGen - Arbitrary for left values
+ * @param rightGen - Arbitrary for right values
+ * @returns Arbitrary<Either.Right<R> | Either.Left<L>>
+ */
+import type { Arbitrary } from "fast-check";
 
 // TODO: circular dependency utils on effect-crypto and forth
 import * as Adt from "../adt.js";
@@ -87,28 +108,7 @@ export const mapParN: {
   ): Either.Either<R, Array.NonEmptyArray<E>>;
 } = internal.mapParNImpl;
 
-/**
- * Generates an Either value using the provided generators for left and right values.
- *
- * @example
- *   import { fc } from "@fast-check/ava";
- *   import { EffectUtils } from "effect-crypto/utils";
- *   import { Either } from "effect";
- *
- *   const leftGen = fc.string();
- *   const rightGen = fc.integer();
- *   const eitherArb = EffectUtils.eitherGen(leftGen, rightGen);
- *
- *   fc.assert(
- *     eitherArb.map(e => Either.isLeft(e) || Either.isRight(e))
- *   );
- *
- * @param leftGen - Arbitrary for left values
- * @param rightGen - Arbitrary for right values
- * @returns Arbitrary<Either.Right<R> | Either.Left<L>>
- */
-import type { Arbitrary } from "fast-check";
 export const eitherGen: <L, R>(
   leftGen: Arbitrary<L>,
-  rightGen: Arbitrary<R>
+  rightGen: Arbitrary<R>,
 ) => Arbitrary<Either.Either<R, L>> = internal.eitherGenImpl;
