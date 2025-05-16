@@ -2,6 +2,8 @@
  * @file packages/effect-crypto/src/utils/effectUtils.internal.ts
  */
 import { Array, Either } from "effect";
+import type { Arbitrary } from "fast-check";
+import * as fc from "fast-check";
 
 export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
   eithers: readonly [...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> }],
@@ -39,4 +41,21 @@ export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
 
   // No errors, all were Right
   return Either.right(f(collectedValues as unknown as [...Values]));
+};
+
+/**
+ * Generates an Either value using the provided generators for left and right values.
+ *
+ * @param leftGen - Arbitrary for left values
+ * @param rightGen - Arbitrary for right values
+ * @returns Arbitrary<Either.Right<R> | Either.Left<L>>
+ */
+export function eitherGenImpl<L, R>(
+  leftGen: Arbitrary<L>,
+  rightGen: Arbitrary<R>
+): Arbitrary<Either.Either<R, L>> {
+  return fc.oneof(
+    leftGen.map((l) => Either.left<L>(l)),
+    rightGen.map((r) => Either.right<R>(r))
+  );
 };

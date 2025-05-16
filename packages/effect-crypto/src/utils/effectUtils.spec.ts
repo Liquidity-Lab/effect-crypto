@@ -3,6 +3,7 @@
  */
 import test, { type ExecutionContext } from "ava";
 import { Array, Either } from "effect";
+import { fc, testProp } from "@fast-check/ava";
 
 import * as Adt from "../adt.js";
 import * as EffectUtils from "./effectUtils.js";
@@ -64,4 +65,34 @@ test("mapParN - should return Right with mapped value for empty input tuple", (t
   t.deepEqual(result, Either.right("empty result"));
 });
 
-// Property-based tests removed
+// Property-based tests for mapParN using eitherGen
+
+testProp(
+  "mapParN (property) - tuple size 1: should return same Either as input",
+  [EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer())],
+  (t, input) => {
+    const result = EffectUtils.mapParN([input], ([x]) => x);
+
+    t.deepEqual(result, input);
+  },
+);
+
+testProp(
+  "mapParN (property) - tuple size 3: returns Right if all are Right, Left with all errors if any Left",
+  [
+    fc.tuple(
+      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
+      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
+      EffectUtils.eitherGen(fc.tuple(fc.string()).map((arr) => arr as Array.NonEmptyArray<string>), fc.integer()),
+    ),
+  ],
+  (t, [a, b, c]) => {
+    const result = EffectUtils.mapParN([a, b, c], ([a, b, c]) => [a, b, c]);
+
+    if (Either.isRight(a) && Either.isRight(b) && Either.isRight(c)) {
+      t.deepEqual(result, Either.all([a, b, c]), "result should be Right if all inputs are Right");
+    } else {
+      t.true(Either.isLeft(result), "result should be Left if any input is Left");
+    }
+  },
+);

@@ -68,8 +68,10 @@ const mapParN: {
 } = null as any;
 ```
 2. Compile the project. It should successfully compile. Fix codestyle and lint issues.
-3. Add tests for the `mapParN` function to `effect-crypto/test/effectUtils.spec.ts` file. Use @effect-crypto/utils/avaEffect.spec.ts and @effect-crypto/utils/bigMath.spec.ts as examples. Add static tests (to check different cases) and property based tests. Mark tests as expecting to fail (using `test.failing`)
+3. Add tests for the `mapParN` function to `effect-crypto/test/effectUtils.spec.ts` file. Use @effect-crypto/utils/avaEffect.spec.ts and @effect-crypto/utils/bigMath.spec.ts as examples. Add static tests. Mark tests as expecting to fail (using `test.failing`)
 4. Compile the project. It should successfully compile. Fix codestyle and lint issues. Run tests
 5. Implement `mapParN` function within `effect-crypto/utils/effectUtils.internal.ts` file. Remove '.failing` mark from tests.
 6. Compile the project. It should successfully compile. Fix codestyle and lint issues. Run tests, all test should be green
-6. Consider task completion criteria
+7. Add generator for either values as a parto of @effect-crypto/utils/effectUtils.ts module. It should accept generator for left and right values (respecting project styleguides)
+8. Add property based tests for the `mapParN` function using generator from step 7: generate random tuples of either values and check if `mapParN` returns right if all values are right and returns left if at least one value is left.
+9. Consider task completion criteria
