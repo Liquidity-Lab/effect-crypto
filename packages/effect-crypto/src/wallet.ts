@@ -117,6 +117,7 @@ export const transact: {
  * @returns An effect that resolves with the transaction receipt.
  */
 export const transferToken: {
+  // TODO: add tests for cases when there are not enough funds and when transfer aren't approved
   <T extends Token.TokenType.ERC20 | Token.TokenType.Wrapped>(
     volume: TokenVolume.TokenVolume<T>,
     to: Adt.Address,
@@ -217,6 +218,32 @@ export const transferNative: {
     Chain.Tag | Token.TxTag
   >;
 } = internal.transferNative;
+
+// TODO: add docs
+// TODO: add tests
+export const withApproval: {
+  <A, E, R>(
+    volumes: TokenVolume.Erc20LikeTokenVolume[],
+    recipient: Adt.Address,
+  ): (
+    f: (walletAddress: Adt.Address) => Effect.Effect<A, E, R>,
+  ) => Effect.Effect<
+    readonly [A, TransactionReceipt],
+    E | Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
+    R | Token.TxTag | internal.WalletTag
+  >;
+  <A, E, R>(
+    wallet: Context.Tag.Service<internal.WalletTag>,
+    volumes: TokenVolume.Erc20LikeTokenVolume[],
+    recipient: Adt.Address,
+  ): (
+    f: (walletAddress: Adt.Address) => Effect.Effect<A, E, R>,
+  ) => Effect.Effect<
+    readonly [A, TransactionReceipt],
+    E | Adt.FatalError | Error.BlockchainError | Errors | Error.TransactionFailedError,
+    R | Token.TxTag
+  >;
+} = null as any; // TODO: implement
 
 /**
  * Deploys a new contract using the provided ABI, bytecode, and constructor arguments.

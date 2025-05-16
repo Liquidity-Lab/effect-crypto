@@ -1,0 +1,11 @@
+---
+description: Set of rules to consider task completed
+globs: 
+alwaysApply: false
+---
+
+To check if the task is completed:
+1. build the project, ensure it successfull
+2. run relevant tests, ensure relevant test cases are green
+3. fix lint issues
+4. fix codestyle issues

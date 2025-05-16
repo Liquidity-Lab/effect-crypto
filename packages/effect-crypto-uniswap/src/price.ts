@@ -1,12 +1,10 @@
-import { BigDecimal } from "bigdecimal.js";
+// External imports
 import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
-import * as Assertable from "./assertable.js";
-import * as BigMath from "./bigMath.js";
+import { Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+
 import * as internal from "./price.internal.js";
-import * as Token from "./token.js";
-import * as TokenVolume from "./tokenVolume.js";
 
 /**
  * Represents a regular price value expressed as a ratio between two tokens.
@@ -16,8 +14,8 @@ import * as TokenVolume from "./tokenVolume.js";
  * For example, if the value is 50000, it means 1 unit of the base token equals
  * 50000 units of the quote token.
  */
-export interface PriceValueUnits {
-  readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueUnits";
+export interface PriceValueRatio {
+  readonly _tag: "@liquidity_lab/effect-crypto/price#PriceValueRatio";
   readonly value: BigMath.Ratio;
 
   /**
@@ -54,7 +52,7 @@ export interface PriceValueSqrtUnits {
  *
  * This type is a union of two different price representations:
  *
- * 1. `PriceValueUnits` - The standard price representation, where the value
+ * 1. `PriceValueRatio` - The standard price representation, where the value
  *    directly represents the exchange rate between tokens.
  *
  * 2. `PriceValueSqrtUnits` - A specialized representation used primarily in
@@ -65,7 +63,7 @@ export interface PriceValueSqrtUnits {
  * Functions in this module handle both representations appropriately
  * based on the context of use.
  */
-export type PriceValue = PriceValueUnits | PriceValueSqrtUnits;
+export type PriceValue = PriceValueRatio | PriceValueSqrtUnits;
 
 /**
  * Represents a price ratio between two tokens with type T.
@@ -111,7 +109,7 @@ export interface TokenPrice<T extends Token.TokenType> extends Assertable.Assert
    * Underlying representation of the price
    *
    * This can be either:
-   * - A standard price value (`PriceValueUnits`), representing a direct exchange rate
+   * - A standard price value (`PriceValueRatio`), representing a direct exchange rate
    * - A square root price value (`PriceValueSqrtUnits`), as used in Uniswap V3 pools
    *
    * The appropriate functions in this module will handle both representations correctly.
@@ -198,76 +196,17 @@ export const TokenPriceSqrt: {
   ): Either.Either<TokenPrice<TBase | TQuote>, string>;
 } = internal.makeTokenPriceFromSqrt;
 
-/**
- * Creates a new token price instance interpreting the provided value as units
- * @example
- * ```typescript
- * import { Token, makeFromUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const USDT = Token.makeTestToken("USDT", 6)
- * const BTC = Token.makeTestToken("BTC", 8)
- *
- * const price = makeFromUnits(
- *   BTC,
- *   USDT,
- *   Big("70000.00015")
- * )
- * ```
- */
-export const makeFromUnits: {
+export const makeFromSqrtQ64_96: {
   <TBase extends Token.TokenType, TQuote extends Token.TokenType>(
     baseCurrency: Token.Token<TBase>,
     quoteCurrency: Token.Token<TQuote>,
-    valueInQuoteCurrency: BigDecimal,
-  ): Option.Option<TokenPrice<TBase | TQuote>>;
-} = internal.makeTokenPriceFromUnits;
+    sqrtValue: BigMath.Q64x96,
+  ): Either.Either<TokenPrice<TBase | TQuote>, string>;
+} = internal.makeTokenPriceFromSqrtQ64_96Impl;
 
-/**
- * Gets the price as a decimal string in quote currency units per base currency unit.
- *
- * @example
- * ```typescript
- * import { Token, makeFromUnits, asUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const BTC = Token.makeTestToken("BTC", 8)
- * const USDT = Token.makeTestToken("USDT", 6)
- *
- * const btcPrice = Option.getOrThrow(makeFromUnits(
- *   BTC,
- *   USDT,
- *   BigMath.Ratio(Big("50000.00"))
- * ))
- * const priceStr = asUnits(btcPrice) // 50000.00
- * ```
- */
-export const asUnits: {
-  <T extends Token.TokenType>(price: TokenPrice<T>): BigDecimal;
-} = internal.asUnitsImpl;
-
-/**
- * Gets the inverse price as a decimal string in base currency units per quote currency unit.
- *
- * @example
- * ```typescript
- * import { Token, makeFromUnits, asFlippedUnits, BigMath } from "@effect/crypto"
- * import { Option } from "effect"
- *
- * const BTC = Token.makeTestToken("BTC", 8)
- * const USDT = Token.makeTestToken("USDT", 6)
- *
- * const btcPrice = Option.getOrThrow(makeFromUnits(
- *   BTC,
- *   USDT,
- *   BigMath.Ratio.fromString("50000.00")
- * ))
- * const flippedStr = asFlippedUnits(btcPrice) // "0.00002"
- * ```
- */
-export const asFlippedUnits: {
-  <T extends Token.TokenType>(price: TokenPrice<T>): BigDecimal;
-} = internal.asFlippedUnitsImpl;
+export const asRatio: {
+  <T extends Token.TokenType>(price: TokenPrice<T>): BigMath.Ratio;
+} = internal.asRatioImpl;
 
 /**
  * Gets the price in Uniswap v3's sqrt(Q64.96) format.
@@ -295,6 +234,10 @@ export const asSqrt: {
   <T extends Token.TokenType>(price: TokenPrice<T>): BigMath.Ratio;
 } = internal.asSqrtImpl;
 
+export const asSqrtQ64_96: {
+  <T extends Token.TokenType>(price: TokenPrice<T>): Option.Option<BigMath.Q64x96>;
+} = internal.asSqrtQ64_96Impl;
+
 /**
  * Projects an input amount of one token to the equivalent amount of the other token
  * based on the price ratio.
@@ -318,6 +261,7 @@ export const asSqrt: {
  *   // usdtAmount.value will be 75000.00 USDT
  * }
  * ```
+ * @deprecated DO NOT USE THIS FUNCTION. IT NOT TESTED AND NOT GUARANTEED TO BE CORRECT.
  */
 export const projectAmount: {
   <T extends Token.TokenType>(
@@ -325,6 +269,39 @@ export const projectAmount: {
     inputAmount: TokenVolume.TokenVolume<T>,
   ): Option.Option<TokenVolume.TokenVolume<T>>;
 } = internal.projectAmountImpl;
+
+/**
+ * Given a price and one of its tokens, returns the other token.
+ * Returns `Option.none()` if the input token is not part of the price pair.
+ *
+ * @example
+ * ```typescript
+ * import { Token, BigMath } from "@liquidity_lab/effect-crypto";
+ * import { Price } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Option } from "effect";
+ *
+ * declare const BTC: Token.Erc20Token;
+ * declare const USDT: Token.Erc20Token;
+ *
+ * // Use Price.makeFromUnits to create the price
+ * const btcPrice = Option.getOrThrow(
+ *   Price.makeFromUnits(BTC, USDT, BigMath.Ratio(Big("70001.00")))
+ * );
+ *
+ * // Use Price.projectedToken
+ * const otherToken1 = Price.projectedToken(btcPrice, BTC); // Option.some(USDT)
+ * const otherToken2 = Price.projectedToken(btcPrice, USDT); // Option.some(BTC)
+ *
+ * declare const ETH: Token.NativeToken;
+ * const otherToken3 = Price.projectedToken(btcPrice, ETH); // Option.none()
+ * ```
+ */
+export const projectedToken: {
+  <T extends Token.TokenType>(
+    price: TokenPrice<T>,
+    inputToken: Token.Token<T>,
+  ): Option.Option<Token.Token<T>>;
+} = internal.projectedTokenImpl;
 
 /**
  * Returns true if the given token is either the base or quote currency.
@@ -378,6 +355,7 @@ export const prettyPrint: {
  * Generates token price for the given pair of tokens
  */
 export const tokenPriceGen: {
+  // TODO: docs
   <T0 extends Token.TokenType, T1 extends Token.TokenType>(
     token0: Token.Token<T0>,
     token1: Token.Token<T1>,
@@ -387,4 +365,12 @@ export const tokenPriceGen: {
       maxScale?: number;
     },
   ): Arbitrary<TokenPrice<T0 | T1>>;
+  <T extends Token.TokenType>(
+    tokenType: T,
+    constraints?: {
+      min?: BigMath.Ratio;
+      max?: BigMath.Ratio;
+      maxScale?: number;
+    },
+  ): Arbitrary<TokenPrice<T>>;
 } = internal.tokenPriceGenImpl;
