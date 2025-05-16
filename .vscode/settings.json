@@ -1,3 +1,8 @@
 {
-  "typescript.tsdk": "node_modules/typescript/lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "terminal.integrated.shellIntegration.enabled": true,
+  "terminal.integrated.defaultProfile.osx": "bash",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "cursor.terminal.usePreviewBox": true,
+  "terminal.integrated.automationProfile.osx": {},
 }

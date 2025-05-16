@@ -12,6 +12,9 @@
     },
     {
       "path": "packages/effect-crypto"
+    },
+    {
+      "path": "packages/effect-crypto-uniswap"
     }
   ]
 }

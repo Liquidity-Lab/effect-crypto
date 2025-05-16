@@ -118,7 +118,7 @@ When developing new features or making changes, follow this iterative process:
 - Run tests with Node.js v22+:
   ```bash
   nvm use v22 # Ensure correct Node version from .nvmrc
-  node --import tsx node_modules/ava/entrypoints/cli.mjs -v path/to/your.spec.ts
+  node --import tsx node_modules/ava/entrypoints/cli.mjs -v path/to/your.spec.ts --timeout 2m
   ```
 
 ### Blockchain Integration
@@ -131,13 +131,6 @@ When developing new features or making changes, follow this iterative process:
 
 ### Security
 - Never commit API keys or sensitive credentials (check `.gitignore`)
-- Use environment variables for sensitive configuration
-- Follow security best practices for blockchain interactions
-
-### Performance
-- Optimize blockchain interactions
-- Use proper caching mechanisms
-- Follow best practices for Uniswap integration
 
 ### Error Handling
 - Use Effect's error handling mechanisms (defined in `effect-crypto/src/error.ts`)

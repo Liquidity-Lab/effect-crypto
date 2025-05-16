@@ -1,4 +1,4 @@
-import { Array, Effect, Either, Option } from "effect";
+import { Array, Brand, Effect, Either, Option } from "effect";
 import { LazyArg } from "effect/Function";
 /**
  * Generates an Either value using the provided generators for left and right values.
@@ -24,9 +24,8 @@ import type { Arbitrary } from "fast-check";
 
 // TODO: circular dependency utils on effect-crypto and forth
 import * as Adt from "../adt.js";
+import * as BrandUtils from "./brandUtils.js";
 import * as internal from "./effectUtils.internal.js";
-
-// Import internal
 
 export function getOrFail<A, E>(fa: Option.Option<A>, onNone: LazyArg<E>): Effect.Effect<A, E> {
   return Option.match(fa, {
@@ -47,6 +46,15 @@ export function getOrFailSimpleEither<A>(
 export function getOrFailEither<A, E>(fa: Either.Either<A, E>): Effect.Effect<A, E> {
   return Either.match(fa, {
     onLeft: (cause) => Effect.fail(cause),
+    onRight: (a) => Effect.succeed(a),
+  });
+}
+
+export function getOrFailBrandErrors<A>(
+  fa: Either.Either<A, Brand.Brand.BrandErrors>,
+): Effect.Effect<A, Adt.FatalError> {
+  return Either.match(fa, {
+    onLeft: (errors) => Effect.fail(Adt.FatalErrorString(BrandUtils.stringifyBrandErrors(errors))),
     onRight: (a) => Effect.succeed(a),
   });
 }

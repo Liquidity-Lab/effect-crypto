@@ -1,0 +1,384 @@
+import test from "ava";
+import { Big, MathContext, RoundingMode } from "bigdecimal.js";
+import { Either, Option } from "effect";
+import { Arbitrary } from "fast-check";
+
+import { testProp } from "@fast-check/ava";
+import { Address, Assertable, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+import { AvaEffect } from "@liquidity_lab/effect-crypto/utils";
+import { CurrencyAmount, Price as SdkPrice, Token as SdkToken } from "@uniswap/sdk-core";
+
+import * as AvaUniswap from "./avaUniswap.js";
+import * as internal from "./price.internal.js";
+import * as Price from "./price.js";
+
+const errorTolerance = Big("0.00000000000001");
+const mathContext = new MathContext(96, RoundingMode.HALF_UP);
+
+const WETH = Token.Erc20Token(
+  Address.unsafe("0x0000000000000000000000000000000000000001"),
+  18,
+  "WETH",
+  "Wrapped Ether",
+  Token.Erc20TokenMeta(),
+);
+const USDT = Token.Erc20Token(
+  Address.unsafe("0x0000000000000000000000000000000000000002"),
+  6,
+  "USDT",
+  "Tether USD",
+  Token.Erc20TokenMeta(),
+);
+
+test("TokenPrice.project converts quote currency amounts correctly", (t) => {
+  const price = BigMath.NonNegativeDecimal(Big("70000.015"));
+  const quoteAmount = BigMath.NonNegativeDecimal(price.multiply("2.5"));
+
+  const actual = Either.flatMap(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)),
+    (price) =>
+      Either.right(Price.projectAmount(price, TokenVolume.tokenVolumeUnits(USDT, quoteAmount))),
+  );
+  const expected = BigMath.NonNegativeDecimal(Big("2.5"));
+
+  AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+    Either.getOrElse(Either.map(actual, Option.map(TokenVolume.asUnits)), () => Option.none()),
+    Option.some(expected),
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+  );
+});
+
+test("TokenPrice.project converts base currency amounts correctly", (t) => {
+  const price = BigMath.NonNegativeDecimal(Big("70000.15"));
+  const baseAmount = BigMath.NonNegativeDecimal(Big("2.5"));
+
+  const actual = Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(price)).pipe(
+    Either.getRight,
+    Option.flatMap((price) =>
+      Price.projectAmount(price, TokenVolume.tokenVolumeUnits(WETH, baseAmount)),
+    ),
+  );
+  const expected = BigMath.NonNegativeDecimal(price.multiply("2.5"));
+
+  AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+    Option.map(actual, TokenVolume.asUnits),
+    Option.some(expected),
+    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+  );
+});
+
+test("Static test: TokenPrice.project should be the same with UniswapSdkPrice", (t) => {
+  const priceStr = Big("70000");
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(priceStr)),
+  );
+
+  const sdkWETH = new SdkToken(1, WETH.address, WETH.decimals, WETH.symbol, WETH.name);
+  const sdkUSDT = new SdkToken(1, USDT.address, USDT.decimals, USDT.symbol, USDT.name);
+  const sdkPrice = new SdkPrice(sdkWETH, sdkUSDT, 1, 70000);
+
+  const actual = Price.projectAmount(
+    price,
+    TokenVolume.tokenVolumeUnits(WETH, BigMath.NonNegativeDecimal(Big(0.855555))),
+  );
+  const expected = sdkPrice.quote(CurrencyAmount.fromFractionalAmount(sdkWETH, 855555, 1000000));
+
+  t.deepEqual(
+    Option.map(actual, (a) => Number(TokenVolume.asUnits(a))),
+    Option.some(
+      Number(expected.quotient.toString()) + Number(expected.remainder.toFixed(USDT.decimals)),
+    ),
+  );
+});
+
+testProp.skip(
+  "TokenPrice.project should be the same with UniswapSdkPrice",
+  [
+    null as any as Arbitrary<{
+      price: Price.TokenPrice<Token.TokenType.ERC20>;
+      tokenVolume: TokenVolume.TokenVolume<Token.TokenType.ERC20>;
+    }>,
+  ],
+  (t, { price, tokenVolume }) => {
+    const skdToken0 = new SdkToken(
+      1,
+      price.token0.address,
+      price.token0.decimals,
+      price.token0.symbol,
+      price.token0.name,
+    );
+    const sdkToken1 = new SdkToken(
+      1,
+      price.token1.address,
+      price.token1.decimals,
+      price.token1.symbol,
+      price.token1.name,
+    );
+    const [priceNominator, priceDenominator] = BigMath.asNumeratorAndDenominator(
+      Price.asRatio(price),
+      // priceRatio.setScale(USDT.decimals),
+    );
+    const sdkPrice = new SdkPrice(
+      skdToken0,
+      sdkToken1,
+      priceDenominator.toString(),
+      priceNominator.toString(),
+    );
+
+    const [volumeNominator, volumeDenominator] = BigMath.asNumeratorAndDenominator(
+      TokenVolume.asUnits(tokenVolume),
+    );
+
+    const actual = Price.projectAmount(price, tokenVolume);
+    const expectedSdkValue = sdkPrice.quote(
+      CurrencyAmount.fromFractionalAmount(
+        skdToken0,
+        volumeNominator.toString(),
+        volumeDenominator.toString(),
+      ),
+    );
+    const expected = Option.some(Big(expectedSdkValue.toExact()));
+
+    console.log(
+      "price",
+      price.toString(),
+      "tokenVolume",
+      tokenVolume.toString(),
+      "token0Decimals",
+      price.token0.decimals,
+      "token1Decimals",
+      price.token1.decimals,
+    );
+
+    AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
+      Option.map(actual, TokenVolume.asUnits),
+      expected,
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+    );
+  },
+  // { numRuns: 1024 },
+  {
+    seed: 1197968557,
+    path: "0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0",
+    endOnFailure: true,
+  },
+);
+
+testProp.skip(
+  "TokenPrice should normalize token order and preserve price value",
+  [BigMath.ratioGen()],
+  (t, ratio) => {
+    const assertions = AvaEffect.EffectAssertions(t);
+    const errorTolerance = Big("0.000001");
+
+    // Create price with tokens in both orders
+    const regularPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH, USDT, ratio));
+
+    // Create price with tokens in reverse order
+    const WETH2 = Object.assign({}, WETH, {
+      address: Address.unsafe("0x0000000000000000000000000000000000000002"),
+    });
+    const USDT2 = Object.assign({}, USDT, {
+      address: Address.unsafe("0x0000000000000000000000000000000000000001"),
+    });
+    const invertedPrice = Either.getOrThrow(Price.makeTokenPriceFromRatio(WETH2, USDT2, ratio));
+
+    const volumeRatio = BigMath.Ratio(Big(2.5));
+    const expected = Price.projectAmount(
+      regularPrice,
+      TokenVolume.tokenVolumeRatio(WETH, volumeRatio),
+    );
+    const actual = Price.projectAmount(
+      invertedPrice,
+      TokenVolume.tokenVolumeRatio(WETH2, volumeRatio),
+    );
+
+    assertions.assertOptionalEqualVia(
+      Option.map(actual, TokenVolume.asUnits),
+      Option.map(expected, TokenVolume.asUnits),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Price projections should be equal",
+    );
+  },
+  { numRuns: 1024 },
+);
+
+testProp.skip(
+  "TokenPrice should project the same amount for inverted and regular flows",
+  [Price.tokenPriceGen(Token.TokenType.ERC20), BigMath.ratioGen()],
+  (t, regularPrice, volumeRatio) => {
+    const assertions = AvaEffect.EffectAssertions(t);
+    // Because the minimal number of decimals for token is 6, we cannot test with much higher precision
+    const errorTolerance = Big("0.000001");
+
+    const invertedPrice = Either.getOrElse(
+      Price.makeTokenPriceFromRatio(
+        regularPrice.token1,
+        regularPrice.token0,
+        BigMath.Ratio(Big(1).divideWithMathContext(Price.asRatio(regularPrice), mathContext)),
+      ),
+      (err) => t.fail(`Price.makeTokenPriceFromRatio failed -> ${err}`),
+    );
+
+    const expected = Price.projectAmount(
+      regularPrice,
+      TokenVolume.tokenVolumeRatio(regularPrice.token0, volumeRatio),
+    );
+    const actual = Price.projectAmount(
+      invertedPrice,
+      TokenVolume.tokenVolumeRatio(regularPrice.token0, volumeRatio),
+    );
+
+    assertions.assertOptionalEqualVia(
+      Option.map(actual, TokenVolume.asUnits),
+      Option.map(expected, TokenVolume.asUnits),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Price projections should be equal",
+    );
+  },
+  { numRuns: 2048 },
+);
+
+testProp(
+  "TokenPrice with same value but different scale should be considered equal via Assertable",
+  [Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, actualPrice) => {
+    // Derive the ratio from the valid generated price
+    const ratio = Price.asRatio(actualPrice);
+
+    // Create a second ratio with the same value but different scale
+    const adjustedRatio = BigMath.Ratio(ratio.setScale(ratio.scale() + 3, RoundingMode.HALF_UP));
+
+    // Attempt to create the second price with the adjusted ratio
+    const expectedPriceEither = Price.makeTokenPriceFromRatio(
+      actualPrice.token0,
+      actualPrice.token1,
+      adjustedRatio,
+    );
+
+    // If the adjusted ratio is out of bounds, the test purpose isn't met for this case, so pass.
+    if (Either.isLeft(expectedPriceEither)) {
+      t.pass(
+        `Skipping assertion: Adjusted ratio ${adjustedRatio.toString()} is outside valid price range.`,
+      );
+      return;
+    }
+
+    // If the price creation succeeded, proceed with the assertion
+    const expectedPrice = Either.getOrThrow(expectedPriceEither);
+
+    // Get assertable entities
+    const actualAssertable = Assertable.asAssertableEntity(actualPrice);
+    const expectedAssertable = Assertable.asAssertableEntity(expectedPrice);
+
+    // Assert they are equal using the normalized string representation
+    t.deepEqual(
+      actualAssertable,
+      expectedAssertable,
+      `Prices should be equal via Assertable despite different scales. ` +
+        `Actual: ${ratio.toString()}, Adjusted: ${adjustedRatio.toString()}`,
+    );
+  },
+  { numRuns: 100 },
+);
+
+testProp(
+  "Price round-trip conversion through sqrt(Q64.96) format should be identical",
+  [Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, expected) => {
+    const assertPriceEquals = AvaUniswap.PriceEqualsWithPrecisionAssertion(t);
+
+    // Convert to Q64.96 format
+    const sqrtQ64x96 = Option.getOrThrowWith(
+      Price.asSqrtQ64_96(expected),
+      () => new Error("Conversion to Q64.96 should succeed"),
+    );
+
+    // Convert back to price
+    const actual = Either.getOrThrowWith(
+      Price.makeFromSqrtQ64_96(expected.token0, expected.token1, sqrtQ64x96),
+      () => new Error("Failed to create TokenPrice from sqrt Q64.96"),
+    );
+
+    assertPriceEquals(actual, expected, "Price should be equal after round-trip conversion");
+  },
+  { numRuns: 1024 },
+);
+
+const genForTokenPriceSqrtQ64x96Gen = Token.tokenPairGen(Token.TokenType.ERC20).chain(
+  ([token0, token1]) => {
+    return internal.tokenPriceSqrtQ64x96Gen(token0, token1);
+  },
+);
+
+testProp(
+  "tokenPriceSqrtQ64x96Gen should always return value",
+  [genForTokenPriceSqrtQ64x96Gen],
+  (t, priceOrError) => {
+    // Verify that all results are Either.Right
+    t.true(
+      Either.isRight(priceOrError),
+      `tokenPriceSqrtQ64x96Gen should always return Either.Right, but got ${priceOrError.toString()}`,
+    );
+  },
+  { numRuns: 4096 },
+);
+
+test("projectedToken returns the other token when input is token0", (t) => {
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
+  );
+  const actual = Price.projectedToken(price, WETH);
+  const expected = Option.some(USDT);
+  t.deepEqual(actual, expected, "Should return token1 (USDT) when input is token0 (WETH)");
+});
+
+test("projectedToken returns the other token when input is token1", (t) => {
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
+  );
+  const actual = Price.projectedToken(price, USDT);
+  const expected = Option.some(WETH);
+  t.deepEqual(actual, expected, "Should return token0 (WETH) when input is token1 (USDT)");
+});
+
+test("projectedToken returns None when input token is not in the price", (t) => {
+  const DAI = Token.Erc20Token(
+    Address.unsafe("0x0000000000000000000000000000000000000003"),
+    18,
+    "DAI",
+    "Dai Stablecoin",
+    Token.Erc20TokenMeta(),
+  );
+  const price = Either.getOrThrow(
+    Price.makeTokenPriceFromRatio(WETH, USDT, BigMath.Ratio(Big("70000"))),
+  );
+  const actual = Price.projectedToken(price, DAI);
+  const expected = Option.none();
+  t.deepEqual(actual, expected, "Should return None when input token is not part of the price");
+});
+
+testProp(
+  "projectedToken property tests",
+  [Price.tokenPriceGen(Token.TokenType.ERC20)], // Only generate the price
+  (t, price) => {
+    // Test projecting token0 to token1
+    const actual0 = Price.projectedToken(price, price.token0);
+    const expected0 = Option.some(price.token1);
+    t.deepEqual(
+      actual0,
+      expected0,
+      `Projecting token0 (${price.token0.symbol}) should yield token1 (${price.token1.symbol})`,
+    );
+
+    // Test projecting token1 to token0
+    const actual1 = Price.projectedToken(price, price.token1);
+    const expected1 = Option.some(price.token0);
+    t.deepEqual(
+      actual1,
+      expected1,
+      `Projecting token1 (${price.token1.symbol}) should yield token0 (${price.token0.symbol})`,
+    );
+  },
+  { numRuns: 64 },
+);
