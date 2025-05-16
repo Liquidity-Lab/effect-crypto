@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@arbitrum/token-bridge-contracts": "1.2.3",
+    "@tsconfig/node22": "22.0.1",
     "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-periphery": "1.4.4"
   }
