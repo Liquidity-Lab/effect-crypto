@@ -1,6 +1,9 @@
 import { Array, Effect, Either, Option } from "effect";
 import { LazyArg } from "effect/Function";
 /**
+ * @file packages/effect-crypto/src/utils/effectUtils.ts
+ */
+/**
  * Generates an Either value using the provided generators for left and right values.
  *
  * @example
@@ -58,29 +61,35 @@ export function getOrDieEither<A>(fa: Either.Either<A, unknown>): Effect.Effect<
   });
 }
 
+type ExtractValues<T extends readonly Either.Either<any, any>[]> = {
+  [K in keyof T]: T[K] extends Either.Either<infer V, any> ? V : never;
+};
+
+type ExtractError<T extends readonly Either.Either<any, any>[]> =
+  T[number] extends Either.Either<any, Array.NonEmptyArray<infer E>> ? E : never;
+
 /**
  * Maps a tuple of Eithers to a single Either, collecting all errors if any Either is a Left.
  * If all Eithers are Right, it applies the function `f` to the collected values.
- * The error type for each Either in the input tuple must be `Array.NonEmptyArray<E>`.
+ * The error type for each Either in the input tuple must be `Array.NonEmptyArray<E>` and must be the same for all elements.
  * All collected errors are concatenated into a single `Array.NonEmptyArray<E>`.
  *
  * @example
- * ```typescript
  * import { Array, Either } from "effect";
- * import { EffectUtils } from "effect-crypto/utils"; // Assuming this path
+ * import { EffectUtils } from "effect-crypto/utils";
  *
  * type MyError = string;
  * type ErrorType = Array.NonEmptyArray<MyError>;
  *
  * const a: Either.Either<number, ErrorType> = Either.right(1);
- * const b: Either.Either<string, ErrorType> = Either.left(Array.make("Error B") as ErrorType);
- * const c: Either.Either<boolean, ErrorType> = Either.left(Array.make("Error C1", "Error C2") as ErrorType);
+ * const b: Either.Either<string, ErrorType> = Either.left(Array.make("Error B"));
+ * const c: Either.Either<boolean, ErrorType> = Either.left(Array.make("Error C1", "Error C2"));
  *
  * const result = EffectUtils.mapParN(
- *   [a, b, c] as const, // Use 'as const' for precise tuple typing if needed
+ *   [a, b, c],
  *   ([num, str, bool]) => `Number: ${num}, String: ${str}, Boolean: ${bool}`
  * );
- * // result will be Either.left(Array.make("Error B", "Error C1", "Error C2") as ErrorType)
+ * // result will be Either.left(Array.make("Error B", "Error C1", "Error C2"))
  *
  * const allGoodInput: [Either.Either<number, ErrorType>, Either.Either<string, ErrorType>] = [
  *  Either.right(10),
@@ -91,21 +100,18 @@ export function getOrDieEither<A>(fa: Either.Either<A, unknown>): Effect.Effect<
  *  ([n, s]) => ({ n, s })
  * );
  * // allGood will be Either.right({ n: 10, s: "hello" })
- * ```
- * @template Values - A readonly array of types representing the success values of the input Eithers.
- * @template E - The type of the individual error elements.
- * @template R - The return type of the mapping function `f`.
- * @param eithers - A tuple of Eithers.
- * @param f - A function to apply to the collected success values if all Eithers are Right.
- * @returns An Either containing the result of `f` or a non-empty array of collected errors.
  */
 export const mapParN: {
-  <Values extends ReadonlyArray<any>, E, R>(
-    eithers: readonly [
-      ...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> },
+  <
+    T extends readonly [
+      Either.Either<any, Array.NonEmptyArray<any>>,
+      ...Either.Either<any, Array.NonEmptyArray<any>>[],
     ],
-    f: (values: [...Values]) => R,
-  ): Either.Either<R, Array.NonEmptyArray<E>>;
+    A,
+  >(
+    eithers: T,
+    f: (values: ExtractValues<T>) => A,
+  ): Either.Either<A, Array.NonEmptyArray<ExtractError<T>>>;
 } = internal.mapParNImpl;
 
 export const eitherGen: <L, R>(

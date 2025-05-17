@@ -61,11 +61,6 @@ test("mapParN - should work with a single Either (Left case)", (t: ExecutionCont
   t.deepEqual(result, Either.left(Array.make(error)));
 });
 
-test("mapParN - should return Right with mapped value for empty input tuple", (t: ExecutionContext) => {
-  const result = EffectUtils.mapParN([], () => "empty result");
-  t.deepEqual(result, Either.right("empty result"));
-});
-
 // Property-based tests for mapParN using eitherGen
 
 testProp(
