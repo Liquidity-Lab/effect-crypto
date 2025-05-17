@@ -1,5 +1,5 @@
 // packages/effect-crypto-uniswap/src/position.ts
-import { Either, Option, Pipeable } from "effect";
+import { Array, Either, Option, Pipeable } from "effect";
 
 import { BigMath, Token } from "@liquidity_lab/effect-crypto";
 import { TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -23,9 +23,9 @@ export interface PositionDraft {
   readonly poolId: Pool.PoolState;
 
   /** The lower tick boundary of the position - defines the lower price limit */
-  readonly tickLower: Tick.Tick;
+  readonly tickLower: Tick.UsableTick;
   /** The upper tick boundary of the position - defines the upper price limit */
-  readonly tickUpper: Tick.Tick;
+  readonly tickUpper: Tick.UsableTick;
   /** The current tick of the pool - represents the current price */
   readonly tickCurrent: Tick.Tick;
 
@@ -129,25 +129,34 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   readonly slot0: Pool.Slot0; // Current pool state (sqrtPriceX96, tick, etc.)
 
   // --- Optional bounds (stored as Either to capture calculation/validation errors) ---
-  readonly lowerBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"lowerBoundTick">>;
-  readonly upperBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"upperBoundTick">>;
+  readonly lowerBoundTick?: Either.Either<
+    Tick.UsableTick,
+    Array.NonEmptyArray<BuilderError<"lowerBoundTick">>
+  >;
+  readonly upperBoundTick?: Either.Either<
+    Tick.UsableTick,
+    Array.NonEmptyArray<BuilderError<"upperBoundTick">>
+  >;
 
   // --- Optional amount/liquidity definition (stored as Either to capture calculation/validation errors) ---
   /**
    * Stores the liquidity if it's set directly or calculated from amounts.
    * This field acts as the primary driver for final calculations if present and valid.
    */
-  readonly liquidity?: Either.Either<Pool.Liquidity, BuilderError<"calculation">>;
+  readonly liquidity?: Either.Either<
+    Pool.Liquidity,
+    Array.NonEmptyArray<BuilderError<"liquidity">>
+  >;
   /**
    * Stores the maximum desired amount of token0 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount0?: Either.Either<Adt.Amount0, BuilderError<"maxAmount0">>;
+  readonly maxAmount0?: Either.Either<Adt.Amount0, Array.NonEmptyArray<BuilderError<"maxAmount0">>>;
   /**
    * Stores the maximum desired amount of token1 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount1?: Either.Either<Adt.Amount1, BuilderError<"maxAmount1">>;
+  readonly maxAmount1?: Either.Either<Adt.Amount1, Array.NonEmptyArray<BuilderError<"maxAmount1">>>;
 
   /**
    * Helper flag to indicate which method was used to define the position size.
@@ -205,7 +214,7 @@ export type BuilderReady = EmptyState & StateWithBounds & StateWithSize;
  */
 export type AggregateBuilderError = {
   readonly _tag: "AggregateBuilderError"; // TODO: FIX TAGS
-  readonly errors: ReadonlyArray<BuilderError>;
+  readonly errors: Array.NonEmptyArray<BuilderError>;
 };
 
 /**

@@ -90,7 +90,12 @@ export function getRatio(tick: T.Tick): BigDecimal {
 }
 
 export function isUsableTickImpl(tick: unknown): tick is T.UsableTick {
-  return typeof tick === "object" && tick !== null && "_tag" in tick && tick._tag === "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick";
+  return (
+    typeof tick === "object" &&
+    tick !== null &&
+    "_tag" in tick &&
+    tick._tag === "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick"
+  );
 }
 
 /** Calculates sqrt(1.0001 ^ tick)

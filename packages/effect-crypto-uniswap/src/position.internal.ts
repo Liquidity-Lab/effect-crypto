@@ -1,7 +1,8 @@
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import { Either, Option } from "effect";
+import { Array, Either, Option, identity } from "effect";
 
 import { BigMath } from "@liquidity_lab/effect-crypto";
+import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
 import * as Internal from "./internal.js";
@@ -19,57 +20,6 @@ import * as Tick from "./tick.js";
 //     readonly fee: Adt.FeeAmount,
 //   ) {}
 // }
-
-class PositionDraftLive implements T.PositionDraft {
-  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
-
-  private constructor(
-    readonly poolId: Pool.PoolState,
-    readonly tickLower: Tick.UsableTick,
-    readonly tickUpper: Tick.UsableTick,
-    readonly tickCurrent: Tick.Tick,
-    readonly desiredAmount0: Adt.Amount0,
-    readonly desiredAmount1: Adt.Amount1,
-    readonly liquidity: Pool.Liquidity,
-    readonly sqrtRatio: BigMath.Ratio,
-  ) { }
-
-  static make(
-    poolId: Pool.PoolState,
-    tickLower: Tick.UsableTick,
-    tickUpper: Tick.UsableTick,
-    tickCurrent: Tick.Tick,
-    desiredAmount0: Adt.Amount0,
-    desiredAmount1: Adt.Amount1,
-    liquidity: Pool.Liquidity,
-    sqrtRatio: BigMath.Ratio,
-  ): Either.Either<T.PositionDraft, readonly T.BuilderError[]> {
-    if (tickLower >= tickUpper) {
-      return Either.left([BuilderErrorLive.validation(`TickLower[${tickLower.unwrap}] must be less than TickUpper[${tickUpper.unwrap}]`)]);
-    }
-
-    Either.zipWith()
-
-    if (tickLower.spacing !== tickUpper.spacing) {
-      return Either.left([BuilderErrorLive.validation(`TickLower.spacing[${tickLower.spacing}] and TickUpper.spacing[${tickUpper.spacing}] must be the same`)]);
-    }
-
-    return Either.right(
-      new PositionDraftLive(
-        poolId,
-        tickLower,
-        tickUpper,
-        tickCurrent,
-        desiredAmount0,
-        desiredAmount1,
-        liquidity,
-        sqrtRatio,
-      ),
-    );
-  }
-}
-
-export const makePositionDraft = PositionDraftLive.make;
 
 /**
  * @internal
@@ -111,14 +61,13 @@ class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation
   }
 
   /**
-   * Creates a `BuilderError` specifically for calculation-related issues.
+   * Creates a `BuilderError` specifically for liquidity-related issues.
    *
    * @param message - The specific error message.
-   * @returns A new `BuilderErrorLive<"calculation">` instance, typed as `T.BuilderError<"calculation">`.
+   * @returns A new `BuilderErrorLive<"liquidity">` instance, typed as `T.BuilderError<"liquidity">`.
    */
-  static calculation(message: string): T.BuilderError<"calculation"> {
-    // Use the private constructor, setting the field explicitly
-    return new BuilderErrorLive("calculation", message);
+  static liquidity(message: string): T.BuilderError<"liquidity"> {
+    return new BuilderErrorLive("liquidity", message);
   }
 
   /**
@@ -132,6 +81,75 @@ class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation
   }
 }
 
+class PositionDraftLive implements T.PositionDraft {
+  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
+
+  private constructor(
+    readonly poolId: Pool.PoolState,
+    readonly tickLower: Tick.UsableTick,
+    readonly tickUpper: Tick.UsableTick,
+    readonly tickCurrent: Tick.Tick,
+    readonly desiredAmount0: Adt.Amount0,
+    readonly desiredAmount1: Adt.Amount1,
+    readonly liquidity: Pool.Liquidity,
+    readonly sqrtRatio: BigMath.Ratio,
+  ) { }
+
+  static make(
+    poolId: Pool.PoolState,
+    tickLower: Tick.UsableTick,
+    tickUpper: Tick.UsableTick,
+    tickCurrent: Tick.Tick,
+    desiredAmount0: Adt.Amount0,
+    desiredAmount1: Adt.Amount1,
+    liquidity: Pool.Liquidity,
+    sqrtRatio: BigMath.Ratio,
+  ): Either.Either<T.PositionDraft, Array.NonEmptyArray<T.BuilderError<"validation">>> {
+    return EffectUtils.mapParN(
+      [
+        Either.right([tickLower, tickUpper]).pipe(
+          Either.filterOrLeft(
+            ([tickLower, tickUpper]) => tickLower >= tickUpper,
+            () =>
+              Array.make(
+                BuilderErrorLive.validation(
+                  `TickLower[${tickLower.unwrap}] must be less than TickUpper[${tickUpper.unwrap}]`,
+                ),
+              ),
+          ),
+        ),
+        Either.right(poolId).pipe(
+          Either.filterOrLeft(
+            (poolId) =>
+              Tick.toTickSpacing(poolId.fee) === tickLower.spacing &&
+              tickLower.spacing === tickUpper.spacing,
+            () =>
+              Array.make(
+                BuilderErrorLive.validation(
+                  `TickLower.spacing[${tickLower.spacing}] and ` +
+                  `TickUpper.spacing[${tickUpper.spacing}] must be the same as pool spacing[${Tick.toTickSpacing(poolId.fee)}]`,
+                ),
+              ),
+          ),
+        ),
+      ],
+      ([[tickLower, tickUpper], poolId]) =>
+        new PositionDraftLive(
+          poolId,
+          tickLower,
+          tickUpper,
+          tickCurrent,
+          desiredAmount0,
+          desiredAmount1,
+          liquidity,
+          sqrtRatio,
+        ),
+    );
+  }
+}
+
+export const makePositionDraft = PositionDraftLive.make;
+
 export function calculatePositionDraftFromLiquidity(
   poolId: Pool.PoolState,
   sqrtPrice: BigMath.Ratio,
@@ -139,8 +157,10 @@ export function calculatePositionDraftFromLiquidity(
   tickLower: Tick.UsableTick,
   tickUpper: Tick.UsableTick,
   tickCurrent: Tick.Tick,
-): Either.Either<T.PositionDraft, readonly T.BuilderError[]> {
-
+): Either.Either<
+  T.PositionDraft,
+  Array.NonEmptyArray<T.BuilderError<"calculation" | "validation">>
+> {
   const [amount0Desired, amount1Desired] = mintAmountsImpl(
     tickCurrent,
     tickLower,
@@ -160,7 +180,7 @@ export function calculatePositionDraftFromLiquidity(
     sqrtPrice,
   );
 
-  return Either.right(positionDraft);
+  return positionDraft;
 }
 
 export function calculatePositionDraftFromAmounts(
@@ -403,9 +423,11 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
   // Step 2: Apply the user's tickFn to the nearest usable tick.
   // The tickFn itself returns an Option, which we need to handle.
   const lowerBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
-    BuilderErrorLive.lowerBoundTick(
-      "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
-      "Ensure the function returns Some(UsableTick) for a valid lower bound.",
+    Array.make(
+      BuilderErrorLive.lowerBoundTick(
+        "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
+        "Ensure the function returns Some(UsableTick) for a valid lower bound.",
+      ),
     ),
   );
 
@@ -452,10 +474,12 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
   // Step 2: Apply the user's tickFn to the nearest usable tick.
   // The tickFn itself returns an Option, which we need to handle.
   const upperBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
-    BuilderErrorLive.upperBoundTick(
-      // Use the new error type for upper bound
-      "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
-      "Ensure the function returns Some(UsableTick) for a valid upper bound.",
+    Array.make(
+      BuilderErrorLive.upperBoundTick(
+        // Use the new error type for upper bound
+        "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
+        "Ensure the function returns Some(UsableTick) for a valid upper bound.",
+      ),
     ),
   );
 
@@ -483,9 +507,11 @@ export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
   readonly _tag = "AggregateBuilderError";
 
-  constructor(readonly errors: ReadonlyArray<T.BuilderError>) { }
+  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) { }
 
-  static fromBuilderError(error: T.BuilderError | ReadonlyArray<T.BuilderError>): AggregateBuilderErrorLive {
+  static fromBuilderError(
+    error: T.BuilderError | Array.NonEmptyArray<T.BuilderError>,
+  ): T.AggregateBuilderError {
     return new AggregateBuilderErrorLive(Array.isArray(error) ? error : [error]);
   }
 }
@@ -494,18 +520,18 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
   builder: S,
 ): Either.Either<T.PositionDraft, T.AggregateBuilderError> {
   if (Either.isEither(builder.liquidity)) {
-    return Either.all([builder.liquidity, builder.lowerBoundTick, builder.upperBoundTick]).pipe(
-      Either.mapLeft((err) => [err]),
-      Either.flatMap(([liquidity, tickLower, tickUpper]) => 
-        calculatePositionDraftFromLiquidity(
-          builder.pool,
-          Price.asSqrt(builder.slot0.price),
-          liquidity,
-          tickLower,
-          tickUpper,
-          builder.slot0.tick,
-        ),
+    return EffectUtils.mapParN(
+      [builder.liquidity, builder.lowerBoundTick, builder.upperBoundTick],
+      ([liquidity, tickLower, tickUpper]) => calculatePositionDraftFromLiquidity(
+        builder.pool,
+        Price.asSqrt(builder.slot0.price),
+        liquidity,
+        tickLower,
+        tickUpper,
+        builder.slot0.tick,
       ),
+    ).pipe(
+      Either.flatMap(identity),
       Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError),
     );
   }

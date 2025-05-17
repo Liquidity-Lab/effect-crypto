@@ -196,7 +196,7 @@ export interface UsableTick {
  * @example
  * ```typescript
  * const usableTick = Tick.makeUsableTick(Tick.Tick(120), Tick.toTickSpacing(Adt.FeeAmount.MEDIUM));
- * 
+ *
  * if (isUsable(usableTick)) {
  *   const refinedValue = usableTick;
  *   //     ^? UsableTick
