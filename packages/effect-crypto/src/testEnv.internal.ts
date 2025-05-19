@@ -12,9 +12,9 @@ import {
 
 // import WETH9 from "@arbitrum/token-bridge-contracts/build/contracts/contracts/tokenbridge/libraries/aeWETH.sol/aeWETH.json";
 // import ERC20 from "@liquidity_lab/sol-artifacts/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json";
-import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json";
-import USDCLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDCLabs.sol/USDCLabs.json";
-import USDTLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDTLabs.sol/USDTLabs.json";
+import ETHLabs from "@liquidity_lab/sol-artifacts/dist/contracts/ETHLabs.sol/ETHLabs.json" with { type: "json" };
+import USDCLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDCLabs.sol/USDCLabs.json" with { type: "json" };
+import USDTLabs from "@liquidity_lab/sol-artifacts/dist/contracts/USDTLabs.sol/USDTLabs.json" with { type: "json" };
 
 import * as Adt from "./adt.js";
 import * as Chain from "./chain.js";
