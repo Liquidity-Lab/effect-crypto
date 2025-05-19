@@ -1,8 +1,10 @@
+/**
+ * @file packages/effect-crypto/src/utils/effectUtils.test-d.ts
+ */
 import { Array, Either, identity } from "effect";
 import { assertType, expectTypeOf, test } from "vitest";
 
 import * as EffectUtils from "./effectUtils.js";
-
 
 type Entity = {
   a: number;
@@ -111,4 +113,73 @@ test("EffectUtils.mapParN should work for complex types", () => {
 test("EffectUtils.mapParN should not compile for empty input tuple", () => {
   // @ts-expect-error mapParN requires at least one Either in the tuple
   expectTypeOf(EffectUtils.mapParN([], () => "empty result")).toBeAny();
+});
+
+// --- flatMapParN type-level tests ---
+
+test("EffectUtils.flatMapParN should work for correct error union", (): void => {
+  type ErrorA = Array.NonEmptyArray<"a">;
+  type ErrorB = Array.NonEmptyArray<"b">;
+  type ErrorF = Array.NonEmptyArray<"f">;
+  type Entity = { a: number; b: string };
+
+  const a: Either.Either<number, ErrorA> = Either.right(1);
+  const b: Either.Either<string, ErrorB> = Either.right("2");
+  const f = (a: number, b: string): Either.Either<Entity, ErrorF> => Either.right({ a, b });
+
+  assertType<Either.Either<Entity, Array.NonEmptyArray<"a" | "b" | "f">>>(
+    EffectUtils.flatMapParN([a, b], f),
+  );
+});
+
+test("EffectUtils.flatMapParN should not compile if input error type is not NonEmptyArray", (): void => {
+  const a: Either.Either<number, string[]> = Either.right(1);
+  const b: Either.Either<string, string[]> = Either.left(["2"]);
+  const f = (a: number, b: string): Either.Either<any, any> => Either.right({ a, b });
+
+  assertType<Either.Either<any, Array.NonEmptyArray<any>>>(
+    // @ts-expect-error string[] is not assignable NonEmptyArray<string>
+    EffectUtils.flatMapParN([a, b], f),
+  );
+});
+
+test("EffectUtils.flatMapParN should not compile if f returns error type other than NonEmptyArray", (): void => {
+  type ErrorA = Array.NonEmptyArray<"a">;
+  type ErrorB = Array.NonEmptyArray<"b">;
+  type ErrorF = readonly string[];
+  type Entity = { a: number; b: string };
+
+  const a: Either.Either<number, ErrorA> = Either.right(1);
+  const b: Either.Either<string, ErrorB> = Either.right("2");
+  const f = (a: number, b: string): Either.Either<Entity, ErrorF> => Either.right({ a, b });
+
+  assertType<Either.Either<Entity, Array.NonEmptyArray<"a" | "b" | "f">>>(
+    // @ts-expect-error string[] is not assignable NonEmptyArray<string> for f's return type
+    EffectUtils.flatMapParN([a, b], f),
+  );
+});
+
+test("EffectUtils.flatMapParN should not compile for empty input tuple", (): void => {
+  const f = (): Either.Either<string, Array.NonEmptyArray<string>> => Either.right("empty");
+
+  // @ts-expect-error flatMapParN requires at least one Either in the tuple
+  expectTypeOf(EffectUtils.flatMapParN([], f)).toBeAny();
+});
+
+// Test correct error union with function error
+
+test("EffectUtils.flatMapParN should union function error with input errors", (): void => {
+  type ErrorA = Array.NonEmptyArray<"a">;
+  type ErrorB = Array.NonEmptyArray<"b">;
+  type ErrorF = Array.NonEmptyArray<"f">;
+  type Entity = { a: number; b: string };
+
+  const a: Either.Either<number, ErrorA> = Either.right(1);
+  const b: Either.Either<string, ErrorB> = Either.right("2");
+  // Function does not use its parameters for this test
+  const f = (): Either.Either<Entity, ErrorF> => Either.left(["f"] as ErrorF);
+
+  assertType<Either.Either<Entity, Array.NonEmptyArray<"a" | "b" | "f">>>(
+    EffectUtils.flatMapParN([a, b], f),
+  );
 });
