@@ -48,7 +48,7 @@ export function mapParNImpl<
   return Either.right(
     f(collectedValues as { [K in keyof T]: T[K] extends Either.Either<infer V, any> ? V : never }),
   );
-};
+}
 
 /**
  * Like mapParNImpl, but the mapping function returns an Either. If all inputs are Right, flatMaps the function result. Otherwise, collects all errors.
@@ -56,7 +56,7 @@ export function mapParNImpl<
  * @template T - Tuple of Eithers
  * @template R - Result type
  * @template E - Error type
- * 
+ *
  * @internal
  */
 export function flatMapParNImpl<
@@ -79,7 +79,7 @@ export function flatMapParNImpl<
 > {
   // Use mapParNImpl to collect values or errors
   return mapParNImpl(eithers, (values) => f(...values)).pipe(Either.flatMap(identity));
-};
+}
 
 /**
  * Generates an Either value using the provided generators for left and right values.

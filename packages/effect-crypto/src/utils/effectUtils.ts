@@ -176,4 +176,3 @@ export const eitherGen: <L, R>(
   leftGen: Arbitrary<L>,
   rightGen: Arbitrary<R>,
 ) => Arbitrary<Either.Either<R, L>> = internal.eitherGenImpl;
-
