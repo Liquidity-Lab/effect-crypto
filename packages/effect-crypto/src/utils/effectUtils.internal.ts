@@ -2,21 +2,31 @@
  * @file packages/effect-crypto/src/utils/effectUtils.internal.ts
  */
 import * as fc from "fast-check";
-import { Array, Either } from "effect";
+import { Array, Either, identity } from "effect";
 import type { Arbitrary } from "fast-check";
 
-export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
-  eithers: readonly [...{ [K in keyof Values]: Either.Either<Values[K], Array.NonEmptyArray<E>> }],
-  f: (values: [...Values]) => R,
-): Either.Either<R, Array.NonEmptyArray<E>> => {
-  if (eithers.length === 0) {
-    return Either.right(f([] as any)); // Call f with empty array for empty tuple input
-  }
-
-  let collectedErrors: Array<Array.NonEmptyArray<E>> | undefined = undefined;
-  const collectedValues: Array<any> = []; // Will be cast to Values
+/**
+ * @internal
+ */
+export function mapParNImpl<
+  T extends readonly [
+    Either.Either<any, Array.NonEmptyArray<any>>,
+    ...Either.Either<any, Array.NonEmptyArray<any>>[],
+  ],
+  R,
+>(
+  eithers: T,
+  f: (values: { [K in keyof T]: T[K] extends Either.Either<infer V, any> ? V : never }) => R,
+): Either.Either<
+  R,
+  Array.NonEmptyArray<
+    T[number] extends Either.Either<any, Array.NonEmptyArray<infer E>> ? E : never
+  >
+> {
+  let collectedErrors: Array<Array.NonEmptyArray<any>> | undefined = undefined;
+  const collectedValues: Array<any> = [];
   let hasError = false;
-
+  // TODO: rewrite using reduce
   for (const either of eithers) {
     if (Either.isLeft(either)) {
       hasError = true;
@@ -26,22 +36,50 @@ export const mapParNImpl = <Values extends ReadonlyArray<any>, E, R>(
         collectedErrors = Array.append(collectedErrors, either.left);
       }
     } else if (!hasError) {
-      // Only collect values if no error has been encountered yet,
-      // as they won't be used if there's any error.
       collectedValues.push(either.right);
     }
   }
 
   if (hasError && collectedErrors) {
-    // We have at least one NonEmptyArray of errors in collectedErrors
     const allErrors = Array.flatten(collectedErrors);
-    // Since collectedErrors contains at least one NonEmptyArray, allErrors will also be non-empty.
-    return Either.left(allErrors as Array.NonEmptyArray<E>);
+    return Either.left(allErrors as Array.NonEmptyArray<any>);
   }
 
-  // No errors, all were Right
-  return Either.right(f(collectedValues as unknown as [...Values]));
-};
+  return Either.right(
+    f(collectedValues as { [K in keyof T]: T[K] extends Either.Either<infer V, any> ? V : never }),
+  );
+}
+
+/**
+ * Like mapParNImpl, but the mapping function returns an Either. If all inputs are Right, flatMaps the function result. Otherwise, collects all errors.
+ *
+ * @template T - Tuple of Eithers
+ * @template R - Result type
+ * @template E - Error type
+ *
+ * @internal
+ */
+export function flatMapParNImpl<
+  T extends readonly [
+    Either.Either<any, Array.NonEmptyArray<any>>,
+    ...Either.Either<any, Array.NonEmptyArray<any>>[],
+  ],
+  R,
+  E,
+>(
+  eithers: T,
+  f: (
+    ...values: { [K in keyof T]: T[K] extends Either.Either<infer V, any> ? V : never }
+  ) => Either.Either<R, Array.NonEmptyArray<E>>,
+): Either.Either<
+  R,
+  Array.NonEmptyArray<
+    (T[number] extends Either.Either<any, Array.NonEmptyArray<infer E1>> ? E1 : never) | E
+  >
+> {
+  // Use mapParNImpl to collect values or errors
+  return mapParNImpl(eithers, (values) => f(...values)).pipe(Either.flatMap(identity));
+}
 
 /**
  * Generates an Either value using the provided generators for left and right values.
