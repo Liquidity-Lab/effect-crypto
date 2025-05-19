@@ -5,7 +5,6 @@ import { Option } from "effect";
 import { fc, testProp } from "@fast-check/ava";
 
 import * as BigMath from "./bigMath.js";
-import * as AvaEffect from "./utils/avaEffect.js";
 
 const errorTolerance = Big("0.00000000000001");
 const mathContext = new MathContext(96, RoundingMode.HALF_UP);
@@ -261,15 +260,79 @@ test("Q64x96 conversion handles edge cases correctly", (t) => {
 
 testProp(
   "Q64x96 round-trip conversion should preserve the original value",
-  [BigMath.nonNegativeDecimalGen()],
-  (t, original) => {
-    const result = Option.map(BigMath.convertToQ64x96(original), BigMath.q64x96ToBigDecimal);
+  [BigMath.q64x96Gen()],
+  (t, originalQ64x96) => {
+    // Convert Q64x96 to BigDecimal
+    const originalBigDecimal = BigMath.q64x96ToBigDecimal(originalQ64x96);
 
-    AvaEffect.EffectAssertions(t).assertOptionalEqualVia(
-      result,
-      Option.some(original),
-      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
-    );
+    // Convert BigDecimal back to Q64x96
+    const resultQ64x96Opt = BigMath.convertToQ64x96(originalBigDecimal);
+
+    // Check if the resulting Q64x96 matches the original Q64x96
+    // We use deepEqual here because Q64x96 is a branded bigint
+    // and assertEqualWithPercentage is for BigDecimal comparisons.
+    // Direct bigint comparison should be precise enough for this round trip.
+    t.deepEqual(resultQ64x96Opt, Option.some(originalQ64x96));
   },
   { numRuns: 1024 },
+);
+
+test("Q64x96 should not allow values greater than max", (t) => {
+  const input = BigMath.q64x96ToBigDecimal(BigMath.Q64x96.MAX).add(Big("1"));
+  const result = BigMath.convertToQ64x96(input);
+
+  t.assert(Option.isNone(result), "Value greater than max should return None");
+});
+
+// Test suite for BigMath.asNormalisedString
+test("BigMath.asNormalisedString should normalize BigDecimal strings", (t) => {
+  const testCases = [
+    { input: Big("1"), expected: "1" },
+    { input: Big("1.0"), expected: "1" },
+    { input: Big("1.000"), expected: "1" },
+    { input: Big("1.5"), expected: "1.5" },
+    { input: Big("1.50"), expected: "1.5" },
+    { input: Big("0"), expected: "0" },
+    { input: Big("0.0"), expected: "0" },
+    { input: Big("123.456"), expected: "123.456" },
+    { input: Big("123.45600"), expected: "123.456" },
+    // Add a case for negative numbers if supported/intended
+    { input: Big("-1.50"), expected: "-1.5" },
+    { input: Big("-1.00"), expected: "-1" },
+  ];
+
+  testCases.forEach(({ input, expected }, index) => {
+    const actual = BigMath.asNormalisedString(input);
+
+    t.is(
+      actual,
+      expected,
+      `Test case ${index + 1}: Input ${input.toPlainString()} should normalize to ${expected}`,
+    );
+  });
+});
+
+testProp(
+  "BigMath.asNormalisedString should produce the same string for numerically equal BigDecimals with different scales",
+  [BigMath.bigDecimalGen()], // Generate a random BigDecimal
+  (t, originalDecimal) => {
+    // Create a second BigDecimal by increasing the scale without changing the numerical value.
+    // RoundingMode.UNNECESSARY ensures that if the value cannot be represented exactly
+    // with the new scale (which shouldn't happen when just adding trailing zeros),
+    // an error would be thrown, but for simply increasing scale, this is safe.
+    const newScale = originalDecimal.scale() + 2; // Increase scale by 2
+    const decimalWithIncreasedScale = originalDecimal.setScale(newScale, RoundingMode.UNNECESSARY);
+
+    // Normalize both decimals
+    const expected = BigMath.asNormalisedString(originalDecimal);
+    const actual = BigMath.asNormalisedString(decimalWithIncreasedScale);
+
+    // Assert that the normalized strings are equal
+    t.deepEqual(
+      actual,
+      expected,
+      `Normalised strings should be equal for ${originalDecimal.toPlainString()}`,
+    );
+  },
+  { numRuns: 1024 }, // Run with a sufficient number of test cases
 );

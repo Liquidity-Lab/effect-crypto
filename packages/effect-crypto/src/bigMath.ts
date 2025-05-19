@@ -81,7 +81,16 @@ export type Q64x96 = Brand.Branded<bigint, internal.Q64x96TypeId>;
  * @see {@link https://docs.uniswap.org/contracts/v3/reference/core/libraries/FullMath Uniswap v3 implementation}
  * @constructor
  */
-export const Q64x96: Brand.Brand.Constructor<Q64x96> = internal.makeQ64x96;
+export const Q64x96: Brand.Brand.Constructor<Q64x96> & {
+  MAX: Q64x96;
+} = Object.assign(internal.makeQ64x96, { MAX: internal.Q64x96_MAX_VALUE });
+
+/**
+ * Maximum value for uint256 (2^256 - 1)
+ * This is the maximum value that can be stored in a uint256 in Ethereum
+ * Used for token balances, allowances, and other uint256 values in ERC20 contracts
+ */
+export const MAX_UINT256 = internal.MAX_UINT256_VALUE;
 
 /**
  * Converts a BigDecimal to Q64.96 fixed-point number format.
@@ -117,17 +126,58 @@ export const convertToQ64x96: (value: BigDecimal) => Option.Option<Q64x96> =
 export const q64x96ToBigDecimal: (q64x96: Q64x96) => BigDecimal = internal.q64x96ToBigDecimalImpl;
 
 /**
- * Returns the natural logarithm of a given x
+ * Returns the natural logarithm (base e) of a given BigDecimal.
+ *
+ * @param x - The BigDecimal value for which to calculate the natural logarithm. Must be positive.
+ * @param mc - The MathContext specifying the precision and rounding mode.
+ * @returns The natural logarithm of x as a BigDecimal.
+ *
+ * @example
+ *  import { Big, MathContext } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const value = Big("10");
+ *  const context = MathContext.DECIMAL128;
+ *  const result = BigMath.ln(value, context);
+ *  // result will be approximately 2.3025850929940456840179914546844
  */
 export const ln: (x: BigDecimal, mc: MathContext) => BigDecimal = internal.lnImpl;
 
 /**
- * Returns the logarithm of a given x with a base of 2
+ * Returns the logarithm of a given BigDecimal with a base of 2.
+ *
+ * @param x - The BigDecimal value for which to calculate the base-2 logarithm. Must be positive.
+ * @param mc - The MathContext specifying the precision and rounding mode.
+ * @returns The base-2 logarithm of x as a BigDecimal.
+ *
+ * @example
+ *  import { Big, MathContext } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const value = Big("8");
+ *  const context = MathContext.DECIMAL64;
+ *  const result = BigMath.log2(value, context);
+ *  // result will be approximately 3
  */
 export const log2: (x: BigDecimal, mc: MathContext) => BigDecimal = internal.log2Impl;
 
 /**
- * Returns the logarithm of a given x with a given base
+ * Returns the logarithm of a given BigDecimal with a specified base.
+ *
+ * @param base - The base of the logarithm. Must be positive and not equal to 1.
+ * @param x - The BigDecimal value for which to calculate the logarithm. Must be positive.
+ * @param mc - The MathContext specifying the precision and rounding mode.
+ * @returns The logarithm of x with the specified base as a BigDecimal.
+ *
+ * @example
+ *  import { Big, MathContext } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const base = Big("10");
+ *  const value = Big("100");
+ *  const context = MathContext.DECIMAL32;
+ *  const result = BigMath.log(base, value, context);
+ *  // result will be approximately 2
  */
 export const log: (base: BigDecimal, x: BigDecimal, mc: MathContext) => BigDecimal =
   internal.logImpl;
@@ -163,6 +213,42 @@ export const assertEqualWithPercentage: (
 } = internal.assertEqualWithPercentage;
 
 /**
+ * Finds the minimum value among one or more BigInt numbers.
+ *
+ * @param a - The first BigInt number.
+ * @param nums - Additional BigInt numbers to compare.
+ * @returns The smallest BigInt value among the inputs.
+ *
+ * @example
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const min1 = BigMath.minBigInt(10n, 5n, 20n); // 5n
+ *  const min2 = BigMath.minBigInt(-3n, -1n, -5n); // -5n
+ *  const min3 = BigMath.minBigInt(100n); // 100n
+ */
+export const minBigInt: {
+  (a: bigint, ...nums: readonly bigint[]): bigint;
+} = internal.minBigIntImpl;
+
+/**
+ * Finds the maximum value among one or more BigInt numbers.
+ *
+ * @param a - The first BigInt number.
+ * @param nums - Additional BigInt numbers to compare.
+ * @returns The largest BigInt value among the inputs.
+ *
+ * @example
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  const max1 = BigMath.maxBigInt(10n, 5n, 20n); // 20n
+ *  const max2 = BigMath.maxBigInt(-3n, -1n, -5n); // -1n
+ *  const max3 = BigMath.maxBigInt(100n); // 100n
+ */
+export const maxBigInt: {
+  (a: bigint, ...nums: readonly bigint[]): bigint;
+} = internal.maxBigIntImpl;
+
+/**
  * Generates a BigDecimal value within the given constraints
  *
  * @example
@@ -188,7 +274,35 @@ export const bigDecimalGen: (constraints?: {
 }) => Arbitrary<BigDecimal> = internal.bigDecimalGen;
 
 /**
- * Generates a Ratio value within given constraints
+ * Generates an arbitrary Ratio (positive BigDecimal) value for property-based testing,
+ * optionally within the given constraints.
+ *
+ * @param constraints - Optional constraints for the generated Ratio.
+ * @param constraints.min - The minimum allowed Ratio value (inclusive).
+ * @param constraints.max - The maximum allowed Ratio value (inclusive).
+ * @param constraints.maxScale - The maximum number of digits allowed after the decimal point.
+ * @returns An Arbitrary that generates valid Ratio values.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { BigMath } from "effect-crypto";
+ * import { Big } from "bigdecimal.js";
+ *
+ * // Generate a ratio between 0.1 and 10 with up to 5 decimal places
+ * const specificRatioGen = BigMath.ratioGen({
+ *   min: BigMath.Ratio(Big("0.1")),
+ *   max: BigMath.Ratio(Big("10")),
+ *   maxScale: 5
+ * });
+ *
+ * fc.assert(
+ *   fc.property(specificRatioGen, (ratio) => {
+ *     const num = Number(ratio.toString());
+ *     return num >= 0.1 && num <= 10;
+ *   })
+ * );
+ * ```
  */
 export const ratioGen: (constraints?: {
   min?: Ratio;
@@ -197,10 +311,80 @@ export const ratioGen: (constraints?: {
 }) => Arbitrary<Ratio> = internal.ratioGen;
 
 /**
- * Generates a non-negative decimal value within given constraints
+ * Generates an arbitrary NonNegativeDecimal (BigDecimal >= 0) value for property-based testing,
+ * optionally within the given constraints.
+ *
+ * @param constraints - Optional constraints for the generated NonNegativeDecimal.
+ * @param constraints.min - The minimum allowed NonNegativeDecimal value (inclusive, must be >= 0).
+ * @param constraints.max - The maximum allowed NonNegativeDecimal value (inclusive).
+ * @param constraints.scale - The exact number of digits allowed after the decimal point.
+ * @returns An Arbitrary that generates valid NonNegativeDecimal values.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { BigMath } from "effect-crypto";
+ * import { Big } from "bigdecimal.js";
+ *
+ * // Generate a non-negative decimal up to 1000 with exactly 2 decimal places
+ * const specificNonNegativeGen = BigMath.nonNegativeDecimalGen({
+ *   max: BigMath.NonNegativeDecimal(Big("1000")),
+ *   scale: 2
+ * });
+ *
+ * fc.assert(
+ *   fc.property(specificNonNegativeGen, (dec) => {
+ *     const num = Number(dec.toString());
+ *     // Check non-negativity and scale
+ *     return num >= 0 && dec.scale() === 2;
+ *   })
+ * );
+ * ```
  */
 export const nonNegativeDecimalGen: (constraints?: {
   min?: NonNegativeDecimal;
   max?: NonNegativeDecimal;
   scale?: number;
 }) => Arbitrary<NonNegativeDecimal> = internal.nonNegativeDecimalGen;
+
+/**
+ * Generates an arbitrary Q64x96 (bigint) value for property-based testing.
+ *
+ * @returns An Arbitrary that generates valid Q64x96 values.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { BigMath } from "effect-crypto";
+ *
+ * const q64x96Arbitrary = BigMath.q64x96Gen();
+ *
+ * fc.assert(
+ *   fc.property(q64x96Arbitrary, (qVal) => {
+ *     // Test properties of the generated Q64x96 bigint
+ *     return typeof qVal === 'bigint' && qVal >= 0n;
+ *   })
+ * );
+ * ```
+ */
+export const q64x96Gen: () => Arbitrary<Q64x96> = internal.q64x96Gen;
+
+/**
+ * Converts a BigDecimal to a normalized string representation, removing trailing zeros
+ * and ignoring the original scale. Ensures that numerically equal values with
+ * different scales produce the same string output (e.g., "1.00" and "1" both become "1").
+ *
+ * @param value - The BigDecimal value to convert.
+ * @returns A scale-independent string representation of the BigDecimal.
+ *
+ * @example
+ *  import { Big } from "bigdecimal.js";
+ *  import { BigMath } from "effect-crypto";
+ *
+ *  BigMath.asNormalisedString(Big("1.500")); // "1.5"
+ *  BigMath.asNormalisedString(Big("1.0")); // "1"
+ *  BigMath.asNormalisedString(Big("0.00")); // "0"
+ */
+export const asNormalisedString: {
+  (value: BigDecimal): string;
+} = internal.asNormalisedStringImpl;

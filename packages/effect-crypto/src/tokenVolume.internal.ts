@@ -1,5 +1,6 @@
+import * as fc from "fast-check";
 import { Big, BigDecimal, RoundingMode } from "bigdecimal.js";
-import { Option } from "effect";
+import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import * as Assertable from "./assertable.js";
@@ -9,6 +10,7 @@ import * as Token from "./token.js";
 // @see https://github.com/typescript-eslint/typescript-eslint/issues/10746
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type * as T from "./tokenVolume.js";
+import { BrandUtils } from "./utils/index.js";
 
 class TokenVolumeLive<T extends Token.TokenType> implements T.TokenVolume<T> {
   readonly token: Token.Token<T>;
@@ -24,6 +26,13 @@ class TokenVolumeLive<T extends Token.TokenType> implements T.TokenVolume<T> {
       token: Assertable.asAssertableEntity(this.token),
       value: asUnitsImpl(this).unscaledValue(),
     });
+  }
+
+  toJSON() {
+    return {
+      token: this.token.address,
+      value: asUnitsImpl(this).toPlainString(),
+    };
   }
 
   toString(): string {
@@ -85,15 +94,78 @@ export function prettyPrintImpl<T extends Token.TokenType>(volume: T.TokenVolume
 }
 
 /** @internal */
+export function makeMinVolumeForTokenImpl<T extends Token.TokenType>(
+  token: Token.Token<T>,
+): T.TokenVolume<T> {
+  // The smallest representable positive volume corresponds to 1 smallest unit (e.g., 1 wei).
+  // We create a NonNegativeDecimal from the unscaled value 1n.
+  // This should never fail as 1n is positive and within bounds.
+  const minValue = BigMath.NonNegativeDecimal(Big(1n, token.decimals));
+
+  return new TokenVolumeLive(token, minValue);
+}
+
+/** @internal */
+export function makeMaxVolumeForTokenImpl<T extends Token.TokenType>(
+  token: Token.Token<T>,
+): T.TokenVolume<T> {
+  // The maximum volume corresponds to the MAX_UINT256 value.
+  // We create a BigDecimal from MAX_UINT256 and the token's decimals,
+  // then create the NonNegativeDecimal brand.
+  const maxValue = BigMath.NonNegativeDecimal(
+    Big(BigMath.MAX_UINT256.subtract(1n).toBigInt(), token.decimals),
+  );
+
+  return new TokenVolumeLive(token, maxValue);
+}
+
+/** @internal */
+export function tokenVolumeOrErrGen<T extends Token.TokenType>(
+  token: Token.Token<T>,
+  constraints?: {
+    min?: BigMath.NonNegativeDecimal;
+    max?: BigMath.NonNegativeDecimal;
+  },
+): Arbitrary<Either.Either<T.TokenVolume<T>, string>> {
+  const minPossibleValue = 1n;
+  const maxPossibleValue = BigMath.MAX_UINT256.unscaledValue() - 1n;
+
+  const minConstraint = Option.fromNullable(constraints?.min).pipe(
+    Option.map((min) => min.setScale(token.decimals, RoundingMode.FLOOR).unscaledValue()),
+    Option.filter((min) => min >= minPossibleValue && min <= maxPossibleValue),
+    Option.getOrElse(() => minPossibleValue),
+  );
+
+  const maxConstraint = Option.fromNullable(constraints?.max).pipe(
+    Option.map((max) => max.setScale(token.decimals, RoundingMode.FLOOR).unscaledValue()),
+    Option.filter((max) => max >= minPossibleValue && max <= maxPossibleValue),
+    Option.getOrElse(() => maxPossibleValue),
+  );
+
+  // Generate a non-negative decimal within the calculated constraints
+  return fc
+    .bigInt({
+      min: BigMath.minBigInt(minConstraint, maxConstraint),
+      max: BigMath.maxBigInt(maxConstraint),
+    })
+    .map((rawValue) => Big(rawValue, token.decimals))
+    .map((ratio) => {
+      return BigMath.Ratio.either(ratio).pipe(
+        Either.mapLeft(BrandUtils.stringifyBrandErrors),
+        Either.map((ratio) => makeTokenVolumeFromRatio(token, ratio)),
+      );
+    });
+}
+
+/** @internal */
 export function tokenVolumeGenImpl<T extends Token.TokenType>(
   token: Token.Token<T>,
   constraints?: {
     min?: BigMath.NonNegativeDecimal;
     max?: BigMath.NonNegativeDecimal;
-    maxScale?: number;
   },
 ): Arbitrary<T.TokenVolume<T>> {
-  return BigMath.nonNegativeDecimalGen(constraints).map((value) =>
-    makeTokenVolumeFromUnits(token, value),
+  return tokenVolumeOrErrGen(token, constraints).map(
+    Either.getOrThrowWith(() => new Error("Failed to create token volume from generator")),
   );
 }
