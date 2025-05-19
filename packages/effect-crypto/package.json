@@ -33,7 +33,7 @@
   "scripts": {
     "build": "tsc --build",
     "test": "npx ava --timeout 2m && npm run test:types",
-    "test:types": "vitest --typecheck.only --watch=false"
+    "test:types": "vitest --typecheck.only --watch=false --config vitest.config.ts"
   },
   "author": "",
   "license": "ISC",
