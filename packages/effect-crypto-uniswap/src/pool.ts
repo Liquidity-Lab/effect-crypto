@@ -1,6 +1,7 @@
 import { BigDecimal } from "bigdecimal.js";
 import { Brand, Context, Effect, Layer, Option } from "effect";
 import { Contract } from "ethers";
+import type { Arbitrary } from "fast-check";
 import { Tagged } from "type-fest";
 
 import { Address, Chain, Error, FatalError, Token, Wallet } from "@liquidity_lab/effect-crypto";
@@ -442,3 +443,44 @@ export const liquidity: {
 export interface PoolConfig {
   readonly factoryAddress: PoolFactoryAddress;
 } // TODO: remove?
+
+/**
+ * Generates arbitrary `PoolState` values for property-based testing.
+ * Ensures that token0 and token1 are ordered by address as per Uniswap conventions,
+ * and that the tokens generated are ERC20 tokens.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * fc.assert(fc.property(Pool.poolStateGen(), (poolState) => {
+ *   // Your test assertions here
+ *   console.log(poolState.fee);
+ *   console.log(poolState.token0.address < poolState.token1.address);
+ * }));
+ * ```
+ */
+export const poolStateGen: {
+  (): Arbitrary<PoolState>;
+} = internal.poolStateGenImpl;
+
+/**
+ * Generates arbitrary `Slot0` values for property-based testing.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * fc.assert(fc.property(Pool.slot0Gen(), (slot0) => {
+ *   // Your test assertions here
+ *   console.log(slot0.price);
+ *   console.log(slot0.tick);
+ *   console.log(slot0.observationIndex);
+ * }));
+ * ```
+ */
+export const slot0Gen: {
+  (poolStateArb?: Arbitrary<PoolState>): Arbitrary<Slot0>;
+} = internal.slot0GenImpl;
