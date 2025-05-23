@@ -497,7 +497,7 @@ function toPriceRatio(value: T.PriceValue): BigDecimal {
     case "@liquidity_lab/effect-crypto/price#PriceValueRatio":
       return value.value;
     case "@liquidity_lab/effect-crypto/price#PriceValueSqrtUnits":
-      return value.value.multiply(value.value);
+      return value.value.pow(2, mathContext);
   }
 }
 

@@ -264,8 +264,8 @@ test(
   "mintAmounts is correct for price above",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current + spacing),
-    tickUpper: (current, spacing) => Tick.Tick(current + spacing * 2),
+    tickLower: (current) => Tick.addNTicks(current, 1),
+    tickUpper: (current) => Tick.addNTicks(current, 2),
     expectedAmount0: Adt.Amount0(Big("49949961958869841754182")),
     expectedAmount1: Adt.Amount1(Big("0")),
   }),
@@ -275,8 +275,8 @@ test(
   "mintAmounts is correct for price below",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current - spacing * 2),
-    tickUpper: (current, spacing) => Tick.Tick(current - spacing),
+    tickLower: (current) => Tick.subtractNTicks(current, 2),
+    tickUpper: (current) => Tick.subtractNTicks(current, 1),
     expectedAmount0: Adt.Amount0(Big("0")),
     expectedAmount1: Adt.Amount1(Big("49970077053")),
   }),
@@ -286,8 +286,8 @@ test(
   "mintAmounts is correct for in-range position",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current - spacing * 2),
-    tickUpper: (current, spacing) => Tick.Tick(current + spacing * 2),
+    tickLower: (current) => Tick.subtractNTicks(current, 2),
+    tickUpper: (current) => Tick.addNTicks(current, 2),
     expectedAmount0: Adt.Amount0(Big("120054069145287995769397")),
     expectedAmount1: Adt.Amount1(Big("79831926243")),
   }),
@@ -301,14 +301,14 @@ function testPositionDraft(
   currentSqrtRatioUnscaled: BigMath.Ratio,
   params: {
     liquidity: Pool.Liquidity;
-    tickLower: (current: Tick.Tick, spacing: Tick.TickSpacing) => Tick.Tick;
-    tickUpper: (current: Tick.Tick, spacing: Tick.TickSpacing) => Tick.Tick;
+    tickLower: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+    tickUpper: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
     expectedAmount0: Adt.Amount0;
     expectedAmount1: Adt.Amount1;
   },
 ) {
   return (t: ExecutionContext<unknown>) => {
-    function sdkImplementation() {
+    function sdkImplementation(tickLower: Tick.UsableTick, tickUpper: Tick.UsableTick) {
       const USDC = new uniswapSdkCore.Token(
         1,
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
@@ -323,9 +323,9 @@ function testPositionDraft(
         "DAI",
         "DAI Stablecoin",
       );
-      const POOL_SQRT_RATIO_START = uniswapV3Sdk.encodeSqrtRatioX96(100e6, 100e18);
+      const [a, b] = BigMath.asNumeratorAndDenominator(currentSqrtRatioUnscaled);
+      const POOL_SQRT_RATIO_START = uniswapV3Sdk.encodeSqrtRatioX96(a.toString(), b.toString());
       const POOL_TICK_CURRENT = uniswapV3Sdk.TickMath.getTickAtSqrtRatio(POOL_SQRT_RATIO_START);
-      const TICK_SPACING = uniswapV3Sdk.TICK_SPACINGS[uniswapV3Sdk.FeeAmount.LOW];
       const DAI_USDC_POOL = new uniswapV3Sdk.Pool(
         DAI,
         USDC,
@@ -335,12 +335,12 @@ function testPositionDraft(
         POOL_TICK_CURRENT,
         [],
       );
+      const liquidity = params.liquidity.unscaledValue();
       const position = new uniswapV3Sdk.Position({
         pool: DAI_USDC_POOL,
-        liquidity: 100e18,
-        tickLower: uniswapV3Sdk.nearestUsableTick(POOL_TICK_CURRENT, TICK_SPACING) + TICK_SPACING,
-        tickUpper:
-          uniswapV3Sdk.nearestUsableTick(POOL_TICK_CURRENT, TICK_SPACING) + TICK_SPACING * 2,
+        liquidity: liquidity.toString(),
+        tickLower: uniswapV3Sdk.nearestUsableTick(tickLower.unwrap, tickLower.spacing),
+        tickUpper: uniswapV3Sdk.nearestUsableTick(tickUpper.unwrap, tickUpper.spacing),
       });
 
       const { amount0, amount1 } = position.mintAmounts;
@@ -389,7 +389,16 @@ function testPositionDraft(
     const tickCurrent = Tick.getTickAtRatio(sqrtRatioCurrent.pow(2));
     const nearestUsableTick = Tick.nearestUsableTick(tickCurrent, tickSpacing);
 
-    const dbg = sdkImplementation();
+    const tickLower = Option.getOrThrowWith(
+      params.tickLower(nearestUsableTick),
+      () => new Error("Failed to get tickLower"),
+    );
+    const tickUpper = Option.getOrThrowWith(
+      params.tickUpper(nearestUsableTick),
+      () => new Error("Failed to get tickUpper"),
+    );
+
+    const dbg = sdkImplementation(tickLower, tickUpper);
     console.log(dbg);
 
     const draft = Either.getOrThrowWith(
@@ -397,8 +406,8 @@ function testPositionDraft(
         poolState,
         sqrtRatioCurrent,
         params.liquidity,
-        params.tickLower(nearestUsableTick.unwrap, tickSpacing),
-        params.tickUpper(nearestUsableTick.unwrap, tickSpacing),
+        tickLower,
+        tickUpper,
         tickCurrent,
       ),
       (err) => new Error(`Failed to calculate position draft: ${err}`),
@@ -439,8 +448,19 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
     Token.Erc20TokenMeta(),
   );
 
+  const sqrtQ64x96Ratio = Option.getOrElse(
+    BigMath.convertToQ64x96(Big(100e6).divideWithMathContext(100e18, mathContext).sqrt(mathContext)),
+    () => t.fail("Failed to convert current price ratio to Q64.96"),
+  )
+
   const price = Either.getOrThrowWith(
-    Price.makeFromSqrtQ64_96(token0, token1, BigMath.Q64x96(2n ** 96n)),
+    Price.makeFromSqrtQ64_96(
+      token0,
+      token1,
+      sqrtQ64x96Ratio,
+      // BigMath.Q64x96(79_228_163_000_000_000_000_000_000n)
+      // BigMath.Q64x96(1n ** BigInt(-token0.decimals) * 2n ** 96n),
+    ),
     (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
   );
 
@@ -458,6 +478,12 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
 
   // Calculate current tick from the price ratio (not sqrt ratio)
   const tickCurrent = Tick.getTickAtPrice(price);
+
+  const expectedPrice = Tick.getSqrtRatio(Tick.Tick(-276325));
+
+  console.log(expectedPrice);
+
+  t.deepEqual(tickCurrent, Tick.Tick(-276325), "tickCurrent should be equal to -276325");
 
   // Construct Slot0 correctly based on Pool.Slot0 interface
   const slot0: Pool.Slot0 = {

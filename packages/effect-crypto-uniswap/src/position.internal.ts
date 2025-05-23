@@ -1,5 +1,5 @@
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import { Array, Either, Option, identity } from "effect";
+import { Array, Either, Option } from "effect";
 
 import { BigMath } from "@liquidity_lab/effect-crypto";
 import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
@@ -520,9 +520,9 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
   builder: S,
 ): Either.Either<T.PositionDraft, T.AggregateBuilderError> {
   if (Either.isEither(builder.liquidity)) {
-    return EffectUtils.mapParN(
+    return EffectUtils.flatMapParN(
       [builder.liquidity, builder.lowerBoundTick, builder.upperBoundTick],
-      ([liquidity, tickLower, tickUpper]) => calculatePositionDraftFromLiquidity(
+      (liquidity, tickLower, tickUpper) => calculatePositionDraftFromLiquidity(
         builder.pool,
         Price.asSqrt(builder.slot0.price),
         liquidity,
@@ -531,7 +531,6 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
         builder.slot0.tick,
       ),
     ).pipe(
-      Either.flatMap(identity),
       Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError),
     );
   }
