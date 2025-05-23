@@ -49,7 +49,7 @@ testProp(
     t.assert(
       ratio.greaterThanOrEquals(restoredRatioLower) && ratio.lowerThanOrEquals(restoredRatioUpper),
       `ratio should be in range ` +
-        `${restoredRatioLower.toPlainString()} <= ${ratio.toPlainString()} <= ${restoredRatioUpper.toPlainString()}`,
+      `${restoredRatioLower.toPlainString()} <= ${ratio.toPlainString()} <= ${restoredRatioUpper.toPlainString()}`,
     );
   },
   { numRuns: 256 },
@@ -105,6 +105,23 @@ testProp(
     // Compare the unwrapped tick value with the SDK's result
     // We're adding 0 to the expected value to normalize potential -0 to 0
     t.deepEqual(actualUsableTick.unwrap, expected + 0, "tick idx should be equal");
+  },
+  { numRuns: 512 },
+);
+
+testProp(
+  "addNTicks should be consistent with uniswap-sdk implementation",
+  [Tick.Tick.gen, Adt.feeAmountGen],
+  (t, tick, feeAmount) => {
+    const spacing = Tick.toTickSpacing(feeAmount);
+    const expected = Tick.Tick.option(sdkNearestUsableTick(tick, spacing) + spacing);
+    const actual = Tick.addNTicks(Tick.nearestUsableTick(Tick.Tick(tick), spacing), 1);
+
+    t.deepEqual(
+      Option.map(actual, (tick) => tick.unwrap),
+      expected,
+      "tick idx should be equal",
+    );
   },
   { numRuns: 512 },
 );
