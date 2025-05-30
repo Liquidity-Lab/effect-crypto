@@ -136,6 +136,22 @@ export const getTickAtRatio: {
   (ratio: BigDecimal): Tick;
 } = internal.getTickAtRatioImpl;
 
+/**
+ * Calculates the tick index for a given square root price ratio.
+ * This is the inverse operation of getSqrtRatio.
+ *
+ * @example
+ *   ```typescript
+ *   const sqrtRatio = new BigDecimal("1.00005") // sqrt(1.0001)
+ *   const tick = getTickAtSqrtRatio(sqrtRatio) // Returns 1
+ *   ```
+ *
+ * @see {@link https://docs.uniswap.org/protocol/reference/core/libraries/TickMath#gettickatsqrtratio}
+ */
+export const getTickAtSqrtRatio: {
+  (sqrtRatio: BigDecimal): Tick;
+} = internal.getTickAtSqrtRatioImpl;
+
 export const getTickAtPrice: {
   <T extends Token.TokenType>(price: Price.TokenPrice<T>): Tick;
 } = internal.getTickAtPriceImpl;

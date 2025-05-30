@@ -117,6 +117,16 @@ export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {
   return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());
 }
 
+export function getTickAtSqrtRatioImpl(sqrtRatio: BigDecimal): T.Tick {
+  // Since sqrtRatio = sqrt(1.0001^tick), we have:
+  // sqrtRatio^2 = 1.0001^tick
+  // Therefore: tick = log[1.0001, sqrtRatio^2]
+  const ratio = sqrtRatio.pow(2, MATH_CONTEXT_HIGH_PRECISION);
+  const rawTickIdx = BigMath.log(TICK_BASE, ratio, MATH_CONTEXT_HIGH_PRECISION);
+
+  return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());
+}
+
 export function getTickAtPriceImpl<T extends Token.TokenType>(price: Price.TokenPrice<T>): T.Tick {
   return getTickAtRatioImpl(Price.asRatio(price));
 }

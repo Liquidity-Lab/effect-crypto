@@ -49,7 +49,7 @@ testProp(
     t.assert(
       ratio.greaterThanOrEquals(restoredRatioLower) && ratio.lowerThanOrEquals(restoredRatioUpper),
       `ratio should be in range ` +
-      `${restoredRatioLower.toPlainString()} <= ${ratio.toPlainString()} <= ${restoredRatioUpper.toPlainString()}`,
+        `${restoredRatioLower.toPlainString()} <= ${ratio.toPlainString()} <= ${restoredRatioUpper.toPlainString()}`,
     );
   },
   { numRuns: 256 },
@@ -69,6 +69,24 @@ testProp(
       ),
     );
     const actual = Tick.getTickAtRatio(ratio);
+
+    t.deepEqual(actual, expected, "tick idx should be equal");
+  },
+);
+
+testProp(
+  "getTickAtSqrtRatio should works the same as uniswap-sdk implementation",
+  [sqrtRatioWithLimitedPrecisionGen()],
+  (t, sqrtRatio) => {
+    const expected = SdkTickMath.getTickAtSqrtRatio(
+      JSBI.BigInt(
+        sqrtRatio
+          .multiply(2n ** 96n)
+          .toBigInt()
+          .toString(),
+      ),
+    );
+    const actual = Tick.getTickAtSqrtRatio(sqrtRatio);
 
     t.deepEqual(actual, expected, "tick idx should be equal");
   },
@@ -238,6 +256,18 @@ function doubleWithLimitedPrecisionGen() {
   const integerPartGen = fc.bigInt(
     Tick.MIN_SQRT_RATIO.pow(2).toBigInt() + 1n,
     Tick.MAX_SQRT_RATIO.pow(2).toBigInt() - 1n,
+  );
+  const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
+
+  return fc.tuple(integerPartGen, fractionalPartGen).map(([integer, fractional]) => {
+    return Big(`${integer}.${fractional}`);
+  });
+}
+
+function sqrtRatioWithLimitedPrecisionGen() {
+  const integerPartGen = fc.bigInt(
+    Tick.MIN_SQRT_RATIO.toBigInt() + 1n,
+    Tick.MAX_SQRT_RATIO.toBigInt() - 1n,
   );
   const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
 

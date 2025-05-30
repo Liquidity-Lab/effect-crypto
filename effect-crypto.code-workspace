@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../opensource/uniswap-examples"
+		},
+		{
+			"path": "../../opensource/v3-core"
+		},
+		{
+			"path": "../../opensource/v3-periphery"
+		},
+		{
+			"path": "../../opensource/uniswap-sdks"
+		}
+	],
+	"settings": {
+		"typescript.tsdk": "node_modules/typescript/lib",
+		"terminal.integrated.shellIntegration.enabled": true,
+		"terminal.integrated.defaultProfile.osx": "bash",
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"cursor.terminal.usePreviewBox": true,
+		"terminal.integrated.automationProfile.osx": {}
+	}
+}
