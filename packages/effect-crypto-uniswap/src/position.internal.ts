@@ -27,7 +27,8 @@ import * as Tick from "./tick.js";
  * This class implements the `T.BuilderError` interface.
  */
 class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation" | "validation">
-  implements T.BuilderError<Field> {
+  implements T.BuilderError<Field>
+{
   readonly _tag = "BuilderError";
 
   /**
@@ -38,7 +39,7 @@ class BuilderErrorLive<Field extends keyof T.PositionDraftBuilder | "calculation
   private constructor(
     readonly field: Field,
     readonly message: string,
-  ) { }
+  ) {}
 
   /**
    * Creates a `BuilderError` specifically for issues related to the `lowerBoundTick` field.
@@ -93,7 +94,7 @@ class PositionDraftLive implements T.PositionDraft {
     readonly desiredAmount1: Adt.Amount1,
     readonly liquidity: Pool.Liquidity,
     readonly sqrtRatio: BigMath.Ratio,
-  ) { }
+  ) {}
 
   static make(
     poolId: Pool.PoolState,
@@ -127,7 +128,7 @@ class PositionDraftLive implements T.PositionDraft {
               Array.make(
                 BuilderErrorLive.validation(
                   `TickLower.spacing[${tickLower.spacing}] and ` +
-                  `TickUpper.spacing[${tickUpper.spacing}] must be the same as pool spacing[${Tick.toTickSpacing(poolId.fee)}]`,
+                    `TickUpper.spacing[${tickUpper.spacing}] must be the same as pool spacing[${Tick.toTickSpacing(poolId.fee)}]`,
                 ),
               ),
           ),
@@ -426,7 +427,7 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
     Array.make(
       BuilderErrorLive.lowerBoundTick(
         "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
-        "Ensure the function returns Some(UsableTick) for a valid lower bound.",
+          "Ensure the function returns Some(UsableTick) for a valid lower bound.",
       ),
     ),
   );
@@ -478,7 +479,7 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
       BuilderErrorLive.upperBoundTick(
         // Use the new error type for upper bound
         "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
-        "Ensure the function returns Some(UsableTick) for a valid upper bound.",
+          "Ensure the function returns Some(UsableTick) for a valid upper bound.",
       ),
     ),
   );
@@ -507,7 +508,7 @@ export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
   readonly _tag = "AggregateBuilderError";
 
-  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) { }
+  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) {}
 
   static fromBuilderError(
     error: T.BuilderError | Array.NonEmptyArray<T.BuilderError>,
@@ -522,24 +523,23 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
   if (Either.isEither(builder.liquidity)) {
     return EffectUtils.flatMapParN(
       [builder.liquidity, builder.lowerBoundTick, builder.upperBoundTick],
-      (liquidity, tickLower, tickUpper) => calculatePositionDraftFromLiquidity(
-        builder.pool,
-        Price.asSqrt(builder.slot0.price),
-        liquidity,
-        tickLower,
-        tickUpper,
-        builder.slot0.tick,
-      ),
-    ).pipe(
-      Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError),
-    );
+      (liquidity, tickLower, tickUpper) =>
+        calculatePositionDraftFromLiquidity(
+          builder.pool,
+          Price.asSqrt(builder.slot0.price),
+          liquidity,
+          tickLower,
+          tickUpper,
+          builder.slot0.tick,
+        ),
+    ).pipe(Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError));
   }
 
   return Either.left(
     new AggregateBuilderErrorLive([
       BuilderErrorLive.validation(
         "Unknown combination of setting position size. Currently supported ways are: " +
-        "1. setSizeFromLiquidity, 2. setSizeFromSingleAmount(amount0 | amount1)",
+          "1. setSizeFromLiquidity, 2. setSizeFromSingleAmount(amount0 | amount1)",
       ),
     ]),
   );
