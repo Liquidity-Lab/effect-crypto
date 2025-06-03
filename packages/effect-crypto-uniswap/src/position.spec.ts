@@ -467,79 +467,53 @@ test(
   }),
 );
 
+test("PositionDraftBuilder should throw proper error when tickLower is greater than tickUpper", (t) => {
+  const draft = createPositionDraft({
+    sqrtQ64x96Ratio,
+    liquidity: Pool.Liquidity(Big(100e18)),
+    getLowerTick: (current) => Tick.subtractNTicks(current, 1),
+    getUpperTick: (current) => Tick.subtractNTicks(current, 2),
+  });
+
+  t.true(
+    Either.match(draft, {
+      onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
+      onRight: () => false,
+    }),
+    "The result should be a Left, containing tick bounds error",
+  );
+});
+
+test("PositionDraftBuilder should throw proper error when spacing is incorrect", (t) => {
+  const draft = createPositionDraft({
+    sqrtQ64x96Ratio,
+    liquidity: Pool.Liquidity(Big(100e18)),
+    getLowerTick: (current) =>
+      Option.some(Tick.nearestUsableTick(current.unwrap, Tick.toTickSpacing(Adt.FeeAmount.HIGH))),
+    getUpperTick: (current) => Tick.addNTicks(current, 2),
+  });
+
+  t.true(
+    Either.match(draft, {
+      onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
+      onRight: () => false,
+    }),
+    "The result should be a Left, containing tick bounds error",
+  );
+});
+
 function testPositionDraftBuilderUsingLiquidity({
-  sqrtQ64x96Ratio,
-  liquidity,
-  getLowerTick,
-  getUpperTick,
   expectedAmount0,
   expectedAmount1,
-}: {
-  sqrtQ64x96Ratio: BigMath.Q64x96;
-  liquidity: Pool.Liquidity;
-  getLowerTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
-  getUpperTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+  ...draftParams
+}: Parameters<typeof createPositionDraft>[0] & {
   expectedAmount0: Adt.Amount0;
   expectedAmount1: Adt.Amount1;
 }) {
   return (t: ExecutionContext<unknown>) => {
     const effectAssertions = AvaEffect.EffectAssertions(t);
 
-    // --- Setup (similar to testPositionDraft) ---
-    const token0 = Token.Erc20Token(
-      Address.unsafe("0x6B175474E89094C44Da98b954EedeAC495271d0F"),
-      18,
-      "DAI",
-      "DAI Stablecoin",
-      Token.Erc20TokenMeta(),
-    );
-    const token1 = Token.Erc20Token(
-      Address.unsafe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
-      6,
-      "USDC",
-      "USD Coin",
-      Token.Erc20TokenMeta(),
-    );
-
-    const price = Either.getOrThrowWith(
-      Price.makeFromSqrtQ64_96(token0, token1, sqrtQ64x96Ratio),
-      (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
-    );
-
-    const poolAddress = Address.unsafe("0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168"); // Example address
-    const feeAmount = Adt.FeeAmount.LOW;
-
-    const poolState: Pool.PoolState = {
-      token0,
-      token1,
-      fee: feeAmount,
-      address: poolAddress,
-    };
-
-    // Calculate current tick from the price ratio (not sqrt ratio)
-    const tickCurrent = Tick.getTickAtPrice(price);
-
-    // Construct Slot0 correctly based on Pool.Slot0 interface
-    const slot0: Pool.Slot0 = {
-      price: price, // Use the Price object created above
-      tick: tickCurrent,
-      observationIndex: "0", // Required field
-    };
-
-    // --- Use the Builder ---
-    const builder = Position.draftBuilder(poolState, slot0);
-
-    // Set lower bound
-    const builderWithLower = Position.setLowerTickBound(builder, getLowerTick);
-
-    // Set upper bound
-    const builderWithBounds = Position.setUpperTickBound(builderWithLower, getUpperTick);
-
-    // Set size using fromLiquidity
-    const builderWithSize = Position.setSizeFromLiquidity(builderWithBounds, liquidity);
-
-    // Finalize the draft
-    const draft = Position.finalizeDraft(builderWithSize);
+    const draft = createPositionDraft(draftParams);
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
@@ -561,6 +535,74 @@ function testPositionDraftBuilderUsingLiquidity({
       "Builder: amount1 should match expected value",
     );
   };
+}
+
+function createPositionDraft({
+  sqrtQ64x96Ratio,
+  liquidity,
+  getLowerTick,
+  getUpperTick,
+}: {
+  sqrtQ64x96Ratio: BigMath.Q64x96;
+  liquidity: Pool.Liquidity;
+  getLowerTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+  getUpperTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+}): Either.Either<Position.PositionDraft, Position.AggregateBuilderError> {
+  // --- Setup (similar to testPositionDraft) ---
+  const token0 = Token.Erc20Token(
+    Address.unsafe("0x6B175474E89094C44Da98b954EedeAC495271d0F"),
+    18,
+    "DAI",
+    "DAI Stablecoin",
+    Token.Erc20TokenMeta(),
+  );
+  const token1 = Token.Erc20Token(
+    Address.unsafe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
+    6,
+    "USDC",
+    "USD Coin",
+    Token.Erc20TokenMeta(),
+  );
+
+  const price = Either.getOrThrowWith(
+    Price.makeFromSqrtQ64_96(token0, token1, sqrtQ64x96Ratio),
+    (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
+  );
+
+  const poolAddress = Address.unsafe("0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168"); // Example address
+  const feeAmount = Adt.FeeAmount.LOW;
+
+  const poolState: Pool.PoolState = {
+    token0,
+    token1,
+    fee: feeAmount,
+    address: poolAddress,
+  };
+
+  // Calculate current tick from the price ratio (not sqrt ratio)
+  const tickCurrent = Tick.getTickAtPrice(price);
+
+  // Construct Slot0 correctly based on Pool.Slot0 interface
+  const slot0: Pool.Slot0 = {
+    price: price, // Use the Price object created above
+    tick: tickCurrent,
+    observationIndex: "0", // Required field
+  };
+
+  // --- Use the Builder ---
+  const builder = Position.draftBuilder(poolState, slot0);
+
+  // Set lower bound
+  const builderWithLower = Position.setLowerTickBound(builder, getLowerTick);
+
+  // Set upper bound
+  const builderWithBounds = Position.setUpperTickBound(builderWithLower, getUpperTick);
+
+  // Set size using fromLiquidity
+  const builderWithSize = Position.setSizeFromLiquidity(builderWithBounds, liquidity);
+
+  // Finalize the draft
+  return Position.finalizeDraft(builderWithSize);
 }
 
 testProp(

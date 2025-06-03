@@ -53,6 +53,46 @@ export interface PoolIsNotFoundError {
   readonly fee: Adt.FeeAmount;
 }
 
+export interface TickBoundsError {
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/TickBoundsError";
+
+  readonly lowerTick: Tick.UsableTick;
+  readonly upperTick: Tick.UsableTick;
+
+  readonly message: string;
+}
+
+export const isTickBoundsError: {
+  (error: unknown): error is TickBoundsError;
+} = internal.TickBoundsErrorLive.isTickBoundsError;
+
+export interface InvalidUpperTickError {
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidUpperTickError";
+  readonly message: string;
+}
+
+export const isInvalidUpperTickError: {
+  (error: unknown): error is InvalidUpperTickError;
+} = internal.InvalidUpperTickErrorLive.isInvalidUpperTickError;
+
+export interface InvalidLowerTickError {
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidLowerTickError";
+  readonly message: string;
+}
+
+export const isInvalidLowerTickError: {
+  (error: unknown): error is InvalidLowerTickError;
+} = internal.InvalidLowerTickErrorLive.isInvalidLowerTickError;
+
+export interface InvalidSizeError {
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidSizeError";
+  readonly message: string;
+}
+
+export const isInvalidSizeError: {
+  (error: unknown): error is InvalidSizeError;
+} = internal.InvalidSizeErrorLive.isInvalidSizeError;
+
 /**
  * Adds liquidity to a Uniswap V3 pool by minting new positions.
  *
@@ -106,16 +146,11 @@ export const mint: {
  * Represents errors that can occur during the builder process.
  * @template Field - The specific field in the builder where the error occurred, or 'calculation'/'validation' for broader issues.
  */
-export interface BuilderError<
-  Field extends keyof PositionDraftBuilder | "calculation" | "validation" =
-    | keyof PositionDraftBuilder
-    | "calculation"
-    | "validation",
-> {
-  readonly _tag: "BuilderError";
-  readonly field: Field;
-  readonly message: string;
-}
+export type BuilderError =
+  | TickBoundsError
+  | InvalidUpperTickError
+  | InvalidLowerTickError
+  | InvalidSizeError;
 
 /**
  * Internal state for constructing a PositionDraft.
@@ -131,32 +166,29 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   // --- Optional bounds (stored as Either to capture calculation/validation errors) ---
   readonly lowerBoundTick?: Either.Either<
     Tick.UsableTick,
-    Array.NonEmptyArray<BuilderError<"lowerBoundTick">>
+    Array.NonEmptyArray<InvalidLowerTickError>
   >;
   readonly upperBoundTick?: Either.Either<
     Tick.UsableTick,
-    Array.NonEmptyArray<BuilderError<"upperBoundTick">>
+    Array.NonEmptyArray<InvalidUpperTickError>
   >;
 
-  // --- Optional amount/liquidity definition (stored as Either to capture calculation/validation errors) ---
   /**
    * Stores the liquidity if it's set directly or calculated from amounts.
    * This field acts as the primary driver for final calculations if present and valid.
    */
-  readonly liquidity?: Either.Either<
-    Pool.Liquidity,
-    Array.NonEmptyArray<BuilderError<"liquidity">>
-  >;
+  readonly liquidity?: Either.Either<Pool.Liquidity, never>;
+
   /**
    * Stores the maximum desired amount of token0 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount0?: Either.Either<Adt.Amount0, Array.NonEmptyArray<BuilderError<"maxAmount0">>>;
+  readonly maxAmount0?: Either.Either<Adt.Amount0, never>;
   /**
    * Stores the maximum desired amount of token1 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount1?: Either.Either<Adt.Amount1, Array.NonEmptyArray<BuilderError<"maxAmount1">>>;
+  readonly maxAmount1?: Either.Either<Adt.Amount1, never>;
 
   /**
    * Helper flag to indicate which method was used to define the position size.
