@@ -1,5 +1,5 @@
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import { Array, Either, Option, identity } from "effect";
+import { Array, Data, Either, Option, identity } from "effect";
 
 import { BigMath } from "@liquidity_lab/effect-crypto";
 import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
@@ -12,82 +12,9 @@ import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
 /** @internal */
-export class TickBoundsErrorLive implements T.TickBoundsError {
-  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/TickBoundsError";
+export const BuilderErrorLive = Data.taggedEnum<T.BuilderError>();
 
-  constructor(
-    readonly lowerTick: Tick.UsableTick,
-    readonly upperTick: Tick.UsableTick,
-    readonly message: string,
-  ) {}
-
-  static isTickBoundsError(error: unknown): error is T.TickBoundsError {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error &&
-      error._tag === "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/TickBoundsError"
-    );
-  }
-}
-
-/** @internal */
-export class InvalidLowerTickErrorLive implements T.InvalidLowerTickError {
-  readonly _tag =
-    "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidLowerTickError";
-
-  readonly message: string =
-    "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
-    "Ensure the function returns Some(UsableTick) for a valid lower bound.";
-
-  static isInvalidLowerTickError(error: unknown): error is T.InvalidLowerTickError {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error &&
-      error._tag ===
-        "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidLowerTickError"
-    );
-  }
-}
-
-/** @internal */
-export class InvalidUpperTickErrorLive implements T.InvalidUpperTickError {
-  readonly _tag =
-    "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidUpperTickError";
-
-  readonly message: string =
-    "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
-    "Ensure the function returns Some(UsableTick) for a valid upper bound.";
-
-  static isInvalidUpperTickError(error: unknown): error is T.InvalidUpperTickError {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error &&
-      error._tag ===
-        "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidUpperTickError"
-    );
-  }
-}
-
-/** @internal */
-export class InvalidSizeErrorLive implements T.InvalidSizeError {
-  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidSizeError";
-
-  constructor(readonly message: string) {}
-
-  static isInvalidSizeError(error: unknown): error is T.InvalidSizeError {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "_tag" in error &&
-      error._tag === "@liquidity_lab/effect-crypto-uniswap/position#BuilderError/InvalidSizeError"
-    );
-  }
-}
-
-type PositionDraftValidationError = T.TickBoundsError;
+type PositionDraftValidationError = Data.TaggedEnum.Value<T.BuilderError, "InvalidTickBounds">;
 
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
@@ -376,7 +303,13 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
   // Step 2: Apply the user's tickFn to the nearest usable tick.
   // The tickFn itself returns an Option, which we need to handle.
   const lowerBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
-    Array.make(new InvalidLowerTickErrorLive()),
+    Array.make(
+      BuilderErrorLive.InvalidLowerTick({
+        message:
+          "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
+          "Ensure the function returns Some(UsableTick) for a valid lower bound.",
+      }),
+    ),
   );
 
   // Step 3: Return the new builder state.
@@ -422,7 +355,13 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
   // Step 2: Apply the user's tickFn to the nearest usable tick.
   // The tickFn itself returns an Option, which we need to handle.
   const upperBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
-    Array.make(new InvalidUpperTickErrorLive()),
+    Array.make(
+      BuilderErrorLive.InvalidUpperTick({
+        message:
+          "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
+          "Ensure the function returns Some(UsableTick) for a valid upper bound.",
+      }),
+    ),
   );
 
   // Step 3: Return the new builder state.
@@ -471,10 +410,11 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
 
   return Either.left(
     new AggregateBuilderErrorLive([
-      new InvalidSizeErrorLive(
-        "Unknown combination of setting position size. Currently supported ways are: " +
+      BuilderErrorLive.InvalidSize({
+        message:
+          "Unknown combination of setting position size. Currently supported ways are: " +
           "1. setSizeFromLiquidity, 2. setSizeFromSingleAmount(amount0 | amount1)",
-      ),
+      }),
     ]),
   );
 
@@ -497,18 +437,18 @@ function validateTickBounds<S extends T.BuilderReady>(
   builder: S,
 ): Either.Either<
   [Tick.UsableTick, Tick.UsableTick],
-  Array.NonEmptyArray<T.InvalidUpperTickError | T.InvalidLowerTickError | T.TickBoundsError>
+  Array.NonEmptyArray<T.InvalidLowerTickError | T.InvalidUpperTickError | T.InvalidTickBoundsError>
 > {
   return EffectUtils.mapParN([builder.lowerBoundTick, builder.upperBoundTick], identity).pipe(
     Either.filterOrLeft(
       ([tickLower, tickUpper]) => tickLower.unwrap < tickUpper.unwrap,
       ([tickLower, tickUpper]) =>
         Array.make(
-          new TickBoundsErrorLive(
-            tickLower,
-            tickUpper,
-            `tickLower[${tickLower.unwrap}] must be less than tickUpper[${tickUpper.unwrap}]`,
-          ),
+          BuilderErrorLive.InvalidTickBounds({
+            lowerTick: tickLower,
+            upperTick: tickUpper,
+            message: `tickLower[${tickLower.unwrap}] must be less than tickUpper[${tickUpper.unwrap}]`,
+          }),
         ),
     ),
     Either.filterOrLeft(
@@ -517,12 +457,13 @@ function validateTickBounds<S extends T.BuilderReady>(
         tickLower.spacing === tickUpper.spacing,
       ([tickLower, tickUpper]) =>
         Array.make(
-          new TickBoundsErrorLive(
-            tickLower,
-            tickUpper,
-            `tickLower.spacing[${tickLower.spacing}] and ` +
+          BuilderErrorLive.InvalidTickBounds({
+            lowerTick: tickLower,
+            upperTick: tickUpper,
+            message:
+              `tickLower.spacing[${tickLower.spacing}] and ` +
               `tickUpper.spacing[${tickUpper.spacing}] must be the same as pool spacing[${Tick.toTickSpacing(builder.pool.fee)}]`,
-          ),
+          }),
         ),
     ),
   );
