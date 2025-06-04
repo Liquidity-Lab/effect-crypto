@@ -1,5 +1,5 @@
 // packages/effect-crypto-uniswap/src/position.ts
-import { Array, Data, Either, Option, Pipeable } from "effect";
+import { Array, Data, Either, Function, Option, Pipeable } from "effect";
 
 import { BigMath, Token } from "@liquidity_lab/effect-crypto";
 import { TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -423,7 +423,8 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
  * // emptyState has only pool and slot0 properties
  * ```
  */
-export type EmptyState = Required<Pick<PositionDraftBuilder, "pool" | "slot0">>;
+export type EmptyState = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "pool" | "slot0">>;
 
 /**
  * Represents the builder state after the lower tick bound has been set (successfully or with an error).
@@ -439,7 +440,8 @@ export type EmptyState = Required<Pick<PositionDraftBuilder, "pool" | "slot0">>;
  *   Position.setLowerTickBound(emptyState, (tick) => Tick.subtractNTicks(tick, 10));
  * ```
  */
-export type StateWithLowerBound = Required<Pick<PositionDraftBuilder, "lowerBoundTick">>;
+export type StateWithLowerBound = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "lowerBoundTick">>;
 
 /**
  * Represents the builder state after the upper tick bound has been set (successfully or with an error).
@@ -455,7 +457,8 @@ export type StateWithLowerBound = Required<Pick<PositionDraftBuilder, "lowerBoun
  *   Position.setUpperTickBound(emptyState, (tick) => Tick.addNTicks(tick, 10));
  * ```
  */
-export type StateWithUpperBound = Required<Pick<PositionDraftBuilder, "upperBoundTick">>;
+export type StateWithUpperBound = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "upperBoundTick">>;
 
 /**
  * Represents the builder state once both the lower and upper tick bounds have been set (successfully or with errors).
@@ -491,7 +494,8 @@ export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
  *   Position.setSizeFromLiquidity(stateWithBounds, Pool.Liquidity(BigInt(1000000)));
  * ```
  */
-export type StateWithSize = Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
+export type StateWithSize = PositionDraftBuilder &
+  Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
 
 /**
  * Represents a builder state that is structurally ready for the final calculation into a `PositionDraft`.
@@ -589,6 +593,10 @@ export const draftBuilder: {
  * Sets the lower tick boundary based on a function relative to the nearest usable tick.
  * Calculates the tick and stores it as `Either.Right` on success, or `Either.Left<BuilderError>` on failure.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setLowerTickBound(builder, tickFn)`
+ * - Data-last: `setLowerTickBound(tickFn)(builder)` (for use with pipe)
+ *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
  * @param tickFn A function that takes the nearest usable tick and returns the desired lower tick `Option<Tick.UsableTick>`.
@@ -601,24 +609,36 @@ export const draftBuilder: {
  *
  * declare const initialState: Position.EmptyState;
  *
- * // Set lower bound 10 ticks below the current tick's nearest usable tick
+ * // Data-first usage
  * const builderWithLowerTick = Position.setLowerTickBound(
  *   initialState,
  *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10)
+ * );
+ *
+ * // Data-last usage with pipe
+ * const builderWithLowerTickPiped = initialState.pipe(
+ *   Position.setLowerTickBound((currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10))
  * );
  * ```
  */
 export const setLowerTickBound: {
   <S extends EmptyState>(
+    tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+  ): (builder: S) => S & StateWithLowerBound;
+  <S extends EmptyState>(
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithLowerBound;
-} = internal.setLowerTickBoundImpl;
+} = Function.dual(2, internal.setLowerTickBoundImpl);
 
 /**
  * Sets the upper tick boundary based on a function relative to the nearest usable tick.
  * Calculates the tick, validates it's above the lower bound (if set), and stores it as `Either.Right` on success,
  * or `Either.Left<BuilderError>` on failure or validation error.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setUpperTickBound(builder, tickFn)`
+ * - Data-last: `setUpperTickBound(tickFn)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -632,20 +652,27 @@ export const setLowerTickBound: {
  *
  * declare const stateWithLowerBound: Position.EmptyState & Position.StateWithLowerBound;
  *
- * // Set upper bound 20 ticks above the current tick
+ * // Data-first usage
  * const builderWithUpperTick = Position.setUpperTickBound(
  *   stateWithLowerBound,
  *   (currentUsableTick) => Tick.addNTicks(currentUsableTick, 20)
  * );
  *
+ * // Data-last usage with pipe
+ * const builderWithUpperTickPiped = stateWithLowerBound.pipe(
+ *   Position.setUpperTickBound((currentUsableTick) => Tick.addNTicks(currentUsableTick, 20))
+ * );
  * ```
  */
 export const setUpperTickBound: {
   <S extends EmptyState>(
+    tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+  ): (builder: S) => S & StateWithUpperBound;
+  <S extends EmptyState>(
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithUpperBound;
-} = internal.setUpperTickBoundImpl;
+} = Function.dual(2, internal.setUpperTickBoundImpl);
 
 /**
  * Sets the lower tick boundary based on a target price relative to the current price.
@@ -767,6 +794,10 @@ export const setSizeFromSingleAmount: {
  * Stores the provided liquidity as `Either.Right` or `Either.Left<BuilderError>` if validation fails (e.g., non-positive liquidity).
  * Sets the `_sizeDefinitionMethod` flag to 'liquidity'.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setSizeFromLiquidity(builder, liquidity)`
+ * - Data-last: `setSizeFromLiquidity(liquidity)(builder)` (for use with pipe)
+ *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
  * @param liquidity The specific amount of liquidity for the position.
@@ -782,14 +813,19 @@ export const setSizeFromSingleAmount: {
  * // Define position size using a liquidity value (e.g., obtained from a previous position)
  * const liquidityValue = Pool.Liquidity(1234567890n);
  *
- * // Assume bounds are set in stateWithBounds
+ * // Data-first usage
  * const builderWithSize = Position.setSizeFromLiquidity(stateWithBounds, liquidityValue);
  *
+ * // Data-last usage with pipe
+ * const builderWithSizePiped = stateWithBounds.pipe(
+ *   Position.setSizeFromLiquidity(liquidityValue)
+ * );
  * ```
  */
 export const setSizeFromLiquidity: {
+  <S extends EmptyState>(liquidity: Pool.Liquidity): (builder: S) => S & StateWithSize;
   <S extends EmptyState>(builder: S, liquidity: Pool.Liquidity): S & StateWithSize;
-} = internal.setSizeFromLiquidityImpl;
+} = Function.dual(2, internal.setSizeFromLiquidityImpl);
 
 /**
  * Attempts to finalize the PositionDraft creation from a builder state that is structurally complete.
@@ -810,9 +846,9 @@ export const setSizeFromLiquidity: {
  *
  * declare const readyState: Position.BuilderReady;
  *
- * const result = Position.finalizeDraft(readyState);
+ *  * const result = Position.finalizeDraft(readyState);
  *
- * Either.match(result, {
+ *  * Either.match(result, {
  *   onRight: (positionDraft) => {
  *     console.log("Position Draft Created:", positionDraft);
  *   },

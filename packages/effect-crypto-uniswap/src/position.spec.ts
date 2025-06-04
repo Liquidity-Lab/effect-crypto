@@ -468,13 +468,19 @@ test(
 );
 
 test("PositionDraftBuilder should throw proper error when tickLower is greater than tickUpper", (t) => {
-  const draft = createPositionDraft({
-    sqrtQ64x96Ratio,
-    liquidity: Pool.Liquidity(Big(100e18)),
-    getLowerTick: (current) => Tick.subtractNTicks(current, 1),
-    getUpperTick: (current) => Tick.subtractNTicks(current, 2),
-  });
+  // Use the newDraftBuilder helper function to create the initial builder state
+  const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+    // Set lower tick bound using pipe API - this will be tick - 1
+    Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
+    // Set upper tick bound using pipe API - this will be tick - 2 (invalid: lower > upper)
+    Position.setUpperTickBound((current) => Tick.subtractNTicks(current, 2)),
+    // Set liquidity using pipe API
+    Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
+    // Finalize the draft using pipe API
+    Position.finalizeDraft,
+  );
 
+  // Assert that the result contains a tick bounds error
   t.true(
     Either.match(draft, {
       onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
@@ -485,14 +491,21 @@ test("PositionDraftBuilder should throw proper error when tickLower is greater t
 });
 
 test("PositionDraftBuilder should throw proper error when spacing is incorrect", (t) => {
-  const draft = createPositionDraft({
-    sqrtQ64x96Ratio,
-    liquidity: Pool.Liquidity(Big(100e18)),
-    getLowerTick: (current) =>
+  // Use the newDraftBuilder helper function to create the initial builder state
+  const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+    // Set lower tick bound with incorrect spacing (HIGH fee spacing instead of LOW)
+    Position.setLowerTickBound((current) =>
       Option.some(Tick.nearestUsableTick(current.unwrap, Tick.toTickSpacing(Adt.FeeAmount.HIGH))),
-    getUpperTick: (current) => Tick.addNTicks(current, 2),
-  });
+    ),
+    // Set upper tick bound using pipe API
+    Position.setUpperTickBound((current) => Tick.addNTicks(current, 2)),
+    // Set liquidity using pipe API
+    Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
+    // Finalize the draft using pipe API
+    Position.finalizeDraft,
+  );
 
+  // Assert that the result contains a tick bounds error
   t.true(
     Either.match(draft, {
       onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
@@ -505,15 +518,32 @@ test("PositionDraftBuilder should throw proper error when spacing is incorrect",
 function testPositionDraftBuilderUsingLiquidity({
   expectedAmount0,
   expectedAmount1,
-  ...draftParams
-}: Parameters<typeof createPositionDraft>[0] & {
+  sqrtQ64x96Ratio,
+  liquidity,
+  getLowerTick,
+  getUpperTick,
+}: {
+  sqrtQ64x96Ratio: BigMath.Q64x96;
+  liquidity: Pool.Liquidity;
+  getLowerTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+  getUpperTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
   expectedAmount0: Adt.Amount0;
   expectedAmount1: Adt.Amount1;
 }) {
   return (t: ExecutionContext<unknown>) => {
     const effectAssertions = AvaEffect.EffectAssertions(t);
 
-    const draft = createPositionDraft(draftParams);
+    // Use the newDraftBuilder helper function and pipe API to create the position draft
+    const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+      // Set lower tick bound using pipe API
+      Position.setLowerTickBound(getLowerTick),
+      // Set upper tick bound using pipe API
+      Position.setUpperTickBound(getUpperTick),
+      // Set liquidity using pipe API
+      Position.setSizeFromLiquidity(liquidity),
+      // Finalize the draft using pipe API
+      Position.finalizeDraft,
+    );
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
@@ -537,18 +567,7 @@ function testPositionDraftBuilderUsingLiquidity({
   };
 }
 
-function createPositionDraft({
-  sqrtQ64x96Ratio,
-  liquidity,
-  getLowerTick,
-  getUpperTick,
-}: {
-  sqrtQ64x96Ratio: BigMath.Q64x96;
-  liquidity: Pool.Liquidity;
-  getLowerTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
-  getUpperTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
-}): Either.Either<Position.PositionDraft, Position.AggregateBuilderError> {
-  // --- Setup (similar to testPositionDraft) ---
+function newDraftBuilder(sqrtQ64x96Ratio: BigMath.Q64x96): Position.EmptyState {
   const token0 = Token.Erc20Token(
     Address.unsafe("0x6B175474E89094C44Da98b954EedeAC495271d0F"),
     18,
@@ -589,20 +608,7 @@ function createPositionDraft({
     observationIndex: "0", // Required field
   };
 
-  // --- Use the Builder ---
-  const builder = Position.draftBuilder(poolState, slot0);
-
-  // Set lower bound
-  const builderWithLower = Position.setLowerTickBound(builder, getLowerTick);
-
-  // Set upper bound
-  const builderWithBounds = Position.setUpperTickBound(builderWithLower, getUpperTick);
-
-  // Set size using fromLiquidity
-  const builderWithSize = Position.setSizeFromLiquidity(builderWithBounds, liquidity);
-
-  // Finalize the draft
-  return Position.finalizeDraft(builderWithSize);
+  return Position.draftBuilder(poolState, slot0);
 }
 
 testProp(

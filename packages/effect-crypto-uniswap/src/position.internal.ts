@@ -1,5 +1,5 @@
 import { BigDecimal, MathContext } from "bigdecimal.js";
-import { Array, Data, Either, Option, identity } from "effect";
+import { Array, Data, Either, Option, Pipeable, identity } from "effect";
 
 import { BigMath } from "@liquidity_lab/effect-crypto";
 import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
@@ -261,10 +261,18 @@ function getAmount1Delta(
 export const draftBuilder: {
   (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState;
 } = (pool: Pool.PoolState, slot0: Pool.Slot0): T.EmptyState => {
-  return {
+  // Create a concrete implementation that includes the pipe method
+  const instance: T.EmptyState = {
     pool: pool,
     slot0: slot0,
-  };
+
+    pipe() {
+      // eslint-disable-next-line prefer-rest-params
+      return Pipeable.pipeArguments(instance, arguments);
+    },
+  } as T.EmptyState;
+
+  return instance;
 };
 
 /**
@@ -312,11 +320,18 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
     ),
   );
 
-  // Step 3: Return the new builder state.
-  return {
+  // Step 3: Return the new builder state with pipe method.
+  const instance = {
     ...builder,
     lowerBoundTick,
-  };
+
+    pipe() {
+      // eslint-disable-next-line prefer-rest-params
+      return Pipeable.pipeArguments(instance, arguments);
+    },
+  } as S & T.StateWithLowerBound;
+
+  return instance;
 };
 
 /**
@@ -364,11 +379,18 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
     ),
   );
 
-  // Step 3: Return the new builder state.
-  return {
+  // Step 3: Return the new builder state with pipe method.
+  const instance = {
     ...builder,
     upperBoundTick, // Set the upperBoundTick field
-  };
+
+    pipe() {
+      // eslint-disable-next-line prefer-rest-params
+      return Pipeable.pipeArguments(instance, arguments);
+    },
+  } as S & T.StateWithUpperBound;
+
+  return instance;
 };
 
 /** @internal */
@@ -376,13 +398,20 @@ export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
   builder: S,
   liquidity: Pool.Liquidity, // Assumed pre-validated by its brand
 ): S & T.StateWithSize => {
-  return {
+  const instance = {
     ...builder,
     liquidity: Either.right(liquidity),
     maxAmount0: undefined,
     maxAmount1: undefined,
     _sizeDefinitionMethod: "liquidity" as const,
-  };
+
+    pipe() {
+      // eslint-disable-next-line prefer-rest-params
+      return Pipeable.pipeArguments(instance, arguments);
+    },
+  } as S & T.StateWithSize;
+
+  return instance;
 };
 
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
