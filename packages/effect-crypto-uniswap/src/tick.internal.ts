@@ -117,6 +117,11 @@ export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {
   return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());
 }
 
+/**
+ * Calculates the tick from the square root of the ratio.
+ * @param sqrtRatio the square root of the ratio
+ * @internal
+ */
 export function getTickAtSqrtRatioImpl(sqrtRatio: BigDecimal): T.Tick {
   // Since sqrtRatio = sqrt(1.0001^tick), we have:
   // sqrtRatio^2 = 1.0001^tick
