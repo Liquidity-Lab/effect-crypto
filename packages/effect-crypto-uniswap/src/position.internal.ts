@@ -14,8 +14,6 @@ import * as Tick from "./tick.js";
 /** @internal */
 export const BuilderErrorLive = Data.taggedEnum<T.BuilderError>();
 
-type PositionDraftValidationError = Data.TaggedEnum.Value<T.BuilderError, "InvalidTickBounds">;
-
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
 
@@ -31,8 +29,6 @@ class PositionDraftLive implements T.PositionDraft {
   ) {}
 }
 
-// export const makePositionDraft = <Args extends Parameters<typeof Constructor>>(...args: Args) => new PositionDraftLive(...args);
-
 export function calculatePositionDraftFromLiquidity(
   poolId: Pool.PoolState,
   sqrtPrice: BigMath.Ratio,
@@ -40,7 +36,7 @@ export function calculatePositionDraftFromLiquidity(
   tickLower: Tick.UsableTick,
   tickUpper: Tick.UsableTick,
   tickCurrent: Tick.Tick,
-): Either.Either<T.PositionDraft, Array.NonEmptyArray<PositionDraftValidationError>> {
+): T.PositionDraft {
   const [amount0Desired, amount1Desired] = mintAmountsImpl(
     tickCurrent,
     tickLower,
@@ -60,7 +56,7 @@ export function calculatePositionDraftFromLiquidity(
     sqrtPrice,
   );
 
-  return Either.right(positionDraft);
+  return positionDraft;
 }
 
 export function calculatePositionDraftFromAmounts(
@@ -431,9 +427,9 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
 ): Either.Either<T.PositionDraft, T.AggregateBuilderError> {
   if (Either.isEither(builder.liquidity)) {
     // TODO: it it possible to support any type of iterable?
-    return EffectUtils.flatMapParN(
+    return EffectUtils.mapParN(
       [builder.liquidity, validateTickBounds(builder)],
-      fromLiquidity,
+      ([liquidity, bounds]) => fromLiquidity(liquidity, bounds),
     ).pipe(Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError));
   }
 
@@ -451,7 +447,7 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
     liquidity: Pool.Liquidity,
     [tickLower, tickUpper]: [Tick.UsableTick, Tick.UsableTick],
   ) {
-    return calculatePositionDraftFromLiquidity(
+    const draft = calculatePositionDraftFromLiquidity(
       builder.pool,
       Price.asSqrt(builder.slot0.price),
       liquidity,
@@ -459,6 +455,8 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
       tickUpper,
       builder.slot0.tick,
     );
+
+    return draft;
   }
 }
 

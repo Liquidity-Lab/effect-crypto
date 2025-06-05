@@ -398,16 +398,13 @@ function testPositionDraft(
     const dbg = sdkImplementation(tickLower, tickUpper);
     console.log(dbg);
 
-    const draft = Either.getOrThrowWith(
-      internal.calculatePositionDraftFromLiquidity(
-        poolState,
-        sqrtRatioCurrent,
-        params.liquidity,
-        tickLower,
-        tickUpper,
-        tickCurrent,
-      ),
-      (err) => new Error(`Failed to calculate position draft: ${err}`),
+    const draft = internal.calculatePositionDraftFromLiquidity(
+      poolState,
+      sqrtRatioCurrent,
+      params.liquidity,
+      tickLower,
+      tickUpper,
+      tickCurrent,
     );
 
     // Assertions for amount0
