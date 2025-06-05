@@ -111,3 +111,6 @@ node_modules
 ignition/deployments/chain-31337
 
 tsconfig.tsbuildinfo
+
+# VSCode workspace files
+*.code-workspace

@@ -75,6 +75,24 @@ testProp(
 );
 
 testProp(
+  "getTickAtSqrtRatio should works the same as uniswap-sdk implementation",
+  [sqrtRatioWithLimitedPrecisionGen()],
+  (t, sqrtRatio) => {
+    const expected = SdkTickMath.getTickAtSqrtRatio(
+      JSBI.BigInt(
+        sqrtRatio
+          .multiply(2n ** 96n)
+          .toBigInt()
+          .toString(),
+      ),
+    );
+    const actual = Tick.getTickAtSqrtRatio(sqrtRatio);
+
+    t.deepEqual(actual, expected, "tick idx should be equal");
+  },
+);
+
+testProp(
   "getTickAtPrice should work correctly with sqrt-based price",
   [priceWithSqrtValueGen()],
   (t, sqrtPrice) => {
@@ -105,6 +123,23 @@ testProp(
     // Compare the unwrapped tick value with the SDK's result
     // We're adding 0 to the expected value to normalize potential -0 to 0
     t.deepEqual(actualUsableTick.unwrap, expected + 0, "tick idx should be equal");
+  },
+  { numRuns: 512 },
+);
+
+testProp(
+  "addNTicks should be consistent with uniswap-sdk implementation",
+  [Tick.Tick.gen, Adt.feeAmountGen],
+  (t, tick, feeAmount) => {
+    const spacing = Tick.toTickSpacing(feeAmount);
+    const expected = Tick.Tick.option(sdkNearestUsableTick(tick, spacing) + spacing);
+    const actual = Tick.addNTicks(Tick.nearestUsableTick(Tick.Tick(tick), spacing), 1);
+
+    t.deepEqual(
+      Option.map(actual, (tick) => tick.unwrap),
+      expected,
+      "tick idx should be equal",
+    );
   },
   { numRuns: 512 },
 );
@@ -221,6 +256,18 @@ function doubleWithLimitedPrecisionGen() {
   const integerPartGen = fc.bigInt(
     Tick.MIN_SQRT_RATIO.pow(2).toBigInt() + 1n,
     Tick.MAX_SQRT_RATIO.pow(2).toBigInt() - 1n,
+  );
+  const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
+
+  return fc.tuple(integerPartGen, fractionalPartGen).map(([integer, fractional]) => {
+    return Big(`${integer}.${fractional}`);
+  });
+}
+
+function sqrtRatioWithLimitedPrecisionGen() {
+  const integerPartGen = fc.bigInt(
+    Tick.MIN_SQRT_RATIO.toBigInt() + 1n,
+    Tick.MAX_SQRT_RATIO.toBigInt() - 1n,
   );
   const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
 

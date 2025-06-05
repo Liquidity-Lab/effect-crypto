@@ -1,0 +1,42 @@
+/**
+ * @file packages/effect-crypto-uniswap/src/position.test-d.ts
+ */
+import { Either, Option } from "effect";
+import { assertType, test } from "vitest";
+
+import * as Pool from "./pool.js";
+import * as Position from "./position.js";
+
+test("PositionDraftBuilder should be pipable", () => {
+  const poolState: Pool.PoolState = null as any;
+  const slot0: Pool.Slot0 = null as any;
+  const liquidity: Pool.Liquidity = null as any;
+
+  // Step 1: Create initial builder - should return EmptyState
+  const initialBuilder = Position.draftBuilder(poolState, slot0);
+  assertType<Position.EmptyState>(initialBuilder);
+
+  // Step 2: Set lower tick bound - should return EmptyState & StateWithLowerBound
+  const builderWithLowerTick = initialBuilder.pipe(
+    // We don't really care about correctness of the data here
+    Position.setLowerTickBound((current) => Option.some(current)),
+  );
+  assertType<Position.EmptyState & Position.StateWithLowerBound>(builderWithLowerTick);
+
+  // Step 3: Set upper tick bound - should return EmptyState & StateWithLowerBound & StateWithUpperBound
+  const builderWithBothTicks = builderWithLowerTick.pipe(
+    // We don't really care about correctness of the data here
+    Position.setUpperTickBound((current) => Option.some(current)),
+  );
+  assertType<Position.EmptyState & Position.StateWithLowerBound & Position.StateWithUpperBound>(
+    builderWithBothTicks,
+  );
+
+  // Step 4: Set size from liquidity - should return EmptyState & StateWithLowerBound & StateWithUpperBound & StateWithSize
+  const builderWithSize = builderWithBothTicks.pipe(Position.setSizeFromLiquidity(liquidity));
+  assertType<Position.BuilderReady>(builderWithSize);
+
+  // Step 5: Finalize draft - should return Either<PositionDraft, AggregateBuilderError>
+  const finalResult = builderWithSize.pipe(Position.finalizeDraft);
+  assertType<Either.Either<Position.PositionDraft, Position.AggregateBuilderError>>(finalResult);
+});
