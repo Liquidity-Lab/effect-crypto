@@ -40,3 +40,35 @@ test("PositionDraftBuilder should be pipable", () => {
   const finalResult = builderWithSize.pipe(Position.finalizeDraft);
   assertType<Either.Either<Position.PositionDraft, Position.AggregateBuilderError>>(finalResult);
 });
+
+test("PositionDraftBuilder should support price bounds", () => {
+  const poolState: Pool.PoolState = null as any;
+  const slot0: Pool.Slot0 = null as any;
+  const liquidity: Pool.Liquidity = null as any;
+
+  // Step 1: Create initial builder - should return EmptyState
+  const initialBuilder = Position.draftBuilder(poolState, slot0);
+  assertType<Position.EmptyState>(initialBuilder);
+
+  // Step 2: Set lower price bound - should return EmptyState & StateWithLowerBound
+  const builderWithLowerPrice = initialBuilder.pipe(
+    Position.setLowerPriceBound((currentPrice) => Option.some(currentPrice)),
+  );
+  assertType<Position.EmptyState & Position.StateWithLowerBound>(builderWithLowerPrice);
+
+  // Step 3: Set upper price bound - should return EmptyState & StateWithLowerBound & StateWithUpperBound
+  const builderWithBothPrices = builderWithLowerPrice.pipe(
+    Position.setUpperPriceBound((currentPrice) => Option.some(currentPrice)),
+  );
+  assertType<Position.EmptyState & Position.StateWithLowerBound & Position.StateWithUpperBound>(
+    builderWithBothPrices,
+  );
+
+  // Step 4: Set size from liquidity - should return EmptyState & StateWithLowerBound & StateWithUpperBound & StateWithSize
+  const builderWithSize = builderWithBothPrices.pipe(Position.setSizeFromLiquidity(liquidity));
+  assertType<Position.BuilderReady>(builderWithSize);
+
+  // Step 5: Finalize draft - should return Either<PositionDraft, AggregateBuilderError>
+  const finalResult = builderWithSize.pipe(Position.finalizeDraft);
+  assertType<Either.Either<Position.PositionDraft, Position.AggregateBuilderError>>(finalResult);
+});

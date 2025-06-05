@@ -104,6 +104,12 @@ export type BuilderError = Data.TaggedEnum<{
   InvalidSize: {
     readonly message: string;
   };
+  InvalidPrice: {
+    readonly message: string;
+    readonly providedPrice: Option.Option<Price.AnyTokenPrice>;
+    readonly expectedToken0: Token.AnyToken;
+    readonly expectedToken1: Token.AnyToken;
+  };
 }>;
 
 export const BuilderError = internal.BuilderErrorLive;
@@ -291,6 +297,58 @@ export const isInvalidSizeError: {
 } = BuilderError.$is("InvalidSize");
 
 /**
+ * Represents an error that occurs when an invalid price is provided.
+ * This can happen when the price contains tokens that don't match the pool's tokens,
+ * or when the price cannot be converted to a valid tick.
+ *
+ * @example
+ * ```typescript
+ * import { Either, Option } from "effect";
+ * import { Position, Price } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Token } from "@liquidity_lab/effect-crypto";
+ *
+ * declare const poolState: Pool.PoolState; // USDC/WETH pool
+ * declare const BTCToken: Token.Erc20Token;
+ *
+ * // Price with wrong tokens will result in InvalidPriceError
+ * const wrongPrice = Price.makeFromUnits(BTCToken, poolState.token1, BigMath.Ratio.ONE);
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerPriceBound((current) => wrongPrice), // Wrong token in price
+ *     Position.setUpperTickBound((tick) => Tick.addNTicks(tick, 10)),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidPriceError
+ * ```
+ */
+export const InvalidPriceError = BuilderError.InvalidPrice;
+export type InvalidPriceError = Data.TaggedEnum.Value<BuilderError, "InvalidPrice">;
+
+/**
+ * Type guard function to check if an error is an InvalidPriceError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidPriceError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidPriceError(error)) {
+ *     console.log(`Invalid price: ${error.message}`);
+ *     console.log(`Expected tokens: ${error.expectedToken0.symbol}/${error.expectedToken1.symbol}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidPriceError: {
+  (error: unknown): error is InvalidPriceError;
+} = BuilderError.$is("InvalidPrice");
+
+/**
  * Helper function for pattern matching BuilderError.
  * Provides a clean API for handling all BuilderError variants exhaustively.
  *
@@ -299,10 +357,11 @@ export const isInvalidSizeError: {
  * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
  *
  * const handleError = Position.matchBuilderError({
- *   TickBounds: (error) => `Tick bounds error: ${error.message}`,
+ *   InvalidTickBounds: (error) => `Tick bounds error: ${error.message}`,
  *   InvalidUpperTick: (error) => `Invalid upper tick: ${error.message}`,
  *   InvalidLowerTick: (error) => `Invalid lower tick: ${error.message}`,
- *   InvalidSize: (error) => `Invalid size: ${error.message}`
+ *   InvalidSize: (error) => `Invalid size: ${error.message}`,
+ *   InvalidPrice: (error) => `Invalid price: ${error.message}`
  * });
  *
  * const result = handleError(someBuilderError);
@@ -373,11 +432,11 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   // --- Optional bounds (stored as Either to capture calculation/validation errors) ---
   readonly lowerBoundTick?: Either.Either<
     Tick.UsableTick,
-    Array.NonEmptyArray<Data.TaggedEnum.Value<BuilderError, "InvalidLowerTick">>
+    Array.NonEmptyArray<InvalidLowerTickError | InvalidPriceError>
   >;
   readonly upperBoundTick?: Either.Either<
     Tick.UsableTick,
-    Array.NonEmptyArray<Data.TaggedEnum.Value<BuilderError, "InvalidUpperTick">>
+    Array.NonEmptyArray<InvalidUpperTickError | InvalidPriceError>
   >;
 
   /**
@@ -679,6 +738,10 @@ export const setUpperTickBound: {
  * Converts the target price to a tick, validates it, and stores it as `Either.Right` on success,
  * or `Either.Left<BuilderError>` on failure or validation error.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setLowerPriceBound(builder, priceFn)`
+ * - Data-last: `setLowerPriceBound(priceFn)(builder)` (for use with pipe)
+ *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
  * @param priceFn A function that takes the current price and returns the desired lower bound price `Option<Price.AnyTokenPrice>`.
@@ -708,15 +771,22 @@ export const setUpperTickBound: {
  */
 export const setLowerPriceBound: {
   <S extends EmptyState>(
+    priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+  ): (builder: S) => S & StateWithLowerBound;
+  <S extends EmptyState>(
     builder: S,
     priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
   ): S & StateWithLowerBound;
-} = null as any; // TODO: Implement setLowerPriceBoundImpl
+} = Function.dual(2, internal.setLowerPriceBoundImpl);
 
 /**
  * Sets the upper tick boundary based on a target price relative to the current price.
  * Converts the target price to a tick, validates it's above the lower bound (if set),
  * and stores it as `Either.Right` on success, or `Either.Left<BuilderError>` on failure or validation error.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setUpperPriceBound(builder, priceFn)`
+ * - Data-last: `setUpperPriceBound(priceFn)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -747,10 +817,13 @@ export const setLowerPriceBound: {
  */
 export const setUpperPriceBound: {
   <S extends EmptyState>(
+    priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+  ): (builder: S) => S & StateWithUpperBound;
+  <S extends EmptyState>(
     builder: S,
     priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
   ): S & StateWithUpperBound;
-} = null as any; // TODO: Implement setUpperPriceBoundImpl
+} = Function.dual(2, internal.setUpperPriceBoundImpl);
 
 /**
  * Sets the desired position size using a specific amount of a single token (token0 or token1).
@@ -857,7 +930,8 @@ export const setSizeFromLiquidity: {
  *       InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
  *       InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
  *       InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
- *       InvalidSize: (error) => `Size: ${error.message}`
+ *       InvalidSize: (error) => `Size: ${error.message}`,
+ *       InvalidPrice: (error) => `Price: ${error.message}`
  *     })
  *   }
  * });
@@ -892,7 +966,8 @@ export const finalizeDraft: {
  *     InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
  *     InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
  *     InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
- *     InvalidSize: (error) => `Size: ${error.message}`
+ *     InvalidSize: (error) => `Size: ${error.message}`,
+ *     InvalidPrice: (error) => `Price: ${error.message}`
  *   });
  *
  *   const messages = aggError.errors.map(handleError).join("\n");

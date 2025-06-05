@@ -12,7 +12,8 @@ import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
 /** @internal */
-export const BuilderErrorLive = Data.taggedEnum<T.BuilderError>();
+export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> =
+  Data.taggedEnum<T.BuilderError>();
 
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
@@ -410,6 +411,161 @@ export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
   return instance;
 };
 
+/**
+ * @internal
+ * Internal implementation for setting the lower tick boundary based on a target price.
+ *
+ * This function validates that the provided price contains the correct tokens (matching the pool's tokens),
+ * converts the price to a tick, and then uses the existing setLowerTickBoundImpl logic.
+ */
+export const setLowerPriceBoundImpl = <S extends T.EmptyState>(
+  builder: S,
+  priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+): S & T.StateWithLowerBound => {
+  const poolState = builder.pool;
+  const currentPrice = builder.slot0.price;
+
+  const poolToken0 = poolState.token0;
+  const poolToken1 = poolState.token1;
+
+  const lowerBoundTickOrError = Either.gen(function* () {
+    // Step 1: Apply the user's priceFn to get the target price
+    const targetPrice = yield* Either.fromOption(priceFn(currentPrice), () =>
+      Array.make(
+        BuilderErrorLive.InvalidPrice({
+          message:
+            "The provided price function (priceFn) did not return a valid price (returned None). " +
+            "Ensure the function returns Some(Price) for a valid lower bound.",
+          providedPrice: Option.none(),
+          expectedToken0: poolToken0,
+          expectedToken1: poolToken1,
+        }),
+      ),
+    );
+
+    // Step 2: Validate that the target price contains the correct tokens
+    const priceContainsToken0 = Price.contains(targetPrice, poolToken0);
+    const priceContainsToken1 = Price.contains(targetPrice, poolToken1);
+
+    if (!priceContainsToken0 || !priceContainsToken1) {
+      return yield* Either.left(
+        Array.make(
+          BuilderErrorLive.InvalidPrice({
+            message:
+              "The provided price does not contain the correct tokens for this pool. " +
+              `Expected tokens: ${poolToken0.symbol}/${poolToken1.symbol}, ` +
+              `but price contains: ${targetPrice.token0.symbol}/${targetPrice.token1.symbol}`,
+            providedPrice: Option.some(targetPrice),
+            expectedToken0: poolToken0,
+            expectedToken1: poolToken1,
+          }),
+        ),
+      );
+    }
+
+    // Step 3: Convert the target price to a tick
+    const targetTick = Tick.getTickAtPrice(targetPrice);
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+
+    return Tick.nearestUsableTick(targetTick, tickSpacing);
+  });
+
+  // Step 4: Use the existing setLowerTickBoundImpl logic with a function that returns the calculated tick
+  return Either.match(lowerBoundTickOrError, {
+    onLeft: (errors) => {
+      const instance = {
+        ...builder,
+        lowerBoundTick: Either.left(errors),
+
+        pipe() {
+          // eslint-disable-next-line prefer-rest-params
+          return Pipeable.pipeArguments(instance, arguments);
+        },
+      } as S & T.StateWithLowerBound;
+
+      return instance;
+    },
+    onRight: (lowerBoundTick) => setLowerTickBoundImpl(builder, () => Option.some(lowerBoundTick)),
+  });
+};
+
+/**
+ * @internal
+ * Internal implementation for setting the upper tick boundary based on a target price.
+ *
+ * This function validates that the provided price contains the correct tokens (matching the pool's tokens),
+ * converts the price to a tick, and then uses the existing setUpperTickBoundImpl logic.
+ */
+export const setUpperPriceBoundImpl = <S extends T.EmptyState>(
+  builder: S,
+  priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+): S & T.StateWithUpperBound => {
+  const poolState = builder.pool;
+  const currentPrice = builder.slot0.price;
+  const poolToken0 = poolState.token0;
+  const poolToken1 = poolState.token1;
+
+  const upperBoundTickOrError = Either.gen(function* () {
+    // Step 1: Apply the user's priceFn to get the target price
+    const targetPrice = yield* Either.fromOption(priceFn(currentPrice), () =>
+      Array.make(
+        BuilderErrorLive.InvalidPrice({
+          message:
+            "The provided price function (priceFn) did not return a valid price (returned None). " +
+            "Ensure the function returns Some(Price) for a valid upper bound.",
+          providedPrice: Option.none(),
+          expectedToken0: poolToken0,
+          expectedToken1: poolToken1,
+        }),
+      ),
+    );
+
+    // Step 2: Validate that the target price contains the correct tokens
+    const priceContainsToken0 = Price.contains(targetPrice, poolToken0);
+    const priceContainsToken1 = Price.contains(targetPrice, poolToken1);
+
+    if (!priceContainsToken0 || !priceContainsToken1) {
+      return yield* Either.left(
+        Array.make(
+          BuilderErrorLive.InvalidPrice({
+            message:
+              "The provided price does not contain the correct tokens for this pool. " +
+              `Expected tokens: ${poolToken0.symbol}/${poolToken1.symbol}, ` +
+              `but price contains: ${targetPrice.token0.symbol}/${targetPrice.token1.symbol}`,
+            providedPrice: Option.some(targetPrice),
+            expectedToken0: poolToken0,
+            expectedToken1: poolToken1,
+          }),
+        ),
+      );
+    }
+
+    // Step 3: Convert the target price to a tick
+    const targetTick = Tick.getTickAtPrice(targetPrice);
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+
+    return Tick.nearestUsableTick(targetTick, tickSpacing);
+  });
+
+  // Step 4: Use the existing setUpperTickBoundImpl logic with a function that returns the calculated tick
+  return Either.match(upperBoundTickOrError, {
+    onLeft: (errors) => {
+      const instance = {
+        ...builder,
+        upperBoundTick: Either.left(errors),
+
+        pipe() {
+          // eslint-disable-next-line prefer-rest-params
+          return Pipeable.pipeArguments(instance, arguments);
+        },
+      } as S & T.StateWithUpperBound;
+
+      return instance;
+    },
+    onRight: (upperBoundTick) => setUpperTickBoundImpl(builder, () => Option.some(upperBoundTick)),
+  });
+};
+
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
   readonly _tag = "AggregateBuilderError";
 
@@ -464,7 +620,12 @@ function validateTickBounds<S extends T.BuilderReady>(
   builder: S,
 ): Either.Either<
   [Tick.UsableTick, Tick.UsableTick],
-  Array.NonEmptyArray<T.InvalidLowerTickError | T.InvalidUpperTickError | T.InvalidTickBoundsError>
+  Array.NonEmptyArray<
+    | T.InvalidLowerTickError
+    | T.InvalidUpperTickError
+    | T.InvalidPriceError
+    | T.InvalidTickBoundsError
+  >
 > {
   return EffectUtils.mapParN([builder.lowerBoundTick, builder.upperBoundTick], identity).pipe(
     Either.filterOrLeft(

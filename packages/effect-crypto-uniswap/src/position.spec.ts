@@ -716,6 +716,121 @@ testProp(
 );
 
 testProp(
+  "setLowerPriceBound should successfully set lowerBoundTick when priceFn returns a valid price",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithLowerBound = Position.setLowerPriceBound(
+      initialBuilder,
+      (currentPrice: Price.AnyTokenPrice) => {
+        return Option.some(currentPrice);
+      },
+    );
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const expectedTick = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    // TODO: t.deepEqual is not working as expected, counterexample:
+    // t.deepEqual(
+    //   builderWithLowerBound.lowerBoundTick, // <-- Tick.UsableTick
+    //   Either.right(slot0.tick), // <-- this is Tick.Tick
+    //   `Expected lowerBoundTick to be ${expectedTick} but got ${builderWithLowerBound.lowerBoundTick}`,
+    // );
+
+    t.deepEqual(
+      builderWithLowerBound.lowerBoundTick,
+      Either.right(expectedTick),
+      `Expected lowerBoundTick to be ${expectedTick} but got ${builderWithLowerBound.lowerBoundTick}`,
+    );
+  },
+);
+
+testProp(
+  "setLowerPriceBound should store a BuilderError when priceFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithLowerBound = Position.setLowerPriceBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithLowerBound.lowerBoundTick),
+      "lowerBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setLowerPriceBound should store a BuilderError when priceFn returns a price that does not contain the pool tokens",
+  [poolStateAndSlot0Gen, Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, [poolState, slot0], randomPrice) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithLowerBound = Position.setLowerPriceBound(initialBuilder, () =>
+      Option.some(randomPrice),
+    );
+
+    t.true(
+      Either.isLeft(builderWithLowerBound.lowerBoundTick),
+      "lowerBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should successfully set upperBoundTick when priceFn returns a valid price",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithUpperBound = Position.setUpperPriceBound(
+      initialBuilder,
+      (currentPrice: Price.AnyTokenPrice) => {
+        return Option.some(currentPrice);
+      },
+    );
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const expectedTick = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    t.deepEqual(
+      builderWithUpperBound.upperBoundTick,
+      Either.right(expectedTick),
+      `Expected upperBoundTick to be ${expectedTick} but got ${builderWithUpperBound.upperBoundTick}`,
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should store a BuilderError when priceFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithUpperBound = Position.setUpperPriceBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithUpperBound.upperBoundTick),
+      "upperBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should store a BuilderError when priceFn returns a price that does not contain the pool tokens",
+  [poolStateAndSlot0Gen, Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, [poolState, slot0], randomPrice) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithUpperBound = Position.setUpperPriceBound(initialBuilder, () =>
+      Option.some(randomPrice),
+    );
+
+    t.true(
+      Either.isLeft(builderWithUpperBound.upperBoundTick),
+      "upperBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
   "setUpperTickBound should successfully set upperBoundTick when tickFn modifies the input usable tick",
   [poolStateAndSlot0Gen, fc.integer({ min: 1, max: 5 })],
   (t, [poolState, slot0], nTicksToModify) => {
@@ -831,6 +946,7 @@ test("finalizeDraftOrThrow should throw custom error when builder has invalid ti
       InvalidUpperTick: (error) => `Upper tick error: ${error.message}`,
       InvalidLowerTick: (error) => `Lower tick error: ${error.message}`,
       InvalidSize: (error) => `Size error: ${error.message}`,
+      InvalidPrice: (error) => `Price error: ${error.message}`,
     });
 
     const errorMessages = aggError.errors.map(handleError).join("; ");
