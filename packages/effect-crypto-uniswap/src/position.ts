@@ -846,14 +846,19 @@ export const setSizeFromLiquidity: {
  *
  * declare const readyState: Position.BuilderReady;
  *
- *  * const result = Position.finalizeDraft(readyState);
+ * const result = Position.finalizeDraft(readyState);
  *
- *  * Either.match(result, {
+ * Either.match(result, {
  *   onRight: (positionDraft) => {
  *     console.log("Position Draft Created:", positionDraft);
  *   },
- *   onLeft: (errors) => {
- *     console.error("Failed to create Position Draft:", errors.errors);
+ *   onLeft: (error) => {
+ *     Position.matchBuilderError({
+ *       InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
+ *       InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
+ *       InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
+ *       InvalidSize: (error) => `Size: ${error.message}`
+ *     })
  *   }
  * });
  * ```
@@ -866,6 +871,10 @@ export const finalizeDraft: {
  * Calls `finalizeDraft` and throws a custom error if it returns `Either.Left`.
  * This is a convenience function for cases where errors should immediately stop execution.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `finalizeDraftOrThrow(state, errorHandler)`
+ * - Data-last: `finalizeDraftOrThrow(errorHandler)(state)` (for use with pipe)
+ *
  * @param state A builder state that structurally matches `BuilderReady`.
  * @param errorHandler A function that converts the `AggregateBuilderError` into a standard `Error` to be thrown.
  * @returns The successfully calculated `PositionDraft` if no errors occur.
@@ -877,18 +886,20 @@ export const finalizeDraft: {
  *
  * declare const readyState: Position.BuilderReady;
  *
+ * // Create error handler using pattern matching for clean, exhaustive error handling
  * const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
- *   const messages = aggError.errors.map(error => {
- *     if (Position.isTickBoundsError(error)) {
- *       return `Tick bounds: ${error.message}`;
- *     } else if (Position.isInvalidSizeError(error)) {
- *       return `Size: ${error.message}`;
- *     }
- *     return `Unknown: ${error.message}`;
- *   }).join("\n");
+ *   const handleError = Position.matchBuilderError({
+ *     InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
+ *     InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
+ *     InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
+ *     InvalidSize: (error) => `Size: ${error.message}`
+ *   });
+ *
+ *   const messages = aggError.errors.map(handleError).join("\n");
  *   return new Error(`Position Draft Error:\n${messages}`);
  * };
  *
+ * // Data-first usage
  * try {
  *   const positionDraft = Position.finalizeDraftOrThrow(readyState, customErrorHandler);
  *   console.log("Position Draft Created:", positionDraft);
@@ -897,8 +908,21 @@ export const finalizeDraft: {
  *   console.error(error); // Catches the error thrown by customErrorHandler
  *   // Handle the error appropriately
  * }
+ *
+ * // Data-last usage with pipe
+ * try {
+ *   const positionDraft = readyState.pipe(
+ *     Position.finalizeDraftOrThrow(customErrorHandler)
+ *   );
+ *   console.log("Position Draft Created:", positionDraft);
+ * } catch (error) {
+ *   console.error(error);
+ * }
  * ```
  */
 export const finalizeDraftOrThrow: {
+  (
+    errorHandler: (aggError: AggregateBuilderError) => Error,
+  ): (state: BuilderReady) => PositionDraft;
   (state: BuilderReady, errorHandler: (aggError: AggregateBuilderError) => Error): PositionDraft;
-} = null as any; // TODO: Implement finalizeDraftOrThrowImpl
+} = Function.dual(2, internal.finalizeDraftOrThrowImpl);
