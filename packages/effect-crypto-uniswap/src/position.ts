@@ -114,7 +114,9 @@ export type BuilderError = Data.TaggedEnum<{
 
 export const BuilderError = internal.BuilderErrorLive;
 
-export type CaseConstructorWithTag<Tag extends keyof typeof internal.BuilderErrorLive> = { tag: Tag } & typeof internal.BuilderErrorLive[Tag];
+export type CaseConstructorWithTag<Tag extends keyof typeof internal.BuilderErrorLive> = {
+  tag: Tag;
+} & (typeof internal.BuilderErrorLive)[Tag];
 
 /**
  * Represents an error that occurs when the tick boundaries are invalid.
@@ -138,9 +140,13 @@ export type CaseConstructorWithTag<Tag extends keyof typeof internal.BuilderErro
  * // draft will be Either.Left with errors containing InvalidTickBoundsError
  * ```
  */
-export const InvalidTickBoundsError: CaseConstructorWithTag<typeof internal.InvalidTickBoundsErrorSymbol> = internal.InvalidTickBoundsErrorConstructor;
-export type InvalidTickBoundsError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidTickBoundsErrorSymbol>;
-
+export const InvalidTickBoundsError: CaseConstructorWithTag<
+  typeof internal.InvalidTickBoundsErrorSymbol
+> = internal.InvalidTickBoundsErrorConstructor;
+export type InvalidTickBoundsError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidTickBoundsErrorSymbol
+>;
 
 /**
  * Type guard function to check if an error is a TickBoundsError.
@@ -185,8 +191,13 @@ export const isTickBoundsError: {
  * // draft will be Either.Left with errors containing InvalidUpperTickError
  * ```
  */
-export const InvalidUpperTickError: CaseConstructorWithTag<typeof internal.InvalidUpperTickErrorSymbol> = internal.InvalidUpperTickErrorConstructor;
-export type InvalidUpperTickError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidUpperTickErrorSymbol>;
+export const InvalidUpperTickError: CaseConstructorWithTag<
+  typeof internal.InvalidUpperTickErrorSymbol
+> = internal.InvalidUpperTickErrorConstructor;
+export type InvalidUpperTickError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidUpperTickErrorSymbol
+>;
 
 /**
  * Type guard function to check if an error is an InvalidUpperTickError.
@@ -230,8 +241,13 @@ export const isInvalidUpperTickError: {
  * // draft will be Either.Left with errors containing InvalidLowerTickError
  * ```
  */
-export const InvalidLowerTickError: CaseConstructorWithTag<typeof internal.InvalidLowerTickErrorSymbol> = internal.InvalidLowerTickErrorConstructor;
-export type InvalidLowerTickError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidLowerTickErrorSymbol>;
+export const InvalidLowerTickError: CaseConstructorWithTag<
+  typeof internal.InvalidLowerTickErrorSymbol
+> = internal.InvalidLowerTickErrorConstructor;
+export type InvalidLowerTickError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidLowerTickErrorSymbol
+>;
 
 /**
  * Type guard function to check if an error is an InvalidLowerTickError.
@@ -275,8 +291,12 @@ export const isInvalidLowerTickError: {
  * // draft will be Either.Left with errors containing InvalidSizeError
  * ```
  */
-export const InvalidSizeError: CaseConstructorWithTag<typeof internal.InvalidSizeErrorSymbol> = internal.InvalidSizeErrorConstructor;
-export type InvalidSizeError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidSizeErrorSymbol>;
+export const InvalidSizeError: CaseConstructorWithTag<typeof internal.InvalidSizeErrorSymbol> =
+  internal.InvalidSizeErrorConstructor;
+export type InvalidSizeError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidSizeErrorSymbol
+>;
 
 /**
  * Type guard function to check if an error is an InvalidSizeError.
@@ -326,8 +346,12 @@ export const isInvalidSizeError: {
  * // draft will be Either.Left with errors containing InvalidPriceError
  * ```
  */
-export const InvalidPriceError: CaseConstructorWithTag<typeof internal.InvalidPriceErrorSymbol> = internal.InvalidPriceErrorConstructor;
-export type InvalidPriceError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidPriceErrorSymbol>;
+export const InvalidPriceError: CaseConstructorWithTag<typeof internal.InvalidPriceErrorSymbol> =
+  internal.InvalidPriceErrorConstructor;
+export type InvalidPriceError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidPriceErrorSymbol
+>;
 
 /**
  * Type guard function to check if an error is an InvalidPriceError.

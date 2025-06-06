@@ -15,13 +15,16 @@ import * as Tick from "./tick.js";
 export const NAMESPACE = "@liquidity_lab/effect-crypto-uniswap/position" as const;
 
 /** @internal */
-export const InvalidTickBoundsErrorSymbol = `${NAMESPACE}#BuilderError/InvalidTickBoundsError` as const;
+export const InvalidTickBoundsErrorSymbol =
+  `${NAMESPACE}#BuilderError/InvalidTickBoundsError` as const;
 
 /** @internal */
-export const InvalidUpperTickErrorSymbol = `${NAMESPACE}#BuilderError/InvalidUpperTickError` as const;
+export const InvalidUpperTickErrorSymbol =
+  `${NAMESPACE}#BuilderError/InvalidUpperTickError` as const;
 
 /** @internal */
-export const InvalidLowerTickErrorSymbol = `${NAMESPACE}#BuilderError/InvalidLowerTickError` as const;
+export const InvalidLowerTickErrorSymbol =
+  `${NAMESPACE}#BuilderError/InvalidLowerTickError` as const;
 
 /** @internal */
 export const InvalidPriceErrorSymbol = `${NAMESPACE}#BuilderError/InvalidPriceError` as const;
@@ -30,28 +33,41 @@ export const InvalidPriceErrorSymbol = `${NAMESPACE}#BuilderError/InvalidPriceEr
 export const InvalidSizeErrorSymbol = `${NAMESPACE}#BuilderError/InvalidSizeError` as const;
 
 /** @internal */
-export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> = Data.taggedEnum<T.BuilderError>();
+export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> =
+  Data.taggedEnum<T.BuilderError>();
 
 /** @internal */
-export const InvalidTickBoundsErrorConstructor: T.CaseConstructorWithTag<typeof InvalidTickBoundsErrorSymbol> =
-  Object.assign({ tag: InvalidTickBoundsErrorSymbol }, BuilderErrorLive[InvalidTickBoundsErrorSymbol]);
+export const InvalidTickBoundsErrorConstructor: T.CaseConstructorWithTag<
+  typeof InvalidTickBoundsErrorSymbol
+> = Object.assign(
+  { tag: InvalidTickBoundsErrorSymbol },
+  BuilderErrorLive[InvalidTickBoundsErrorSymbol],
+);
 
 /** @internal */
-export const InvalidUpperTickErrorConstructor: T.CaseConstructorWithTag<typeof InvalidUpperTickErrorSymbol> =
-  Object.assign({ tag: InvalidUpperTickErrorSymbol }, BuilderErrorLive[InvalidUpperTickErrorSymbol]);
+export const InvalidUpperTickErrorConstructor: T.CaseConstructorWithTag<
+  typeof InvalidUpperTickErrorSymbol
+> = Object.assign(
+  { tag: InvalidUpperTickErrorSymbol },
+  BuilderErrorLive[InvalidUpperTickErrorSymbol],
+);
 
 /** @internal */
-export const InvalidLowerTickErrorConstructor: T.CaseConstructorWithTag<typeof InvalidLowerTickErrorSymbol> =
-  Object.assign({ tag: InvalidLowerTickErrorSymbol }, BuilderErrorLive[InvalidLowerTickErrorSymbol]);
+export const InvalidLowerTickErrorConstructor: T.CaseConstructorWithTag<
+  typeof InvalidLowerTickErrorSymbol
+> = Object.assign(
+  { tag: InvalidLowerTickErrorSymbol },
+  BuilderErrorLive[InvalidLowerTickErrorSymbol],
+);
 
 /** @internal */
-export const InvalidPriceErrorConstructor: T.CaseConstructorWithTag<typeof InvalidPriceErrorSymbol> =
-  Object.assign({ tag: InvalidPriceErrorSymbol }, BuilderErrorLive[InvalidPriceErrorSymbol]);
+export const InvalidPriceErrorConstructor: T.CaseConstructorWithTag<
+  typeof InvalidPriceErrorSymbol
+> = Object.assign({ tag: InvalidPriceErrorSymbol }, BuilderErrorLive[InvalidPriceErrorSymbol]);
 
 /** @internal */
 export const InvalidSizeErrorConstructor: T.CaseConstructorWithTag<typeof InvalidSizeErrorSymbol> =
   Object.assign({ tag: InvalidSizeErrorSymbol }, BuilderErrorLive[InvalidSizeErrorSymbol]);
-
 
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = `${NAMESPACE}#MintablePosition` as const;
@@ -629,7 +645,7 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
 
   return Either.left(
     new AggregateBuilderErrorLive([
-        BuilderErrorLive[InvalidSizeErrorSymbol]({
+      BuilderErrorLive[InvalidSizeErrorSymbol]({
         message:
           "Unknown combination of setting position size. Currently supported ways are: " +
           "1. setSizeFromLiquidity, 2. setSizeFromSingleAmount(amount0 | amount1)",

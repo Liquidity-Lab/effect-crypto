@@ -951,9 +951,12 @@ test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) 
     Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
   );
 
-  const thrownError = t.throws(() => {
-    Position.finalizeDraftOrThrow(emptyState, customErrorHandler);
-  }, { instanceOf: Error });
+  const thrownError = t.throws(
+    () => {
+      Position.finalizeDraftOrThrow(emptyState, customErrorHandler);
+    },
+    { instanceOf: Error },
+  );
 
   t.true(
     thrownError?.message.includes("Position Draft Error"),

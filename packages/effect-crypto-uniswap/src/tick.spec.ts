@@ -1,3 +1,4 @@
+import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
@@ -126,6 +127,39 @@ testProp(
   },
   { numRuns: 512 },
 );
+
+testProp(
+  "isUsableTick should return true for valid UsableTick instances",
+  [Tick.Tick.usableTickGen()],
+  (t, usableTick) => {
+    t.true(Tick.isUsableTick(usableTick));
+  },
+);
+
+test("isUsableTick should return false for non-UsableTick values", (t) => {
+  // Test with primitives
+  t.false(Tick.isUsableTick(null), "should be false for null");
+  t.false(Tick.isUsableTick(undefined), "should be false for undefined");
+  t.false(Tick.isUsableTick(123), "should be false for a number");
+  t.false(Tick.isUsableTick("hello"), "should be false for a string");
+  t.false(Tick.isUsableTick(true), "should be false for a boolean");
+  t.false(Tick.isUsableTick(Symbol("s")), "should be false for a symbol");
+
+  // Test with plain objects
+  t.false(Tick.isUsableTick({}), "should be false for an empty object");
+  t.false(
+    Tick.isUsableTick({ unwrap: 120, spacing: 60 }),
+    "should be false for an object without a _tag",
+  );
+  t.false(
+    Tick.isUsableTick({ _tag: "WrongTag", unwrap: 120, spacing: 60 }),
+    "should be false for an object with a wrong _tag",
+  );
+
+  // Test with a raw Tick
+  const rawTick = Tick.Tick(100);
+  t.false(Tick.isUsableTick(rawTick), "should be false for a raw Tick");
+});
 
 testProp(
   "addNTicks should be consistent with uniswap-sdk implementation",

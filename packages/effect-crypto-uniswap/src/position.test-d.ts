@@ -79,8 +79,8 @@ test("BuilderError should be matchable", () => {
     [Position.InvalidUpperTickError.tag]: (error) => `Invalid upper tick: ${error.message}`,
     [Position.InvalidLowerTickError.tag]: (error) => `Invalid lower tick: ${error.message}`,
     [Position.InvalidSizeError.tag]: (error) => `Invalid size: ${error.message}`,
-    [Position.InvalidPriceError.tag]: (error) => `Invalid price: ${error.message}`
-  })
+    [Position.InvalidPriceError.tag]: (error) => `Invalid price: ${error.message}`,
+  });
 
   const someBuilderError: Position.BuilderError = null as any;
 
