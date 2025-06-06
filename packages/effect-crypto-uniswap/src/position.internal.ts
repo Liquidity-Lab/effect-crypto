@@ -12,11 +12,49 @@ import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 
 /** @internal */
-export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> =
-  Data.taggedEnum<T.BuilderError>();
+export const NAMESPACE = "@liquidity_lab/effect-crypto-uniswap/position" as const;
+
+/** @internal */
+export const InvalidTickBoundsErrorSymbol = `${NAMESPACE}#BuilderError/InvalidTickBoundsError` as const;
+
+/** @internal */
+export const InvalidUpperTickErrorSymbol = `${NAMESPACE}#BuilderError/InvalidUpperTickError` as const;
+
+/** @internal */
+export const InvalidLowerTickErrorSymbol = `${NAMESPACE}#BuilderError/InvalidLowerTickError` as const;
+
+/** @internal */
+export const InvalidPriceErrorSymbol = `${NAMESPACE}#BuilderError/InvalidPriceError` as const;
+
+/** @internal */
+export const InvalidSizeErrorSymbol = `${NAMESPACE}#BuilderError/InvalidSizeError` as const;
+
+/** @internal */
+export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> = Data.taggedEnum<T.BuilderError>();
+
+/** @internal */
+export const InvalidTickBoundsErrorConstructor: T.CaseConstructorWithTag<typeof InvalidTickBoundsErrorSymbol> =
+  Object.assign({ tag: InvalidTickBoundsErrorSymbol }, BuilderErrorLive[InvalidTickBoundsErrorSymbol]);
+
+/** @internal */
+export const InvalidUpperTickErrorConstructor: T.CaseConstructorWithTag<typeof InvalidUpperTickErrorSymbol> =
+  Object.assign({ tag: InvalidUpperTickErrorSymbol }, BuilderErrorLive[InvalidUpperTickErrorSymbol]);
+
+/** @internal */
+export const InvalidLowerTickErrorConstructor: T.CaseConstructorWithTag<typeof InvalidLowerTickErrorSymbol> =
+  Object.assign({ tag: InvalidLowerTickErrorSymbol }, BuilderErrorLive[InvalidLowerTickErrorSymbol]);
+
+/** @internal */
+export const InvalidPriceErrorConstructor: T.CaseConstructorWithTag<typeof InvalidPriceErrorSymbol> =
+  Object.assign({ tag: InvalidPriceErrorSymbol }, BuilderErrorLive[InvalidPriceErrorSymbol]);
+
+/** @internal */
+export const InvalidSizeErrorConstructor: T.CaseConstructorWithTag<typeof InvalidSizeErrorSymbol> =
+  Object.assign({ tag: InvalidSizeErrorSymbol }, BuilderErrorLive[InvalidSizeErrorSymbol]);
+
 
 class PositionDraftLive implements T.PositionDraft {
-  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/position#MintablePosition";
+  readonly _tag = `${NAMESPACE}#MintablePosition` as const;
 
   constructor(
     readonly poolId: Pool.PoolState,
@@ -309,7 +347,7 @@ export const setLowerTickBoundImpl = <S extends T.EmptyState>(
   // The tickFn itself returns an Option, which we need to handle.
   const lowerBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
     Array.make(
-      BuilderErrorLive.InvalidLowerTick({
+      BuilderErrorLive[InvalidLowerTickErrorSymbol]({
         message:
           "The provided tick function (tickFn) did not return a valid lower tick (returned None). " +
           "Ensure the function returns Some(UsableTick) for a valid lower bound.",
@@ -368,7 +406,7 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
   // The tickFn itself returns an Option, which we need to handle.
   const upperBoundTick = Either.fromOption(tickFn(nearestUsableTickForCurrent), () =>
     Array.make(
-      BuilderErrorLive.InvalidUpperTick({
+      BuilderErrorLive[InvalidUpperTickErrorSymbol]({
         message:
           "The provided tick function (tickFn) did not return a valid upper tick (returned None). " +
           "Ensure the function returns Some(UsableTick) for a valid upper bound.",
@@ -432,7 +470,7 @@ export const setLowerPriceBoundImpl = <S extends T.EmptyState>(
     // Step 1: Apply the user's priceFn to get the target price
     const targetPrice = yield* Either.fromOption(priceFn(currentPrice), () =>
       Array.make(
-        BuilderErrorLive.InvalidPrice({
+        BuilderErrorLive[InvalidPriceErrorSymbol]({
           message:
             "The provided price function (priceFn) did not return a valid price (returned None). " +
             "Ensure the function returns Some(Price) for a valid lower bound.",
@@ -450,7 +488,7 @@ export const setLowerPriceBoundImpl = <S extends T.EmptyState>(
     if (!priceContainsToken0 || !priceContainsToken1) {
       return yield* Either.left(
         Array.make(
-          BuilderErrorLive.InvalidPrice({
+          BuilderErrorLive[InvalidPriceErrorSymbol]({
             message:
               "The provided price does not contain the correct tokens for this pool. " +
               `Expected tokens: ${poolToken0.symbol}/${poolToken1.symbol}, ` +
@@ -509,7 +547,7 @@ export const setUpperPriceBoundImpl = <S extends T.EmptyState>(
     // Step 1: Apply the user's priceFn to get the target price
     const targetPrice = yield* Either.fromOption(priceFn(currentPrice), () =>
       Array.make(
-        BuilderErrorLive.InvalidPrice({
+        BuilderErrorLive[InvalidPriceErrorSymbol]({
           message:
             "The provided price function (priceFn) did not return a valid price (returned None). " +
             "Ensure the function returns Some(Price) for a valid upper bound.",
@@ -527,7 +565,7 @@ export const setUpperPriceBoundImpl = <S extends T.EmptyState>(
     if (!priceContainsToken0 || !priceContainsToken1) {
       return yield* Either.left(
         Array.make(
-          BuilderErrorLive.InvalidPrice({
+          BuilderErrorLive[InvalidPriceErrorSymbol]({
             message:
               "The provided price does not contain the correct tokens for this pool. " +
               `Expected tokens: ${poolToken0.symbol}/${poolToken1.symbol}, ` +
@@ -591,7 +629,7 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
 
   return Either.left(
     new AggregateBuilderErrorLive([
-      BuilderErrorLive.InvalidSize({
+        BuilderErrorLive[InvalidSizeErrorSymbol]({
         message:
           "Unknown combination of setting position size. Currently supported ways are: " +
           "1. setSizeFromLiquidity, 2. setSizeFromSingleAmount(amount0 | amount1)",
@@ -632,7 +670,7 @@ function validateTickBounds<S extends T.BuilderReady>(
       ([tickLower, tickUpper]) => tickLower.unwrap < tickUpper.unwrap,
       ([tickLower, tickUpper]) =>
         Array.make(
-          BuilderErrorLive.InvalidTickBounds({
+          BuilderErrorLive[InvalidTickBoundsErrorSymbol]({
             lowerTick: tickLower,
             upperTick: tickUpper,
             message: `tickLower[${tickLower.unwrap}] must be less than tickUpper[${tickUpper.unwrap}]`,
@@ -645,7 +683,7 @@ function validateTickBounds<S extends T.BuilderReady>(
         tickLower.spacing === tickUpper.spacing,
       ([tickLower, tickUpper]) =>
         Array.make(
-          BuilderErrorLive.InvalidTickBounds({
+          BuilderErrorLive[InvalidTickBoundsErrorSymbol]({
             lowerTick: tickLower,
             upperTick: tickUpper,
             message:

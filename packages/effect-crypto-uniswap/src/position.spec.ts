@@ -930,64 +930,38 @@ testProp(
   },
 );
 
-test("finalizeDraftOrThrow should throw custom error when builder has invalid tick bounds", (t) => {
-  // Create a builder state with invalid tick bounds (lower > upper)
-  const readyState = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) => {
+  const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
+    const handleError = Position.matchBuilderError({
+      [Position.InvalidTickBoundsError.tag]: (error) => `Tick bounds error: ${error.message}`,
+      [Position.InvalidUpperTickError.tag]: (error) => `Upper tick error: ${error.message}`,
+      [Position.InvalidLowerTickError.tag]: (error) => `Lower tick error: ${error.message}`,
+      [Position.InvalidSizeError.tag]: (error) => `Size error: ${error.message}`,
+      [Position.InvalidPriceError.tag]: (error) => `Price error: ${error.message}`,
+    });
+
+    const messages = aggError.errors.map(handleError).join("\\n");
+    return new Error(`Position Draft Error:\\n${messages}`);
+  };
+
+  const emptyState = newDraftBuilder(sqrtQ64x96Ratio).pipe(
     // Set lower tick bound to be higher than upper tick bound (invalid configuration)
     Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
     Position.setUpperTickBound((current) => Tick.subtractNTicks(current, 2)),
     Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
   );
 
-  // Define a custom error handler using pattern matching for clean, exhaustive error handling
-  const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
-    const handleError = Position.matchBuilderError({
-      InvalidTickBounds: (error) => `Tick bounds error: ${error.message}`,
-      InvalidUpperTick: (error) => `Upper tick error: ${error.message}`,
-      InvalidLowerTick: (error) => `Lower tick error: ${error.message}`,
-      InvalidSize: (error) => `Size error: ${error.message}`,
-      InvalidPrice: (error) => `Price error: ${error.message}`,
-    });
+  const thrownError = t.throws(() => {
+    Position.finalizeDraftOrThrow(emptyState, customErrorHandler);
+  }, { instanceOf: Error });
 
-    const errorMessages = aggError.errors.map(handleError).join("; ");
-    return new Error(`Position draft creation failed: ${errorMessages}`);
-  };
-
-  // Test data-first usage: finalizeDraftOrThrow(state, errorHandler)
-  const thrownErrorDataFirst = t.throws(
-    () => {
-      Position.finalizeDraftOrThrow(readyState, customErrorHandler);
-    },
-    { instanceOf: Error },
-  );
-
-  // Verify the error message contains expected content
   t.true(
-    thrownErrorDataFirst?.message.includes("Position draft creation failed"),
-    "Data-first: Error message should contain the custom prefix from errorHandler",
+    thrownError?.message.includes("Position Draft Error"),
+    "Error message should contain the custom prefix from errorHandler",
   );
 
   t.true(
-    thrownErrorDataFirst?.message.includes("Tick bounds error"),
-    "Data-first: Error message should contain tick bounds error details",
-  );
-
-  // Test data-last usage with pipe: state.pipe(finalizeDraftOrThrow(errorHandler))
-  const thrownErrorDataLast = t.throws(
-    () => {
-      Position.finalizeDraftOrThrow(readyState, customErrorHandler);
-    },
-    { instanceOf: Error },
-  );
-
-  // Verify the error message contains expected content for data-last usage
-  t.true(
-    thrownErrorDataLast?.message.includes("Position draft creation failed"),
-    "Data-last: Error message should contain the custom prefix from errorHandler",
-  );
-
-  t.true(
-    thrownErrorDataLast?.message.includes("Tick bounds error"),
-    "Data-last: Error message should contain tick bounds error details",
+    thrownError?.message.includes("Tick bounds error"),
+    "Error message should contain tick bounds error details",
   );
 });

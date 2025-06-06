@@ -90,21 +90,21 @@ export interface PoolIsNotFoundError {
  * ```
  */
 export type BuilderError = Data.TaggedEnum<{
-  InvalidTickBounds: {
+  [internal.InvalidTickBoundsErrorSymbol]: {
     readonly lowerTick: Tick.UsableTick;
     readonly upperTick: Tick.UsableTick;
     readonly message: string;
   };
-  InvalidUpperTick: {
+  [internal.InvalidUpperTickErrorSymbol]: {
     readonly message: string;
   };
-  InvalidLowerTick: {
+  [internal.InvalidLowerTickErrorSymbol]: {
     readonly message: string;
   };
-  InvalidSize: {
+  [internal.InvalidSizeErrorSymbol]: {
     readonly message: string;
   };
-  InvalidPrice: {
+  [internal.InvalidPriceErrorSymbol]: {
     readonly message: string;
     readonly providedPrice: Option.Option<Price.AnyTokenPrice>;
     readonly expectedToken0: Token.AnyToken;
@@ -113,6 +113,8 @@ export type BuilderError = Data.TaggedEnum<{
 }>;
 
 export const BuilderError = internal.BuilderErrorLive;
+
+export type CaseConstructorWithTag<Tag extends keyof typeof internal.BuilderErrorLive> = { tag: Tag } & typeof internal.BuilderErrorLive[Tag];
 
 /**
  * Represents an error that occurs when the tick boundaries are invalid.
@@ -136,8 +138,9 @@ export const BuilderError = internal.BuilderErrorLive;
  * // draft will be Either.Left with errors containing InvalidTickBoundsError
  * ```
  */
-export const InvalidTickBoundsError = BuilderError.InvalidTickBounds;
-export type InvalidTickBoundsError = Data.TaggedEnum.Value<BuilderError, "InvalidTickBounds">;
+export const InvalidTickBoundsError: CaseConstructorWithTag<typeof internal.InvalidTickBoundsErrorSymbol> = internal.InvalidTickBoundsErrorConstructor;
+export type InvalidTickBoundsError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidTickBoundsErrorSymbol>;
+
 
 /**
  * Type guard function to check if an error is a TickBoundsError.
@@ -159,7 +162,7 @@ export type InvalidTickBoundsError = Data.TaggedEnum.Value<BuilderError, "Invali
  */
 export const isTickBoundsError: {
   (error: unknown): error is InvalidTickBoundsError;
-} = BuilderError.$is("InvalidTickBounds");
+} = BuilderError.$is(internal.InvalidTickBoundsErrorSymbol);
 
 /**
  * Represents an error that occurs when the upper tick boundary is invalid.
@@ -182,8 +185,8 @@ export const isTickBoundsError: {
  * // draft will be Either.Left with errors containing InvalidUpperTickError
  * ```
  */
-export const InvalidUpperTickError = BuilderError.InvalidUpperTick;
-export type InvalidUpperTickError = Data.TaggedEnum.Value<BuilderError, "InvalidUpperTick">;
+export const InvalidUpperTickError: CaseConstructorWithTag<typeof internal.InvalidUpperTickErrorSymbol> = internal.InvalidUpperTickErrorConstructor;
+export type InvalidUpperTickError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidUpperTickErrorSymbol>;
 
 /**
  * Type guard function to check if an error is an InvalidUpperTickError.
@@ -204,7 +207,7 @@ export type InvalidUpperTickError = Data.TaggedEnum.Value<BuilderError, "Invalid
  */
 export const isInvalidUpperTickError: {
   (error: unknown): error is InvalidUpperTickError;
-} = BuilderError.$is("InvalidUpperTick");
+} = BuilderError.$is(internal.InvalidUpperTickErrorSymbol);
 
 /**
  * Represents an error that occurs when the lower tick boundary is invalid.
@@ -227,8 +230,8 @@ export const isInvalidUpperTickError: {
  * // draft will be Either.Left with errors containing InvalidLowerTickError
  * ```
  */
-export const InvalidLowerTickError = BuilderError.InvalidLowerTick;
-export type InvalidLowerTickError = Data.TaggedEnum.Value<BuilderError, "InvalidLowerTick">;
+export const InvalidLowerTickError: CaseConstructorWithTag<typeof internal.InvalidLowerTickErrorSymbol> = internal.InvalidLowerTickErrorConstructor;
+export type InvalidLowerTickError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidLowerTickErrorSymbol>;
 
 /**
  * Type guard function to check if an error is an InvalidLowerTickError.
@@ -249,7 +252,7 @@ export type InvalidLowerTickError = Data.TaggedEnum.Value<BuilderError, "Invalid
  */
 export const isInvalidLowerTickError: {
   (error: unknown): error is InvalidLowerTickError;
-} = BuilderError.$is("InvalidLowerTick");
+} = BuilderError.$is(internal.InvalidLowerTickErrorSymbol);
 
 /**
  * Represents an error that occurs when the position size is invalid.
@@ -272,8 +275,8 @@ export const isInvalidLowerTickError: {
  * // draft will be Either.Left with errors containing InvalidSizeError
  * ```
  */
-export const InvalidSizeError = BuilderError.InvalidSize;
-export type InvalidSizeError = Data.TaggedEnum.Value<BuilderError, "InvalidSize">;
+export const InvalidSizeError: CaseConstructorWithTag<typeof internal.InvalidSizeErrorSymbol> = internal.InvalidSizeErrorConstructor;
+export type InvalidSizeError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidSizeErrorSymbol>;
 
 /**
  * Type guard function to check if an error is an InvalidSizeError.
@@ -294,7 +297,7 @@ export type InvalidSizeError = Data.TaggedEnum.Value<BuilderError, "InvalidSize"
  */
 export const isInvalidSizeError: {
   (error: unknown): error is InvalidSizeError;
-} = BuilderError.$is("InvalidSize");
+} = BuilderError.$is(internal.InvalidSizeErrorSymbol);
 
 /**
  * Represents an error that occurs when an invalid price is provided.
@@ -323,8 +326,8 @@ export const isInvalidSizeError: {
  * // draft will be Either.Left with errors containing InvalidPriceError
  * ```
  */
-export const InvalidPriceError = BuilderError.InvalidPrice;
-export type InvalidPriceError = Data.TaggedEnum.Value<BuilderError, "InvalidPrice">;
+export const InvalidPriceError: CaseConstructorWithTag<typeof internal.InvalidPriceErrorSymbol> = internal.InvalidPriceErrorConstructor;
+export type InvalidPriceError = Data.TaggedEnum.Value<BuilderError, typeof internal.InvalidPriceErrorSymbol>;
 
 /**
  * Type guard function to check if an error is an InvalidPriceError.
@@ -346,7 +349,7 @@ export type InvalidPriceError = Data.TaggedEnum.Value<BuilderError, "InvalidPric
  */
 export const isInvalidPriceError: {
   (error: unknown): error is InvalidPriceError;
-} = BuilderError.$is("InvalidPrice");
+} = BuilderError.$is(internal.InvalidPriceErrorSymbol);
 
 /**
  * Helper function for pattern matching BuilderError.
@@ -357,13 +360,14 @@ export const isInvalidPriceError: {
  * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
  *
  * const handleError = Position.matchBuilderError({
- *   InvalidTickBounds: (error) => `Tick bounds error: ${error.message}`,
- *   InvalidUpperTick: (error) => `Invalid upper tick: ${error.message}`,
- *   InvalidLowerTick: (error) => `Invalid lower tick: ${error.message}`,
- *   InvalidSize: (error) => `Invalid size: ${error.message}`,
- *   InvalidPrice: (error) => `Invalid price: ${error.message}`
+ *   [Position.InvalidTickBoundsError]: (error) => `Tick bounds error: ${error.message}`,
+ *   [Position.InvalidUpperTickError]: (error) => `Invalid upper tick: ${error.message}`,
+ *   [Position.InvalidLowerTickError]: (error) => `Invalid lower tick: ${error.message}`,
+ *   [Position.InvalidSizeError]: (error) => `Invalid size: ${error.message}`,
+ *   [Position.InvalidPriceError]: (error) => `Invalid price: ${error.message}`
  * });
  *
+ * declare const someBuilderError: Position.BuilderError;
  * const result = handleError(someBuilderError);
  * ```
  */
@@ -927,11 +931,11 @@ export const setSizeFromLiquidity: {
  *   },
  *   onLeft: (error) => {
  *     Position.matchBuilderError({
- *       InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
- *       InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
- *       InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
- *       InvalidSize: (error) => `Size: ${error.message}`,
- *       InvalidPrice: (error) => `Price: ${error.message}`
+ *       [Position.InvalidTickBoundsError]: (error) => `Tick bounds: ${error.message}`,
+ *       [Position.InvalidUpperTickError]: (error) => `Upper tick: ${error.message}`,
+ *       [Position.InvalidLowerTickError]: (error) => `Lower tick: ${error.message}`,
+ *       [Position.InvalidSizeError]: (error) => `Size: ${error.message}`,
+ *       [Position.InvalidPriceError]: (error) => `Price: ${error.message}`
  *     })
  *   }
  * });
@@ -963,11 +967,11 @@ export const finalizeDraft: {
  * // Create error handler using pattern matching for clean, exhaustive error handling
  * const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
  *   const handleError = Position.matchBuilderError({
- *     InvalidTickBounds: (error) => `Tick bounds: ${error.message}`,
- *     InvalidUpperTick: (error) => `Upper tick: ${error.message}`,
- *     InvalidLowerTick: (error) => `Lower tick: ${error.message}`,
- *     InvalidSize: (error) => `Size: ${error.message}`,
- *     InvalidPrice: (error) => `Price: ${error.message}`
+ *     [Position.InvalidTickBoundsError]: (error) => `Tick bounds: ${error.message}`,
+ *     [Position.InvalidUpperTickError]: (error) => `Upper tick: ${error.message}`,
+ *     [Position.InvalidLowerTickError]: (error) => `Lower tick: ${error.message}`,
+ *     [Position.InvalidSizeError]: (error) => `Size: ${error.message}`,
+ *     [Position.InvalidPriceError]: (error) => `Price: ${error.message}`
  *   });
  *
  *   const messages = aggError.errors.map(handleError).join("\n");

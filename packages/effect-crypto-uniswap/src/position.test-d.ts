@@ -2,7 +2,7 @@
  * @file packages/effect-crypto-uniswap/src/position.test-d.ts
  */
 import { Either, Option } from "effect";
-import { assertType, test } from "vitest";
+import { assertType, expectTypeOf, test } from "vitest";
 
 import * as Pool from "./pool.js";
 import * as Position from "./position.js";
@@ -71,4 +71,19 @@ test("PositionDraftBuilder should support price bounds", () => {
   // Step 5: Finalize draft - should return Either<PositionDraft, AggregateBuilderError>
   const finalResult = builderWithSize.pipe(Position.finalizeDraft);
   assertType<Either.Either<Position.PositionDraft, Position.AggregateBuilderError>>(finalResult);
+});
+
+test("BuilderError should be matchable", () => {
+  const handleError = Position.matchBuilderError({
+    [Position.InvalidTickBoundsError.tag]: (error) => `Tick bounds error: ${error.message}`,
+    [Position.InvalidUpperTickError.tag]: (error) => `Invalid upper tick: ${error.message}`,
+    [Position.InvalidLowerTickError.tag]: (error) => `Invalid lower tick: ${error.message}`,
+    [Position.InvalidSizeError.tag]: (error) => `Invalid size: ${error.message}`,
+    [Position.InvalidPriceError.tag]: (error) => `Invalid price: ${error.message}`
+  })
+
+  const someBuilderError: Position.BuilderError = null as any;
+
+  expectTypeOf(handleError).returns.toEqualTypeOf<string>();
+  expectTypeOf(handleError).toBeCallableWith(someBuilderError);
 });
