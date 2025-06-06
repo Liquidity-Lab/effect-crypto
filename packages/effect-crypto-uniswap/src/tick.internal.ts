@@ -89,16 +89,44 @@ export function getRatio(tick: T.Tick): BigDecimal {
   return TICK_BASE.pow(tick, MATH_CONTEXT_HIGH_PRECISION);
 }
 
+export function isUsableTickImpl(tick: unknown): tick is T.UsableTick {
+  return (
+    typeof tick === "object" &&
+    tick !== null &&
+    "_tag" in tick &&
+    tick._tag === "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick"
+  );
+}
+
 /** Calculates sqrt(1.0001 ^ tick)
  * @see https://github.com/Uniswap/v3-core/blob/8f3e4645a08850d2335ead3d1a8d0c64fa44f222/contracts/libraries/TickMath.sol#L23-L54
  */
-export function getSqrtRatioAtTickImpl(tick: T.Tick): BigDecimal {
+export function getSqrtRatioAtTickImpl(tick: T.Tick | T.UsableTick): BigDecimal {
+  if (isUsableTickImpl(tick)) {
+    return getSqrtRatioAtTickImpl(tick.unwrap);
+  }
+
   return getRatio(tick).sqrt(MATH_CONTEXT_HIGH_PRECISION);
 }
 
 // Calculates log[1.0001, ratio] and round down the result
 export function getTickAtRatioImpl(ratio: BigDecimal): T.Tick {
   // TODO: seems like BigDecimal in not a good type
+  const rawTickIdx = BigMath.log(TICK_BASE, ratio, MATH_CONTEXT_HIGH_PRECISION);
+
+  return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());
+}
+
+/**
+ * Calculates the tick from the square root of the ratio.
+ * @param sqrtRatio the square root of the ratio
+ * @internal
+ */
+export function getTickAtSqrtRatioImpl(sqrtRatio: BigDecimal): T.Tick {
+  // Since sqrtRatio = sqrt(1.0001^tick), we have:
+  // sqrtRatio^2 = 1.0001^tick
+  // Therefore: tick = log[1.0001, sqrtRatio^2]
+  const ratio = sqrtRatio.pow(2, MATH_CONTEXT_HIGH_PRECISION);
   const rawTickIdx = BigMath.log(TICK_BASE, ratio, MATH_CONTEXT_HIGH_PRECISION);
 
   return makeTick(rawTickIdx.setScale(0, RoundingMode.FLOOR).numberValue());

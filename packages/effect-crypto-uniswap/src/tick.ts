@@ -117,6 +117,7 @@ export const getRatio: {
  */
 export const getSqrtRatio: {
   (tick: Tick): BigDecimal;
+  (tick: UsableTick): BigDecimal;
 } = internal.getSqrtRatioAtTickImpl;
 
 /**
@@ -134,6 +135,22 @@ export const getSqrtRatio: {
 export const getTickAtRatio: {
   (ratio: BigDecimal): Tick;
 } = internal.getTickAtRatioImpl;
+
+/**
+ * Calculates the tick index for a given square root price ratio.
+ * This is the inverse operation of getSqrtRatio.
+ *
+ * @example
+ *   ```typescript
+ *   const sqrtRatio = new BigDecimal("1.00005") // sqrt(1.0001)
+ *   const tick = getTickAtSqrtRatio(sqrtRatio) // Returns 1
+ *   ```
+ *
+ * @see {@link https://docs.uniswap.org/protocol/reference/core/libraries/TickMath#gettickatsqrtratio}
+ */
+export const getTickAtSqrtRatio: {
+  (sqrtRatio: BigDecimal): Tick;
+} = internal.getTickAtSqrtRatioImpl;
 
 export const getTickAtPrice: {
   <T extends Token.TokenType>(price: Price.TokenPrice<T>): Tick;
@@ -184,9 +201,27 @@ export const toTickSpacing: {
  */
 export interface UsableTick {
   readonly _tag: "@liquidity_lab/effect-crypto-uniswap/tick#UsableTick";
+
   readonly unwrap: Tick; // The actual tick number (e.g., 120)
   readonly spacing: TickSpacing; // The tick spacing used (e.g., 60)
 }
+
+/**
+ * Type guard to check if a value is a UsableTick.
+ *
+ * @example
+ * ```typescript
+ * const usableTick = Tick.makeUsableTick(Tick.Tick(120), Tick.toTickSpacing(Adt.FeeAmount.MEDIUM));
+ *
+ * if (isUsable(usableTick)) {
+ *   const refinedValue = usableTick;
+ *   //     ^? UsableTick
+ * }
+ * ```
+ */
+export const isUsableTick: {
+  (a: unknown): a is UsableTick;
+} = internal.isUsableTickImpl;
 
 /**
  * Adds N steps (each step is `spacing` wide) to a UsableTick while maintaining proper spacing.

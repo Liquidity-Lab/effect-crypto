@@ -264,8 +264,8 @@ test(
   "mintAmounts is correct for price above",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current + spacing),
-    tickUpper: (current, spacing) => Tick.Tick(current + spacing * 2),
+    tickLower: (current) => Tick.addNTicks(current, 1),
+    tickUpper: (current) => Tick.addNTicks(current, 2),
     expectedAmount0: Adt.Amount0(Big("49949961958869841754182")),
     expectedAmount1: Adt.Amount1(Big("0")),
   }),
@@ -275,8 +275,8 @@ test(
   "mintAmounts is correct for price below",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current - spacing * 2),
-    tickUpper: (current, spacing) => Tick.Tick(current - spacing),
+    tickLower: (current) => Tick.subtractNTicks(current, 2),
+    tickUpper: (current) => Tick.subtractNTicks(current, 1),
     expectedAmount0: Adt.Amount0(Big("0")),
     expectedAmount1: Adt.Amount1(Big("49970077053")),
   }),
@@ -286,29 +286,26 @@ test(
   "mintAmounts is correct for in-range position",
   testPositionDraft(BigMath.Ratio(BigMath.NonNegativeDecimal(Big(1))), {
     liquidity: Pool.Liquidity(Big(100e18)),
-    tickLower: (current, spacing) => Tick.Tick(current - spacing * 2),
-    tickUpper: (current, spacing) => Tick.Tick(current + spacing * 2),
+    tickLower: (current) => Tick.subtractNTicks(current, 2),
+    tickUpper: (current) => Tick.addNTicks(current, 2),
     expectedAmount0: Adt.Amount0(Big("120054069145287995769397")),
     expectedAmount1: Adt.Amount1(Big("79831926243")),
   }),
 );
 
-// TODO: +1. sqrtPrice is important
-// TODO: +2. We should be able to obtain Tick from price (and sqrtPrice) and vice versa
-// TODO: +3. Tick math is important. Implement DSL for it (nearest usable tick, etc)
-// TODO: 4. Amount should be related to TokenVolume: we should be able to convert it to token volume
+// TODO: not sure we actually need it
 function testPositionDraft(
   currentSqrtRatioUnscaled: BigMath.Ratio,
   params: {
     liquidity: Pool.Liquidity;
-    tickLower: (current: Tick.Tick, spacing: Tick.TickSpacing) => Tick.Tick;
-    tickUpper: (current: Tick.Tick, spacing: Tick.TickSpacing) => Tick.Tick;
+    tickLower: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+    tickUpper: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
     expectedAmount0: Adt.Amount0;
     expectedAmount1: Adt.Amount1;
   },
 ) {
   return (t: ExecutionContext<unknown>) => {
-    function sdkImplementation() {
+    function sdkImplementation(tickLower: Tick.UsableTick, tickUpper: Tick.UsableTick) {
       const USDC = new uniswapSdkCore.Token(
         1,
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
@@ -323,9 +320,9 @@ function testPositionDraft(
         "DAI",
         "DAI Stablecoin",
       );
-      const POOL_SQRT_RATIO_START = uniswapV3Sdk.encodeSqrtRatioX96(100e6, 100e18);
+      const [a, b] = BigMath.asNumeratorAndDenominator(currentSqrtRatioUnscaled);
+      const POOL_SQRT_RATIO_START = uniswapV3Sdk.encodeSqrtRatioX96(a.toString(), b.toString());
       const POOL_TICK_CURRENT = uniswapV3Sdk.TickMath.getTickAtSqrtRatio(POOL_SQRT_RATIO_START);
-      const TICK_SPACING = uniswapV3Sdk.TICK_SPACINGS[uniswapV3Sdk.FeeAmount.LOW];
       const DAI_USDC_POOL = new uniswapV3Sdk.Pool(
         DAI,
         USDC,
@@ -335,12 +332,12 @@ function testPositionDraft(
         POOL_TICK_CURRENT,
         [],
       );
+      const liquidity = params.liquidity.unscaledValue();
       const position = new uniswapV3Sdk.Position({
         pool: DAI_USDC_POOL,
-        liquidity: 100e18,
-        tickLower: uniswapV3Sdk.nearestUsableTick(POOL_TICK_CURRENT, TICK_SPACING) + TICK_SPACING,
-        tickUpper:
-          uniswapV3Sdk.nearestUsableTick(POOL_TICK_CURRENT, TICK_SPACING) + TICK_SPACING * 2,
+        liquidity: liquidity.toString(),
+        tickLower: uniswapV3Sdk.nearestUsableTick(tickLower.unwrap, tickLower.spacing),
+        tickUpper: uniswapV3Sdk.nearestUsableTick(tickUpper.unwrap, tickUpper.spacing),
       });
 
       const { amount0, amount1 } = position.mintAmounts;
@@ -389,19 +386,25 @@ function testPositionDraft(
     const tickCurrent = Tick.getTickAtRatio(sqrtRatioCurrent.pow(2));
     const nearestUsableTick = Tick.nearestUsableTick(tickCurrent, tickSpacing);
 
-    const dbg = sdkImplementation();
+    const tickLower = Option.getOrThrowWith(
+      params.tickLower(nearestUsableTick),
+      () => new Error("Failed to get tickLower"),
+    );
+    const tickUpper = Option.getOrThrowWith(
+      params.tickUpper(nearestUsableTick),
+      () => new Error("Failed to get tickUpper"),
+    );
+
+    const dbg = sdkImplementation(tickLower, tickUpper);
     console.log(dbg);
 
-    const draft = Either.getOrThrowWith(
-      internal.calculatePositionDraftFromLiquidity(
-        poolState,
-        sqrtRatioCurrent,
-        params.liquidity,
-        params.tickLower(nearestUsableTick.unwrap, tickSpacing),
-        params.tickUpper(nearestUsableTick.unwrap, tickSpacing),
-        tickCurrent,
-      ),
-      (err) => new Error(`Failed to calculate position draft: ${err}`),
+    const draft = internal.calculatePositionDraftFromLiquidity(
+      poolState,
+      sqrtRatioCurrent,
+      params.liquidity,
+      tickLower,
+      tickUpper,
+      tickCurrent,
     );
 
     // Assertions for amount0
@@ -420,31 +423,167 @@ function testPositionDraft(
   };
 }
 
-test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
-  const effectAssertions = AvaEffect.EffectAssertions(t);
+const sqrtQ64x96Ratio = Option.getOrThrowWith(
+  BigMath.convertToQ64x96(Big(100e6).divideWithMathContext(100e18, mathContext).sqrt(mathContext)),
+  () => new Error("Failed to convert current price ratio to Q64.96"),
+);
 
-  // --- Setup (similar to testPositionDraft) ---
-  const token0 = Token.Erc20Token(
-    Address.unsafe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
-    6,
-    "USDC",
-    "USD Coin",
-    Token.Erc20TokenMeta(),
+test(
+  "PositionDraftBuilder should work for price above",
+  testPositionDraftBuilderUsingLiquidity({
+    sqrtQ64x96Ratio,
+    liquidity: Pool.Liquidity(Big(100e18)),
+    getLowerTick: (current) => Tick.addNTicks(current, 1),
+    getUpperTick: (current) => Tick.addNTicks(current, 2),
+    expectedAmount0: Adt.Amount0(Big(49949961958869841754182n)),
+    expectedAmount1: Adt.Amount1(Big(0n)),
+  }),
+);
+
+test(
+  "PositionDraftBuilder should work for price below",
+  testPositionDraftBuilderUsingLiquidity({
+    sqrtQ64x96Ratio,
+    liquidity: Pool.Liquidity(Big(100e18)),
+    getLowerTick: (current) => Tick.subtractNTicks(current, 2),
+    getUpperTick: (current) => Tick.subtractNTicks(current, 1),
+    expectedAmount0: Adt.Amount0(Big(0n)),
+    expectedAmount1: Adt.Amount1(Big(49970077053n)),
+  }),
+);
+
+test(
+  "PositionDraftBuilder should work for in-range position",
+  testPositionDraftBuilderUsingLiquidity({
+    sqrtQ64x96Ratio,
+    liquidity: Pool.Liquidity(Big(100e18)),
+    getLowerTick: (current) => Tick.subtractNTicks(current, 2),
+    getUpperTick: (current) => Tick.addNTicks(current, 2),
+    expectedAmount0: Adt.Amount0(Big(120054069145287995769397n)),
+    expectedAmount1: Adt.Amount1(Big(79831926243n)),
+  }),
+);
+
+test("PositionDraftBuilder should throw proper error when tickLower is greater than tickUpper", (t) => {
+  // Use the newDraftBuilder helper function to create the initial builder state
+  const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+    // Set lower tick bound using pipe API - this will be tick - 1
+    Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
+    // Set upper tick bound using pipe API - this will be tick - 2 (invalid: lower > upper)
+    Position.setUpperTickBound((current) => Tick.subtractNTicks(current, 2)),
+    // Set liquidity using pipe API
+    Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
+    // Finalize the draft using pipe API
+    Position.finalizeDraft,
   );
-  const token1 = Token.Erc20Token(
+
+  // Assert that the result contains a tick bounds error
+  t.true(
+    Either.match(draft, {
+      onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
+      onRight: () => false,
+    }),
+    "The result should be a Left, containing tick bounds error",
+  );
+});
+
+test("PositionDraftBuilder should throw proper error when spacing is incorrect", (t) => {
+  // Use the newDraftBuilder helper function to create the initial builder state
+  const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+    // Set lower tick bound with incorrect spacing (HIGH fee spacing instead of LOW)
+    Position.setLowerTickBound((current) =>
+      Option.some(Tick.nearestUsableTick(current.unwrap, Tick.toTickSpacing(Adt.FeeAmount.HIGH))),
+    ),
+    // Set upper tick bound using pipe API
+    Position.setUpperTickBound((current) => Tick.addNTicks(current, 2)),
+    // Set liquidity using pipe API
+    Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
+    // Finalize the draft using pipe API
+    Position.finalizeDraft,
+  );
+
+  // Assert that the result contains a tick bounds error
+  t.true(
+    Either.match(draft, {
+      onLeft: (err) => err.errors.findIndex(Position.isTickBoundsError) > -1,
+      onRight: () => false,
+    }),
+    "The result should be a Left, containing tick bounds error",
+  );
+});
+
+function testPositionDraftBuilderUsingLiquidity({
+  expectedAmount0,
+  expectedAmount1,
+  sqrtQ64x96Ratio,
+  liquidity,
+  getLowerTick,
+  getUpperTick,
+}: {
+  sqrtQ64x96Ratio: BigMath.Q64x96;
+  liquidity: Pool.Liquidity;
+  getLowerTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+  getUpperTick: (current: Tick.UsableTick) => Option.Option<Tick.UsableTick>;
+  expectedAmount0: Adt.Amount0;
+  expectedAmount1: Adt.Amount1;
+}) {
+  return (t: ExecutionContext<unknown>) => {
+    const effectAssertions = AvaEffect.EffectAssertions(t);
+
+    // Use the newDraftBuilder helper function and pipe API to create the position draft
+    const draft = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+      // Set lower tick bound using pipe API
+      Position.setLowerTickBound(getLowerTick),
+      // Set upper tick bound using pipe API
+      Position.setUpperTickBound(getUpperTick),
+      // Set liquidity using pipe API
+      Position.setSizeFromLiquidity(liquidity),
+      // Finalize the draft using pipe API
+      Position.finalizeDraft,
+    );
+
+    effectAssertions.assertOptionalEqualVia(
+      draft.pipe(
+        Either.map((draft) => draft.desiredAmount0),
+        Either.getRight,
+      ),
+      Option.some(expectedAmount0),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Builder: amount0 should match expected value",
+    );
+
+    effectAssertions.assertOptionalEqualVia(
+      draft.pipe(
+        Either.map((draft) => draft.desiredAmount1),
+        Either.getRight,
+      ),
+      Option.some(expectedAmount1),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Builder: amount1 should match expected value",
+    );
+  };
+}
+
+function newDraftBuilder(sqrtQ64x96Ratio: BigMath.Q64x96): Position.EmptyState {
+  const token0 = Token.Erc20Token(
     Address.unsafe("0x6B175474E89094C44Da98b954EedeAC495271d0F"),
     18,
     "DAI",
     "DAI Stablecoin",
     Token.Erc20TokenMeta(),
   );
-
-  const price = Either.getOrThrowWith(
-    Price.makeFromSqrtQ64_96(token0, token1, BigMath.Q64x96(2n ** 96n)),
-    (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
+  const token1 = Token.Erc20Token(
+    Address.unsafe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
+    6,
+    "USDC",
+    "USD Coin",
+    Token.Erc20TokenMeta(),
   );
 
-  const liquidity = Pool.Liquidity(Big(100e18));
+  const price = Either.getOrThrowWith(
+    Price.makeFromSqrtQ64_96(token0, token1, sqrtQ64x96Ratio),
+    (cause) => new Error(`Failed to create price from Q64.96: ${cause}`),
+  );
 
   const poolAddress = Address.unsafe("0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168"); // Example address
   const feeAmount = Adt.FeeAmount.LOW;
@@ -466,49 +605,8 @@ test("PositionDraftBuilder builds correct draft for in-range position", (t) => {
     observationIndex: "0", // Required field
   };
 
-  // --- Define expected values (from the reference test) ---
-  const expectedAmount0 = Adt.Amount0(Big("120054069145287995769397"));
-  const expectedAmount1 = Adt.Amount1(Big("79831926243"));
-
-  // --- Use the Builder ---
-  const builder = Position.draftBuilder(poolState, slot0);
-
-  // Set lower bound
-  const builderWithLower = Position.setLowerTickBound(builder, (usableTick) =>
-    Tick.subtractNTicks(usableTick, 2),
-  );
-
-  // Set upper bound
-  const builderWithBounds = Position.setUpperTickBound(builderWithLower, (usableTick) =>
-    Tick.addNTicks(usableTick, 2),
-  );
-
-  // Set size using fromLiquidity
-  const builderWithSize = Position.setSizeFromLiquidity(builderWithBounds, liquidity);
-
-  // Finalize the draft
-  const draft = Position.finalizeDraft(builderWithSize);
-
-  effectAssertions.assertOptionalEqualVia(
-    draft.pipe(
-      Either.map((draft) => draft.desiredAmount0),
-      Either.getRight,
-    ),
-    Option.some(expectedAmount0),
-    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
-    "Builder: amount0 should match expected value",
-  );
-
-  effectAssertions.assertOptionalEqualVia(
-    draft.pipe(
-      Either.map((draft) => draft.desiredAmount1),
-      Either.getRight,
-    ),
-    Option.some(expectedAmount1),
-    BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
-    "Builder: amount1 should match expected value",
-  );
-});
+  return Position.draftBuilder(poolState, slot0);
+}
 
 testProp(
   "Position.draftBuilder should correctly initialize the builder with pool and slot0 data",
@@ -618,6 +716,121 @@ testProp(
 );
 
 testProp(
+  "setLowerPriceBound should successfully set lowerBoundTick when priceFn returns a valid price",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithLowerBound = Position.setLowerPriceBound(
+      initialBuilder,
+      (currentPrice: Price.AnyTokenPrice) => {
+        return Option.some(currentPrice);
+      },
+    );
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const expectedTick = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    // TODO: t.deepEqual is not working as expected, counterexample:
+    // t.deepEqual(
+    //   builderWithLowerBound.lowerBoundTick, // <-- Tick.UsableTick
+    //   Either.right(slot0.tick), // <-- this is Tick.Tick
+    //   `Expected lowerBoundTick to be ${expectedTick} but got ${builderWithLowerBound.lowerBoundTick}`,
+    // );
+
+    t.deepEqual(
+      builderWithLowerBound.lowerBoundTick,
+      Either.right(expectedTick),
+      `Expected lowerBoundTick to be ${expectedTick} but got ${builderWithLowerBound.lowerBoundTick}`,
+    );
+  },
+);
+
+testProp(
+  "setLowerPriceBound should store a BuilderError when priceFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithLowerBound = Position.setLowerPriceBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithLowerBound.lowerBoundTick),
+      "lowerBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setLowerPriceBound should store a BuilderError when priceFn returns a price that does not contain the pool tokens",
+  [poolStateAndSlot0Gen, Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, [poolState, slot0], randomPrice) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithLowerBound = Position.setLowerPriceBound(initialBuilder, () =>
+      Option.some(randomPrice),
+    );
+
+    t.true(
+      Either.isLeft(builderWithLowerBound.lowerBoundTick),
+      "lowerBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should successfully set upperBoundTick when priceFn returns a valid price",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+
+    const builderWithUpperBound = Position.setUpperPriceBound(
+      initialBuilder,
+      (currentPrice: Price.AnyTokenPrice) => {
+        return Option.some(currentPrice);
+      },
+    );
+
+    const tickSpacing = Tick.toTickSpacing(poolState.fee);
+    const expectedTick = Tick.nearestUsableTick(slot0.tick, tickSpacing);
+
+    t.deepEqual(
+      builderWithUpperBound.upperBoundTick,
+      Either.right(expectedTick),
+      `Expected upperBoundTick to be ${expectedTick} but got ${builderWithUpperBound.upperBoundTick}`,
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should store a BuilderError when priceFn returns None",
+  [poolStateAndSlot0Gen],
+  (t, [poolState, slot0]) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithUpperBound = Position.setUpperPriceBound(initialBuilder, () => Option.none());
+
+    t.true(
+      Either.isLeft(builderWithUpperBound.upperBoundTick),
+      "upperBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
+  "setUpperPriceBound should store a BuilderError when priceFn returns a price that does not contain the pool tokens",
+  [poolStateAndSlot0Gen, Price.tokenPriceGen(Token.TokenType.ERC20)],
+  (t, [poolState, slot0], randomPrice) => {
+    const initialBuilder = Position.draftBuilder(poolState, slot0);
+    const builderWithUpperBound = Position.setUpperPriceBound(initialBuilder, () =>
+      Option.some(randomPrice),
+    );
+
+    t.true(
+      Either.isLeft(builderWithUpperBound.upperBoundTick),
+      "upperBoundTick should be a Left (BuilderError)",
+    );
+  },
+);
+
+testProp(
   "setUpperTickBound should successfully set upperBoundTick when tickFn modifies the input usable tick",
   [poolStateAndSlot0Gen, fc.integer({ min: 1, max: 5 })],
   (t, [poolState, slot0], nTicksToModify) => {
@@ -716,3 +929,42 @@ testProp(
     );
   },
 );
+
+test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) => {
+  const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
+    const handleError = Position.matchBuilderError({
+      [Position.InvalidTickBoundsError.tag]: (error) => `Tick bounds error: ${error.message}`,
+      [Position.InvalidUpperTickError.tag]: (error) => `Upper tick error: ${error.message}`,
+      [Position.InvalidLowerTickError.tag]: (error) => `Lower tick error: ${error.message}`,
+      [Position.InvalidSizeError.tag]: (error) => `Size error: ${error.message}`,
+      [Position.InvalidPriceError.tag]: (error) => `Price error: ${error.message}`,
+    });
+
+    const messages = aggError.errors.map(handleError).join("\\n");
+    return new Error(`Position Draft Error:\\n${messages}`);
+  };
+
+  const emptyState = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+    // Set lower tick bound to be higher than upper tick bound (invalid configuration)
+    Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
+    Position.setUpperTickBound((current) => Tick.subtractNTicks(current, 2)),
+    Position.setSizeFromLiquidity(Pool.Liquidity(Big(100e18))),
+  );
+
+  const thrownError = t.throws(
+    () => {
+      Position.finalizeDraftOrThrow(emptyState, customErrorHandler);
+    },
+    { instanceOf: Error },
+  );
+
+  t.true(
+    thrownError?.message.includes("Position Draft Error"),
+    "Error message should contain the custom prefix from errorHandler",
+  );
+
+  t.true(
+    thrownError?.message.includes("Tick bounds error"),
+    "Error message should contain tick bounds error details",
+  );
+});

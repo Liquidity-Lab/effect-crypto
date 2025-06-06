@@ -1,3 +1,4 @@
+import test from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
@@ -75,6 +76,24 @@ testProp(
 );
 
 testProp(
+  "getTickAtSqrtRatio should works the same as uniswap-sdk implementation",
+  [sqrtRatioWithLimitedPrecisionGen()],
+  (t, sqrtRatio) => {
+    const expected = SdkTickMath.getTickAtSqrtRatio(
+      JSBI.BigInt(
+        sqrtRatio
+          .multiply(2n ** 96n)
+          .toBigInt()
+          .toString(),
+      ),
+    );
+    const actual = Tick.getTickAtSqrtRatio(sqrtRatio);
+
+    t.deepEqual(actual, expected, "tick idx should be equal");
+  },
+);
+
+testProp(
   "getTickAtPrice should work correctly with sqrt-based price",
   [priceWithSqrtValueGen()],
   (t, sqrtPrice) => {
@@ -105,6 +124,56 @@ testProp(
     // Compare the unwrapped tick value with the SDK's result
     // We're adding 0 to the expected value to normalize potential -0 to 0
     t.deepEqual(actualUsableTick.unwrap, expected + 0, "tick idx should be equal");
+  },
+  { numRuns: 512 },
+);
+
+testProp(
+  "isUsableTick should return true for valid UsableTick instances",
+  [Tick.Tick.usableTickGen()],
+  (t, usableTick) => {
+    t.true(Tick.isUsableTick(usableTick));
+  },
+);
+
+test("isUsableTick should return false for non-UsableTick values", (t) => {
+  // Test with primitives
+  t.false(Tick.isUsableTick(null), "should be false for null");
+  t.false(Tick.isUsableTick(undefined), "should be false for undefined");
+  t.false(Tick.isUsableTick(123), "should be false for a number");
+  t.false(Tick.isUsableTick("hello"), "should be false for a string");
+  t.false(Tick.isUsableTick(true), "should be false for a boolean");
+  t.false(Tick.isUsableTick(Symbol("s")), "should be false for a symbol");
+
+  // Test with plain objects
+  t.false(Tick.isUsableTick({}), "should be false for an empty object");
+  t.false(
+    Tick.isUsableTick({ unwrap: 120, spacing: 60 }),
+    "should be false for an object without a _tag",
+  );
+  t.false(
+    Tick.isUsableTick({ _tag: "WrongTag", unwrap: 120, spacing: 60 }),
+    "should be false for an object with a wrong _tag",
+  );
+
+  // Test with a raw Tick
+  const rawTick = Tick.Tick(100);
+  t.false(Tick.isUsableTick(rawTick), "should be false for a raw Tick");
+});
+
+testProp(
+  "addNTicks should be consistent with uniswap-sdk implementation",
+  [Tick.Tick.gen, Adt.feeAmountGen],
+  (t, tick, feeAmount) => {
+    const spacing = Tick.toTickSpacing(feeAmount);
+    const expected = Tick.Tick.option(sdkNearestUsableTick(tick, spacing) + spacing);
+    const actual = Tick.addNTicks(Tick.nearestUsableTick(Tick.Tick(tick), spacing), 1);
+
+    t.deepEqual(
+      Option.map(actual, (tick) => tick.unwrap),
+      expected,
+      "tick idx should be equal",
+    );
   },
   { numRuns: 512 },
 );
@@ -221,6 +290,18 @@ function doubleWithLimitedPrecisionGen() {
   const integerPartGen = fc.bigInt(
     Tick.MIN_SQRT_RATIO.pow(2).toBigInt() + 1n,
     Tick.MAX_SQRT_RATIO.pow(2).toBigInt() - 1n,
+  );
+  const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
+
+  return fc.tuple(integerPartGen, fractionalPartGen).map(([integer, fractional]) => {
+    return Big(`${integer}.${fractional}`);
+  });
+}
+
+function sqrtRatioWithLimitedPrecisionGen() {
+  const integerPartGen = fc.bigInt(
+    Tick.MIN_SQRT_RATIO.toBigInt() + 1n,
+    Tick.MAX_SQRT_RATIO.toBigInt() - 1n,
   );
   const fractionalPartGen = fc.bigInt(0n, 2n ** 96n - 1n);
 

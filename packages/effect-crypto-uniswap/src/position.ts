@@ -1,5 +1,5 @@
 // packages/effect-crypto-uniswap/src/position.ts
-import { Either, Option, Pipeable } from "effect";
+import { Array, Data, Either, Function, Option, Pipeable } from "effect";
 
 import { BigMath, Token } from "@liquidity_lab/effect-crypto";
 import { TokenVolume } from "@liquidity_lab/effect-crypto";
@@ -23,9 +23,9 @@ export interface PositionDraft {
   readonly poolId: Pool.PoolState;
 
   /** The lower tick boundary of the position - defines the lower price limit */
-  readonly tickLower: Tick.Tick;
+  readonly tickLower: Tick.UsableTick;
   /** The upper tick boundary of the position - defines the upper price limit */
-  readonly tickUpper: Tick.Tick;
+  readonly tickUpper: Tick.UsableTick;
   /** The current tick of the pool - represents the current price */
   readonly tickCurrent: Tick.Tick;
 
@@ -44,6 +44,20 @@ export interface PositionDraft {
  * Represents an error that occurs when an Uniswap V3 pool cannot be found for the given token pair and fee tier.
  * This typically happens when attempting to interact with a pool that hasn't been initialized
  * or doesn't exist on the current network.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Token } from "@liquidity_lab/effect-crypto";
+ *
+ * // Example error when pool doesn't exist
+ * const error: Position.PoolIsNotFoundError = {
+ *   _tag: "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError",
+ *   token0: usdcToken,
+ *   token1: wethToken,
+ *   fee: FeeAmount.MEDIUM
+ * };
+ * ```
  */
 export interface PoolIsNotFoundError {
   readonly _tag: "@liquidity_lab/effect-crypto-uniswap/position#PoolIsNotFoundError";
@@ -52,6 +66,336 @@ export interface PoolIsNotFoundError {
   readonly token1: Token.Erc20LikeToken;
   readonly fee: Adt.FeeAmount;
 }
+
+/**
+ * Represents an error that occurs when the tick boundaries are invalid.
+ * This happens when the lower tick is greater than or equal to the upper tick,
+ * or when ticks don't conform to the pool's tick spacing requirements.
+ *
+ * @example
+ * ```typescript
+ * import { Either } from "effect";
+ * import { Position, Tick } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * // Lower tick >= upper tick will result in InvalidTickBoundsError
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerTickBound((tick) => Tick.addNTicks(tick, 10)),
+ *     Position.setUpperTickBound((tick) => Tick.subtractNTicks(tick, 10)),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidTickBoundsError
+ * ```
+ */
+export type BuilderError = Data.TaggedEnum<{
+  [internal.InvalidTickBoundsErrorSymbol]: {
+    readonly lowerTick: Tick.UsableTick;
+    readonly upperTick: Tick.UsableTick;
+    readonly message: string;
+  };
+  [internal.InvalidUpperTickErrorSymbol]: {
+    readonly message: string;
+  };
+  [internal.InvalidLowerTickErrorSymbol]: {
+    readonly message: string;
+  };
+  [internal.InvalidSizeErrorSymbol]: {
+    readonly message: string;
+  };
+  [internal.InvalidPriceErrorSymbol]: {
+    readonly message: string;
+    readonly providedPrice: Option.Option<Price.AnyTokenPrice>;
+    readonly expectedToken0: Token.AnyToken;
+    readonly expectedToken1: Token.AnyToken;
+  };
+}>;
+
+export const BuilderError = internal.BuilderErrorLive;
+
+export type CaseConstructorWithTag<Tag extends keyof typeof internal.BuilderErrorLive> = {
+  tag: Tag;
+} & (typeof internal.BuilderErrorLive)[Tag];
+
+/**
+ * Represents an error that occurs when the tick boundaries are invalid.
+ * This happens when the lower tick is greater than or equal to the upper tick,
+ * or when ticks don't conform to the pool's tick spacing requirements.
+ *
+ * @example
+ * ```typescript
+ * import { Either } from "effect";
+ * import { Position, Tick } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * // Lower tick >= upper tick will result in InvalidTickBoundsError
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerTickBound((tick) => Tick.addNTicks(tick, 10)),
+ *     Position.setUpperTickBound((tick) => Tick.subtractNTicks(tick, 10)),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidTickBoundsError
+ * ```
+ */
+export const InvalidTickBoundsError: CaseConstructorWithTag<
+  typeof internal.InvalidTickBoundsErrorSymbol
+> = internal.InvalidTickBoundsErrorConstructor;
+export type InvalidTickBoundsError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidTickBoundsErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is a TickBoundsError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is a TickBoundsError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isTickBoundsError(error)) {
+ *     console.log(`Tick bounds error: ${error.message}`);
+ *     console.log(`Lower: ${error.lowerTick.unwrap}, Upper: ${error.upperTick.unwrap}`);
+ *   }
+ * };
+ * ```
+ */
+export const isTickBoundsError: {
+  (error: unknown): error is InvalidTickBoundsError;
+} = BuilderError.$is(internal.InvalidTickBoundsErrorSymbol);
+
+/**
+ * Represents an error that occurs when the upper tick boundary is invalid.
+ * This can happen when the upper tick calculation fails or returns None.
+ *
+ * @example
+ * ```typescript
+ * import { Either, Option } from "effect";
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * // Upper tick function returns None
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerTickBound((current) => Option.some(current)),
+ *     Position.setUpperTickBound(() => Option.none()),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidUpperTickError
+ * ```
+ */
+export const InvalidUpperTickError: CaseConstructorWithTag<
+  typeof internal.InvalidUpperTickErrorSymbol
+> = internal.InvalidUpperTickErrorConstructor;
+export type InvalidUpperTickError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidUpperTickErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is an InvalidUpperTickError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidUpperTickError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidUpperTickError(error)) {
+ *     console.log(`Invalid upper tick: ${error.message}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidUpperTickError: {
+  (error: unknown): error is InvalidUpperTickError;
+} = BuilderError.$is(internal.InvalidUpperTickErrorSymbol);
+
+/**
+ * Represents an error that occurs when the lower tick boundary is invalid.
+ * This can happen when the lower tick calculation fails or returns None.
+ *
+ * @example
+ * ```typescript
+ * import { Either, Option } from "effect";
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * // Lower tick function returns None
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerTickBound(() => Option.none()),
+ *     Position.setUpperTickBound((current) => Option.some(current)),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidLowerTickError
+ * ```
+ */
+export const InvalidLowerTickError: CaseConstructorWithTag<
+  typeof internal.InvalidLowerTickErrorSymbol
+> = internal.InvalidLowerTickErrorConstructor;
+export type InvalidLowerTickError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidLowerTickErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is an InvalidLowerTickError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidLowerTickError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidLowerTickError(error)) {
+ *     console.log(`Invalid lower tick: ${error.message}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidLowerTickError: {
+  (error: unknown): error is InvalidLowerTickError;
+} = BuilderError.$is(internal.InvalidLowerTickErrorSymbol);
+
+/**
+ * Represents an error that occurs when the position size is invalid.
+ * This can happen when no size is set or when an invalid size combination is provided.
+ *
+ * @example
+ * ```typescript
+ * import { Either } from "effect";
+ * import { Position, Tick } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * // No size set will result in InvalidSizeError
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerTickBound((tick) => Tick.subtractNTicks(tick, 10)),
+ *     Position.setUpperTickBound((tick) => Tick.addNTicks(tick, 10))
+ *     // Note: No size setting method called
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidSizeError
+ * ```
+ */
+export const InvalidSizeError: CaseConstructorWithTag<typeof internal.InvalidSizeErrorSymbol> =
+  internal.InvalidSizeErrorConstructor;
+export type InvalidSizeError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidSizeErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is an InvalidSizeError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidSizeError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidSizeError(error)) {
+ *     console.log(`Invalid size: ${error.message}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidSizeError: {
+  (error: unknown): error is InvalidSizeError;
+} = BuilderError.$is(internal.InvalidSizeErrorSymbol);
+
+/**
+ * Represents an error that occurs when an invalid price is provided.
+ * This can happen when the price contains tokens that don't match the pool's tokens,
+ * or when the price cannot be converted to a valid tick.
+ *
+ * @example
+ * ```typescript
+ * import { Either, Option } from "effect";
+ * import { Position, Price } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Token } from "@liquidity_lab/effect-crypto";
+ *
+ * declare const poolState: Pool.PoolState; // USDC/WETH pool
+ * declare const BTCToken: Token.Erc20Token;
+ *
+ * // Price with wrong tokens will result in InvalidPriceError
+ * const wrongPrice = Price.makeFromUnits(BTCToken, poolState.token1, BigMath.Ratio.ONE);
+ * const builder = Position.draftBuilder(poolState, slot0)
+ *   .pipe(
+ *     Position.setLowerPriceBound((current) => wrongPrice), // Wrong token in price
+ *     Position.setUpperTickBound((tick) => Tick.addNTicks(tick, 10)),
+ *     Position.setSizeFromLiquidity(liquidity)
+ *   );
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidPriceError
+ * ```
+ */
+export const InvalidPriceError: CaseConstructorWithTag<typeof internal.InvalidPriceErrorSymbol> =
+  internal.InvalidPriceErrorConstructor;
+export type InvalidPriceError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidPriceErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is an InvalidPriceError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidPriceError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidPriceError(error)) {
+ *     console.log(`Invalid price: ${error.message}`);
+ *     console.log(`Expected tokens: ${error.expectedToken0.symbol}/${error.expectedToken1.symbol}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidPriceError: {
+  (error: unknown): error is InvalidPriceError;
+} = BuilderError.$is(internal.InvalidPriceErrorSymbol);
+
+/**
+ * Helper function for pattern matching BuilderError.
+ * Provides a clean API for handling all BuilderError variants exhaustively.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = Position.matchBuilderError({
+ *   [Position.InvalidTickBoundsError]: (error) => `Tick bounds error: ${error.message}`,
+ *   [Position.InvalidUpperTickError]: (error) => `Invalid upper tick: ${error.message}`,
+ *   [Position.InvalidLowerTickError]: (error) => `Invalid lower tick: ${error.message}`,
+ *   [Position.InvalidSizeError]: (error) => `Invalid size: ${error.message}`,
+ *   [Position.InvalidPriceError]: (error) => `Invalid price: ${error.message}`
+ * });
+ *
+ * declare const someBuilderError: Position.BuilderError;
+ * const result = handleError(someBuilderError);
+ * ```
+ */
+export const matchBuilderError = BuilderError.$match;
 
 /**
  * Adds liquidity to a Uniswap V3 pool by minting new positions.
@@ -103,21 +447,6 @@ export const mint: {
 } = internal.mint;*/
 
 /**
- * Represents errors that can occur during the builder process.
- * @template Field - The specific field in the builder where the error occurred, or 'calculation'/'validation' for broader issues.
- */
-export interface BuilderError<
-  Field extends keyof PositionDraftBuilder | "calculation" | "validation" =
-    | keyof PositionDraftBuilder
-    | "calculation"
-    | "validation",
-> {
-  readonly _tag: "BuilderError";
-  readonly field: Field;
-  readonly message: string;
-}
-
-/**
  * Internal state for constructing a PositionDraft.
  * Fields that require calculation or validation store an Either<Value, BuilderError>.
  * This interface uses intersection types with state fragments (e.g., StateWithLowerBound)
@@ -129,25 +458,31 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
   readonly slot0: Pool.Slot0; // Current pool state (sqrtPriceX96, tick, etc.)
 
   // --- Optional bounds (stored as Either to capture calculation/validation errors) ---
-  readonly lowerBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"lowerBoundTick">>;
-  readonly upperBoundTick?: Either.Either<Tick.UsableTick, BuilderError<"upperBoundTick">>;
+  readonly lowerBoundTick?: Either.Either<
+    Tick.UsableTick,
+    Array.NonEmptyArray<InvalidLowerTickError | InvalidPriceError>
+  >;
+  readonly upperBoundTick?: Either.Either<
+    Tick.UsableTick,
+    Array.NonEmptyArray<InvalidUpperTickError | InvalidPriceError>
+  >;
 
-  // --- Optional amount/liquidity definition (stored as Either to capture calculation/validation errors) ---
   /**
    * Stores the liquidity if it's set directly or calculated from amounts.
    * This field acts as the primary driver for final calculations if present and valid.
    */
-  readonly liquidity?: Either.Either<Pool.Liquidity, BuilderError<"calculation">>;
+  readonly liquidity?: Either.Either<Pool.Liquidity, never>;
+
   /**
    * Stores the maximum desired amount of token0 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount0?: Either.Either<Adt.Amount0, BuilderError<"maxAmount0">>;
+  readonly maxAmount0?: Either.Either<Adt.Amount0, never>;
   /**
    * Stores the maximum desired amount of token1 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount1?: Either.Either<Adt.Amount1, BuilderError<"maxAmount1">>;
+  readonly maxAmount1?: Either.Either<Adt.Amount1, never>;
 
   /**
    * Helper flag to indicate which method was used to define the position size.
@@ -163,24 +498,71 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
 /**
  * Represents the initial state of the builder after initialization with pool and slot0 data.
  * This state only contains the essential context required to start defining bounds or size.
+ *
+ * @example
+ * ```typescript
+ * import { Position, Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const poolState: Pool.PoolState;
+ * declare const slot0: Pool.Slot0;
+ *
+ * const emptyState: Position.EmptyState = Position.draftBuilder(poolState, slot0);
+ * // emptyState has only pool and slot0 properties
+ * ```
  */
-export type EmptyState = Required<Pick<PositionDraftBuilder, "pool" | "slot0">>;
+export type EmptyState = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "pool" | "slot0">>;
 
 /**
  * Represents the builder state after the lower tick bound has been set (successfully or with an error).
  * This state includes the `lowerBoundTick` field, which holds an `Either` type indicating success or failure.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const emptyState: Position.EmptyState;
+ *
+ * const stateWithLower: Position.EmptyState & Position.StateWithLowerBound =
+ *   Position.setLowerTickBound(emptyState, (tick) => Tick.subtractNTicks(tick, 10));
+ * ```
  */
-export type StateWithLowerBound = Required<Pick<PositionDraftBuilder, "lowerBoundTick">>;
+export type StateWithLowerBound = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "lowerBoundTick">>;
 
 /**
  * Represents the builder state after the upper tick bound has been set (successfully or with an error).
  * This state includes the `upperBoundTick` field, which holds an `Either` type indicating success or failure.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const emptyState: Position.EmptyState;
+ *
+ * const stateWithUpper: Position.EmptyState & Position.StateWithUpperBound =
+ *   Position.setUpperTickBound(emptyState, (tick) => Tick.addNTicks(tick, 10));
+ * ```
  */
-export type StateWithUpperBound = Required<Pick<PositionDraftBuilder, "upperBoundTick">>;
+export type StateWithUpperBound = PositionDraftBuilder &
+  Required<Pick<PositionDraftBuilder, "upperBoundTick">>;
 
 /**
  * Represents the builder state once both the lower and upper tick bounds have been set (successfully or with errors).
  * This state combines `StateWithLowerBound` and `StateWithUpperBound`.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const emptyState: Position.EmptyState;
+ *
+ * const stateWithBounds: Position.EmptyState & Position.StateWithBounds =
+ *   Position.setUpperTickBound(
+ *     Position.setLowerTickBound(emptyState, (tick) => Tick.subtractNTicks(tick, 10)),
+ *     (tick) => Tick.addNTicks(tick, 10)
+ *   );
+ * ```
  */
 export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
 
@@ -188,24 +570,68 @@ export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
  * Represents the builder state once a desired position size (defined by liquidity, a single amount, or both amounts)
  * has been set (successfully or with an error).
  * The specific fields (`liquidity`, `maxAmount0`, `maxAmount1`) included depend on the method used (`fromLiquidity`, `fromSingleAmount`, `fromAmounts`).
+ *
+ * @example
+ * ```typescript
+ * import { Position, Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const stateWithBounds: Position.EmptyState & Position.StateWithBounds;
+ *
+ * const stateWithSize: Position.EmptyState & Position.StateWithBounds & Position.StateWithSize =
+ *   Position.setSizeFromLiquidity(stateWithBounds, Pool.Liquidity(BigInt(1000000)));
+ * ```
  */
-export type StateWithSize = Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
+export type StateWithSize = PositionDraftBuilder &
+  Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
 
 /**
  * Represents a builder state that is structurally ready for the final calculation into a `PositionDraft`.
  * It signifies that all necessary configuration steps (context, bounds, size) have been attempted.
  * The individual fields within this state might still hold `Either.Left<BuilderError>`, indicating configuration errors.
  * Final validation and calculation happen in the `finalizeDraft` step.
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const readyState: Position.BuilderReady;
+ *
+ * const result = Position.finalizeDraft(readyState);
+ * // result is Either<PositionDraft, AggregateBuilderError>
+ * ```
  */
 export type BuilderReady = EmptyState & StateWithBounds & StateWithSize;
 
 /**
  * Represents an aggregation of one or more `BuilderError`s encountered during the position draft construction process.
  * This is used by `finalizeDraft` to return all collected errors if the build process fails at any stage.
+ *
+ * @example
+ * ```typescript
+ * import { Either } from "effect";
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * declare const readyState: Position.BuilderReady;
+ *
+ * const result = Position.finalizeDraft(readyState);
+ *
+ * Either.match(result, {
+ *   onLeft: (aggError: Position.AggregateBuilderError) => {
+ *     console.log("Errors encountered:");
+ *     aggError.errors.forEach(error => {
+ *       if (Position.isTickBoundsError(error)) {
+ *         console.log("- Tick bounds error:", error.message);
+ *       }
+ *       // Handle other error types...
+ *     });
+ *   },
+ *   onRight: (draft) => console.log("Position draft created successfully")
+ * });
+ * ```
  */
 export type AggregateBuilderError = {
-  readonly _tag: "AggregateBuilderError";
-  readonly errors: ReadonlyArray<BuilderError>;
+  readonly _tag: "AggregateBuilderError"; // TODO: FIX TAGS
+  readonly errors: Array.NonEmptyArray<BuilderError>;
 };
 
 /**
@@ -254,6 +680,10 @@ export const draftBuilder: {
  * Sets the lower tick boundary based on a function relative to the nearest usable tick.
  * Calculates the tick and stores it as `Either.Right` on success, or `Either.Left<BuilderError>` on failure.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setLowerTickBound(builder, tickFn)`
+ * - Data-last: `setLowerTickBound(tickFn)(builder)` (for use with pipe)
+ *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
  * @param tickFn A function that takes the nearest usable tick and returns the desired lower tick `Option<Tick.UsableTick>`.
@@ -266,24 +696,36 @@ export const draftBuilder: {
  *
  * declare const initialState: Position.EmptyState;
  *
- * // Set lower bound 10 ticks below the current tick's nearest usable tick
+ * // Data-first usage
  * const builderWithLowerTick = Position.setLowerTickBound(
  *   initialState,
  *   (currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10)
+ * );
+ *
+ * // Data-last usage with pipe
+ * const builderWithLowerTickPiped = initialState.pipe(
+ *   Position.setLowerTickBound((currentUsableTick) => Tick.subtractNTicks(currentUsableTick, 10))
  * );
  * ```
  */
 export const setLowerTickBound: {
   <S extends EmptyState>(
+    tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+  ): (builder: S) => S & StateWithLowerBound;
+  <S extends EmptyState>(
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithLowerBound;
-} = internal.setLowerTickBoundImpl;
+} = Function.dual(2, internal.setLowerTickBoundImpl);
 
 /**
  * Sets the upper tick boundary based on a function relative to the nearest usable tick.
  * Calculates the tick, validates it's above the lower bound (if set), and stores it as `Either.Right` on success,
  * or `Either.Left<BuilderError>` on failure or validation error.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setUpperTickBound(builder, tickFn)`
+ * - Data-last: `setUpperTickBound(tickFn)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -297,25 +739,36 @@ export const setLowerTickBound: {
  *
  * declare const stateWithLowerBound: Position.EmptyState & Position.StateWithLowerBound;
  *
- * // Set upper bound 20 ticks above the current tick
+ * // Data-first usage
  * const builderWithUpperTick = Position.setUpperTickBound(
  *   stateWithLowerBound,
  *   (currentUsableTick) => Tick.addNTicks(currentUsableTick, 20)
  * );
  *
+ * // Data-last usage with pipe
+ * const builderWithUpperTickPiped = stateWithLowerBound.pipe(
+ *   Position.setUpperTickBound((currentUsableTick) => Tick.addNTicks(currentUsableTick, 20))
+ * );
  * ```
  */
 export const setUpperTickBound: {
   <S extends EmptyState>(
+    tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
+  ): (builder: S) => S & StateWithUpperBound;
+  <S extends EmptyState>(
     builder: S,
     tickFn: (usableTick: Tick.UsableTick) => Option.Option<Tick.UsableTick>,
   ): S & StateWithUpperBound;
-} = internal.setUpperTickBoundImpl;
+} = Function.dual(2, internal.setUpperTickBoundImpl);
 
 /**
  * Sets the lower tick boundary based on a target price relative to the current price.
  * Converts the target price to a tick, validates it, and stores it as `Either.Right` on success,
  * or `Either.Left<BuilderError>` on failure or validation error.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setLowerPriceBound(builder, priceFn)`
+ * - Data-last: `setLowerPriceBound(priceFn)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -329,7 +782,6 @@ export const setUpperTickBound: {
  * import { BigMath } from "@liquidity_lab/effect-crypto";
  *
  * declare const initialState: Position.EmptyState;
- * declare const currentPrice: Price.AnyTokenPrice; // Mock current price
  *
  * // Set lower bound 5% below the current price
  * const builderWithLowerPrice = Position.setLowerPriceBound(initialState, (currentPrice) => {
@@ -343,20 +795,26 @@ export const setUpperTickBound: {
  *   // Handle potential error from makeTokenPriceFromRatio if needed, returning Option
  *   return Either.getRight(targetPriceEither);
  * });
- *
  * ```
  */
 export const setLowerPriceBound: {
   <S extends EmptyState>(
+    priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+  ): (builder: S) => S & StateWithLowerBound;
+  <S extends EmptyState>(
     builder: S,
     priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
   ): S & StateWithLowerBound;
-} = null as any;
+} = Function.dual(2, internal.setLowerPriceBoundImpl);
 
 /**
  * Sets the upper tick boundary based on a target price relative to the current price.
  * Converts the target price to a tick, validates it's above the lower bound (if set),
  * and stores it as `Either.Right` on success, or `Either.Left<BuilderError>` on failure or validation error.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setUpperPriceBound(builder, priceFn)`
+ * - Data-last: `setUpperPriceBound(priceFn)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -370,29 +828,30 @@ export const setLowerPriceBound: {
  * import { BigMath } from "@liquidity_lab/effect-crypto";
  *
  * declare const stateWithLowerBound: Position.EmptyState & Position.StateWithLowerBound;
- * declare const currentPrice: Price.AnyTokenPrice; // Mock current price
  *
  * // Set upper bound 10% above the current price
  * const builderWithUpperPrice = Position.setUpperPriceBound(stateWithLowerBound, (currentPrice) => {
- *     const currentRatio = Price.asRatio(currentPrice);
- *     const targetRatio = currentRatio.multiply(BigMath.Ratio.fromString("1.10"));
- *     const targetPriceEither = Price.makeTokenPriceFromRatio(
- *         currentPrice.baseCurrency,
- *         currentPrice.quoteCurrency,
- *         targetRatio
- *     );
- *     // Handle potential error if needed, returning Option
- *     return Either.getRight(targetPriceEither);
+ *   const currentRatio = Price.asRatio(currentPrice);
+ *   const targetRatio = currentRatio.multiply(BigMath.Ratio.fromString("1.10"));
+ *   const targetPriceEither = Price.makeTokenPriceFromRatio(
+ *     currentPrice.baseCurrency,
+ *     currentPrice.quoteCurrency,
+ *     targetRatio
+ *   );
+ *   // Handle potential error if needed, returning Option
+ *   return Either.getRight(targetPriceEither);
  * });
- *
  * ```
  */
 export const setUpperPriceBound: {
   <S extends EmptyState>(
+    priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
+  ): (builder: S) => S & StateWithUpperBound;
+  <S extends EmptyState>(
     builder: S,
     priceFn: (currentPrice: Price.AnyTokenPrice) => Option.Option<Price.AnyTokenPrice>,
   ): S & StateWithUpperBound;
-} = null as any;
+} = Function.dual(2, internal.setUpperPriceBoundImpl);
 
 /**
  * Sets the desired position size using a specific amount of a single token (token0 or token1).
@@ -409,18 +868,17 @@ export const setUpperPriceBound: {
  *
  * @example
  * ```typescript
- * import { Option } from "effect";
  * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
  * import { Token, TokenVolume } from "@liquidity_lab/effect-crypto";
  *
  * declare const stateWithBounds: Position.EmptyState & Position.StateWithBounds;
- * declare const WETH: Token.Erc20LikeToken;
+ * declare const wethToken: Token.Erc20LikeToken;
+ *
+ * // Create a token volume for 1 WETH
+ * const wethVolume = TokenVolume.fromDecimal(wethToken, "1.0");
  *
  * // Define position size based on providing 1 WETH
- * declare const wethVolume; // "1.0 WETH"
- *
- * const builderWithSize = Position.setSizeFromSingleAmount(stateWithBounds, wethVolume.value);
- *
+ * const builderWithSize = Position.setSizeFromSingleAmount(stateWithBounds, wethVolume);
  * ```
  */
 export const setSizeFromSingleAmount: {
@@ -428,7 +886,7 @@ export const setSizeFromSingleAmount: {
     builder: S,
     volume: TokenVolume.TokenVolume<T>,
   ): S & StateWithSize;
-} = null as any;
+} = null as any; // TODO: Implement setSizeFromSingleAmountImpl
 
 /**
  * Sets the desired position size using a specific liquidity amount.
@@ -436,6 +894,10 @@ export const setSizeFromSingleAmount: {
  * Clears any previously set size definitions (liquidity, maxAmount0/1).
  * Stores the provided liquidity as `Either.Right` or `Either.Left<BuilderError>` if validation fails (e.g., non-positive liquidity).
  * Sets the `_sizeDefinitionMethod` flag to 'liquidity'.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setSizeFromLiquidity(builder, liquidity)`
+ * - Data-last: `setSizeFromLiquidity(liquidity)(builder)` (for use with pipe)
  *
  * @template S - The current state of the builder (must include pool and slot0).
  * @param builder The current builder state.
@@ -452,14 +914,19 @@ export const setSizeFromSingleAmount: {
  * // Define position size using a liquidity value (e.g., obtained from a previous position)
  * const liquidityValue = Pool.Liquidity(1234567890n);
  *
- * // Assume bounds are set in stateWithBounds
+ * // Data-first usage
  * const builderWithSize = Position.setSizeFromLiquidity(stateWithBounds, liquidityValue);
  *
+ * // Data-last usage with pipe
+ * const builderWithSizePiped = stateWithBounds.pipe(
+ *   Position.setSizeFromLiquidity(liquidityValue)
+ * );
  * ```
  */
 export const setSizeFromLiquidity: {
+  <S extends EmptyState>(liquidity: Pool.Liquidity): (builder: S) => S & StateWithSize;
   <S extends EmptyState>(builder: S, liquidity: Pool.Liquidity): S & StateWithSize;
-} = internal.setSizeFromLiquidityImpl;
+} = Function.dual(2, internal.setSizeFromLiquidityImpl);
 
 /**
  * Attempts to finalize the PositionDraft creation from a builder state that is structurally complete.
@@ -486,19 +953,29 @@ export const setSizeFromLiquidity: {
  *   onRight: (positionDraft) => {
  *     console.log("Position Draft Created:", positionDraft);
  *   },
- *   onLeft: (errors) => {
- *     console.error("Failed to create Position Draft:", errors.errors);
+ *   onLeft: (error) => {
+ *     Position.matchBuilderError({
+ *       [Position.InvalidTickBoundsError]: (error) => `Tick bounds: ${error.message}`,
+ *       [Position.InvalidUpperTickError]: (error) => `Upper tick: ${error.message}`,
+ *       [Position.InvalidLowerTickError]: (error) => `Lower tick: ${error.message}`,
+ *       [Position.InvalidSizeError]: (error) => `Size: ${error.message}`,
+ *       [Position.InvalidPriceError]: (error) => `Price: ${error.message}`
+ *     })
  *   }
  * });
  * ```
  */
 export const finalizeDraft: {
   (state: BuilderReady): Either.Either<PositionDraft, AggregateBuilderError>;
-} = null as any;
+} = internal.finalizeDraftImpl;
 
 /**
  * Calls `finalizeDraft` and throws a custom error if it returns `Either.Left`.
  * This is a convenience function for cases where errors should immediately stop execution.
+ *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `finalizeDraftOrThrow(state, errorHandler)`
+ * - Data-last: `finalizeDraftOrThrow(errorHandler)(state)` (for use with pipe)
  *
  * @param state A builder state that structurally matches `BuilderReady`.
  * @param errorHandler A function that converts the `AggregateBuilderError` into a standard `Error` to be thrown.
@@ -507,16 +984,25 @@ export const finalizeDraft: {
  *
  * @example
  * ```typescript
- * import { Option } from "effect";
  * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
  *
  * declare const readyState: Position.BuilderReady;
  *
+ * // Create error handler using pattern matching for clean, exhaustive error handling
  * const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
- *   const messages = aggError.errors.map(e => `${e.field}: ${e.message}`).join("\n");
+ *   const handleError = Position.matchBuilderError({
+ *     [Position.InvalidTickBoundsError]: (error) => `Tick bounds: ${error.message}`,
+ *     [Position.InvalidUpperTickError]: (error) => `Upper tick: ${error.message}`,
+ *     [Position.InvalidLowerTickError]: (error) => `Lower tick: ${error.message}`,
+ *     [Position.InvalidSizeError]: (error) => `Size: ${error.message}`,
+ *     [Position.InvalidPriceError]: (error) => `Price: ${error.message}`
+ *   });
+ *
+ *   const messages = aggError.errors.map(handleError).join("\n");
  *   return new Error(`Position Draft Error:\n${messages}`);
  * };
  *
+ * // Data-first usage
  * try {
  *   const positionDraft = Position.finalizeDraftOrThrow(readyState, customErrorHandler);
  *   console.log("Position Draft Created:", positionDraft);
@@ -525,8 +1011,21 @@ export const finalizeDraft: {
  *   console.error(error); // Catches the error thrown by customErrorHandler
  *   // Handle the error appropriately
  * }
+ *
+ * // Data-last usage with pipe
+ * try {
+ *   const positionDraft = readyState.pipe(
+ *     Position.finalizeDraftOrThrow(customErrorHandler)
+ *   );
+ *   console.log("Position Draft Created:", positionDraft);
+ * } catch (error) {
+ *   console.error(error);
+ * }
  * ```
  */
 export const finalizeDraftOrThrow: {
+  (
+    errorHandler: (aggError: AggregateBuilderError) => Error,
+  ): (state: BuilderReady) => PositionDraft;
   (state: BuilderReady, errorHandler: (aggError: AggregateBuilderError) => Error): PositionDraft;
-} = null as any;
+} = Function.dual(2, internal.finalizeDraftOrThrowImpl);
