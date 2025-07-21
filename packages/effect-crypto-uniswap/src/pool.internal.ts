@@ -23,7 +23,7 @@ import IUniswapV3Pool from "@uniswap/v3-core/artifacts/contracts/interfaces/IUni
 import IPoolInitializer from "@uniswap/v3-periphery/artifacts/contracts/interfaces/IPoolInitializer.sol/IPoolInitializer.json" with { type: "json" };
 
 import * as Adt from "./adt.js";
-import * as T from "./pool.js";
+import type * as T from "./pool.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 import { feeAmountGen } from "./adt.internal.js";
