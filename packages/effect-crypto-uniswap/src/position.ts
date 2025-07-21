@@ -639,11 +639,12 @@ export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
  *   Position.setSizeFromLiquidity(stateWithBounds, Pool.Liquidity(BigInt(1000000)));
  * ```
  */
-export type StateWithSize = PositionDraftBuilder & (
-  Required<Pick<PositionDraftBuilder, "liquidity">> |
-  Required<Pick<PositionDraftBuilder, "maxAmount0">> |
-  Required<Pick<PositionDraftBuilder, "maxAmount1">>
-);
+export type StateWithSize = PositionDraftBuilder &
+  (
+    | Required<Pick<PositionDraftBuilder, "liquidity">>
+    | Required<Pick<PositionDraftBuilder, "maxAmount0">>
+    | Required<Pick<PositionDraftBuilder, "maxAmount1">>
+  );
 
 /**
  * Represents a builder state that is structurally ready for the final calculation into a `PositionDraft`.

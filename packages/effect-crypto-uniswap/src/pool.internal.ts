@@ -239,7 +239,7 @@ export function slot0GenImpl(
 
     return priceArb.chain((price) => {
       // Calculate the tick from the generated price
-      // 
+      //
       // In Uniswap V3, the current tick stored in slot0 is the tick that directly
       // corresponds to the current price, calculated as log₁.₀₀₀₁(price). This tick
       // can be any integer value and is NOT constrained by the pool's tick spacing.

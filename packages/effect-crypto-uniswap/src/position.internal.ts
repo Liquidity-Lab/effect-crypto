@@ -89,7 +89,7 @@ class PositionDraftLive implements T.PositionDraft {
     readonly desiredAmount1: Adt.Amount1,
     readonly liquidity: Pool.Liquidity,
     readonly sqrtRatio: BigMath.Ratio,
-  ) { }
+  ) {}
 }
 
 export function calculatePositionDraftFromLiquidity(
@@ -514,7 +514,8 @@ export function setSizeFromSingleAmountImpl<S extends T.EmptyState, T extends To
                 message: `Cannot convert TokenVolume to Amount0 due to errors: ${errors.join(", ")}`,
               }),
             );
-          })
+          },
+        );
 
         return [maxAmount0, undefined] as const;
       }
@@ -547,7 +548,7 @@ export function setSizeFromSingleAmountImpl<S extends T.EmptyState, T extends To
       }
     }
   }
-};
+}
 
 /**
  * @internal
@@ -707,7 +708,7 @@ export const setUpperPriceBoundImpl = <S extends T.EmptyState>(
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
   readonly _tag = "AggregateBuilderError";
 
-  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) { }
+  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) {}
 
   static fromBuilderError(
     error: T.BuilderError | Array.NonEmptyArray<T.BuilderError>,

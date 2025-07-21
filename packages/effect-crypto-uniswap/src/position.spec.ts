@@ -934,16 +934,18 @@ testProp(
 // TODO: FIX THIS TEST USING UNISWAP SKD
 testProp(
   "setSizeFromSingleAmount should successfully set maxAmount0 or maxAmount1",
-  [fc.constant(123).chain(() => {
-    return poolStateAndSlot0Gen;
-  })],
+  [
+    fc.constant(123).chain(() => {
+      return poolStateAndSlot0Gen;
+    }),
+  ],
   (t, [poolState, slot0]) => {
     const effectAssertions = AvaEffect.EffectAssertions(t);
 
     const correctVolume0 = TokenVolume.tokenVolumeUnits(
       poolState.token0,
-      BigMath.NonNegativeDecimal(Big("546.69"))
-    )
+      BigMath.NonNegativeDecimal(Big("546.69")),
+    );
 
     const draft = Position.draftBuilder(poolState, slot0).pipe(
       Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
@@ -993,9 +995,8 @@ testProp(
         token0,
         token1,
         poolState.fee,
-        Option.getOrElse(
-          Price.asSqrtQ64_96(slot0.price),
-          () => t.fail("Canot construct Pool for uniswap: Price.asSqrtQ64_96 returned None"),
+        Option.getOrElse(Price.asSqrtQ64_96(slot0.price), () =>
+          t.fail("Canot construct Pool for uniswap: Price.asSqrtQ64_96 returned None"),
         ).toString(),
         1, // pool.liquidity is not used in the Position
         slot0.tick,
@@ -1004,18 +1005,16 @@ testProp(
       const currentTick = Tick.nearestUsableTick(slot0.tick, Tick.toTickSpacing(poolState.fee));
       const positionData = {
         pool,
-        tickLower: Option.getOrElse(
-          Tick.subtractNTicks(currentTick, 1),
-          () => t.fail("Canot construct Pool for uniswap: Tick.subtractNTicks returned None"),
+        tickLower: Option.getOrElse(Tick.subtractNTicks(currentTick, 1), () =>
+          t.fail("Canot construct Pool for uniswap: Tick.subtractNTicks returned None"),
         ).unwrap,
-        tickUpper: Option.getOrElse(
-          Tick.addNTicks(currentTick, 1),
-          () => t.fail("Canot construct Pool for uniswap: Tick.addNTicks returned None"),
+        tickUpper: Option.getOrElse(Tick.addNTicks(currentTick, 1), () =>
+          t.fail("Canot construct Pool for uniswap: Tick.addNTicks returned None"),
         ).unwrap,
         amount0: TokenVolume.asUnscaled(correctVolume0).toString(),
         useFullPrecision: true,
-      }
-      const position = uniswapV3Sdk.Position.fromAmount0(positionData)
+      };
+      const position = uniswapV3Sdk.Position.fromAmount0(positionData);
 
       const amount0 = Adt.Amount0(Big(position.mintAmounts.amount0.toString()));
       const amount1 = Adt.Amount1(Big(position.mintAmounts.amount1.toString()));
