@@ -10,6 +10,7 @@ import {
   Chain,
   Error,
   FatalError,
+  FatalErrorString,
   Token,
   Wallet,
   addressGen,
@@ -22,7 +23,7 @@ import IUniswapV3Pool from "@uniswap/v3-core/artifacts/contracts/interfaces/IUni
 import IPoolInitializer from "@uniswap/v3-periphery/artifacts/contracts/interfaces/IPoolInitializer.sol/IPoolInitializer.json" with { type: "json" };
 
 import * as Adt from "./adt.js";
-import type * as T from "./pool.js";
+import * as T from "./pool.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
 import { feeAmountGen } from "./adt.internal.js";
@@ -75,6 +76,25 @@ export class PoolsTag extends Effect.Tag("com/liquidity_lab/crypto/blockchain/un
 /** @internal */
 export function makePoolsFromDescriptor(descriptor: T.PoolsDescriptor): Layer.Layer<PoolsTag> {
   return Layer.succeed(PoolsTag, descriptor);
+}
+
+class Slot0Live implements T.Slot0 {
+  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/pool#Slot0" as const;
+
+  public constructor(
+    readonly price: Price.AnyTokenPrice,
+    readonly tick: Tick.Tick,
+    readonly observationIndex: bigint,
+  ) {}
+}
+
+/** @internal */
+export function makeSlot0(
+  price: Price.AnyTokenPrice,
+  tick: Tick.Tick,
+  observationIndex: bigint,
+): T.Slot0 {
+  return new Slot0Live(price, tick, observationIndex);
 }
 
 /** @internal */
@@ -172,7 +192,7 @@ function createAndInitializePoolIfNecessaryImpl(
             sqrtPriceX96,
           ).pipe(Either.mapLeft(Brand.error));
 
-          const actualTick = yield* Tick.Tick.either(tick);
+          const actualTick = yield* Tick.Tick.either(Number(tick));
 
           return Option.some({
             price: actualPrice,
@@ -213,6 +233,47 @@ export function fetchPoolStateImpl(
       fee,
       address: poolAddress,
     } as T.PoolState);
+  });
+}
+
+/** @internal */
+export function fetchSlot0Impl(
+  poolState: T.PoolState,
+): Effect.Effect<T.Slot0, FatalError | Error.BlockchainError, Chain.Tag> {
+  return Effect.gen(function* () {
+    const iUniswapV3Pool = new Interface(IUniswapV3Pool.abi);
+
+    const poolContract = (yield* Chain.contractInstance(poolState.address, iUniswapV3Pool))
+      .withOnChainRunner;
+
+    const [sqrtPriceX96Str, tickStr, observationIndexStr] = yield* Effect.promise(() => {
+      return poolContract.slot0.staticCall() as Promise<[string, string, string]>;
+    });
+
+    const price = yield* BigMath.Q64x96.either(BigInt(sqrtPriceX96Str)).pipe(
+      Either.mapLeft(
+        (errors) =>
+          `Unable to parse sqrtPriceX96 from slot0: ${BrandUtils.stringifyBrandErrors(errors)} given [${sqrtPriceX96Str}]`,
+      ),
+      Either.flatMap((sqrtPriceX96) =>
+        Price.makeFromSqrtQ64_96(poolState.token0, poolState.token1, sqrtPriceX96),
+      ),
+      Either.mapLeft((errorStr) => FatalErrorString(errorStr)),
+    );
+    const tick = yield* Either.mapLeft(Tick.Tick.either(Number(tickStr)), (errors) =>
+      FatalErrorString(
+        `Unable to parse tick from slot0: ${BrandUtils.stringifyBrandErrors(errors)} given [${tickStr}]`,
+      ),
+    );
+    const observationIndex = yield* Either.mapLeft(
+      Either.try(() => BigInt(observationIndexStr)),
+      (error) =>
+        FatalErrorString(
+          `Unable to parse observationIndex from slot0: ${error} given [${observationIndexStr}]`,
+        ),
+    );
+
+    return new Slot0Live(price, tick, observationIndex);
   });
 }
 
@@ -260,13 +321,11 @@ export function slot0GenImpl(
       const tick = Tick.getTickAtPrice(price);
 
       // observationIndex can be generated independently for now
-      const observationIndexArb = fc.nat().map((n) => n.toString());
+      const observationIndexArb = fc.nat().map((n) => BigInt(n));
 
-      return observationIndexArb.map((observationIndex) => ({
-        price,
-        tick,
-        observationIndex,
-      }));
+      return observationIndexArb.map(
+        (observationIndex) => new Slot0Live(price, tick, observationIndex),
+      );
     });
   });
 }

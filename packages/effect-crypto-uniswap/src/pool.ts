@@ -102,8 +102,13 @@ export interface Slot0Price {
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3PoolState#slot0}
  */
 export interface Slot0 extends Slot0Price {
-  readonly observationIndex: string;
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/pool#Slot0";
+
+  readonly observationIndex: bigint;
 }
+export const Slot0: {
+  (price: Price.AnyTokenPrice, tick: Tick.Tick, observationIndex: bigint): Slot0;
+} = internal.makeSlot0;
 
 /**
  * Represents a Uniswap V3 pool's basic state.
@@ -433,15 +438,15 @@ export const SwapRouterAddress = internal.swapRouterAddressConstructor;
  *
  * const poolState = yield* fetchState(WETH, USDC, FeeAmount.MEDIUM)
  * if (Option.isSome(poolState)) {
- *   const slot0Data = yield* slot0(poolState.value)
+ *   const slot0Data = yield* fetchSlot0(poolState.value)
  *   console.log("Current tick:", slot0Data.tick)
  * }
  * ```
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3PoolState#slot0}
  */
-export const slot0: {
-  (pool: PoolState): Effect.Effect<Slot0, Error.BlockchainError, internal.PoolsTag>;
-} = null as any; // TODO: implement
+export const fetchSlot0: {
+  (pool: PoolState): Effect.Effect<Slot0, FatalError | Error.BlockchainError, Chain.Tag>;
+} = internal.fetchSlot0Impl; // TODO: implement
 
 export const liquidity: {
   (pool: PoolState): Effect.Effect<Liquidity, Error.BlockchainError, internal.PoolsTag>;

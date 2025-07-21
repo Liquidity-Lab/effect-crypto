@@ -600,11 +600,11 @@ function newDraftBuilder(sqrtQ64x96Ratio: BigMath.Q64x96): Position.EmptyState {
   const tickCurrent = Tick.getTickAtPrice(price);
 
   // Construct Slot0 correctly based on Pool.Slot0 interface
-  const slot0: Pool.Slot0 = {
-    price: price, // Use the Price object created above
-    tick: tickCurrent,
-    observationIndex: "0", // Required field
-  };
+  const slot0: Pool.Slot0 = Pool.Slot0(
+    price, // Use the Price object created above
+    tickCurrent,
+    0n, // Required field
+  );
 
   return Position.draftBuilder(poolState, slot0);
 }
@@ -627,11 +627,11 @@ testProp(
       (err) => new Error(`Failed to create price from Q64.96: ${err}`),
     );
 
-    const slot0ForTest: Pool.Slot0 = {
-      price: currentPrice,
-      tick: tickCurrent,
-      observationIndex: "0", // Mock observation index, not critical for this test
-    };
+    const slot0ForTest: Pool.Slot0 = Pool.Slot0(
+      currentPrice,
+      tickCurrent,
+      0n, // Mock observation index, not critical for this test
+    );
 
     // 3. Execution
     const initialBuilderState = Position.draftBuilder(poolState, slot0ForTest);

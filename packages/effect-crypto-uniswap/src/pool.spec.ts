@@ -1,4 +1,4 @@
-import { Big } from "bigdecimal.js";
+import { Big, MathContext, RoundingMode } from "bigdecimal.js";
 import { Effect, Either, Layer, Option } from "effect";
 
 import { AvaCrypto, BigMath, Chain, TestEnv, Token, Wallet } from "@liquidity_lab/effect-crypto";
@@ -69,6 +69,36 @@ testEffect("Should create and initialize pool", (t) => {
     t.assert(
       Option.isNone(existingPoolPriceOpt),
       "Pool should not be created if it already exists",
+    );
+  });
+});
+
+testEffect("Should fetch slot0", (t) => {
+  const errorTolerance = Big("0.00001", undefined, new MathContext(128, RoundingMode.FLOOR));
+
+  return Effect.gen(function* () {
+    // TODO: we should deploy random tokes to ensure we create new pool each time
+    const WETH = yield* Token.get("WETH");
+    const USDC = yield* Token.get("USDC");
+
+    const feeAmount = Adt.FeeAmount.HIGH;
+    const expectedPrice = Either.getOrElse(
+      Price.makeTokenPriceFromRatio(WETH, USDC, BigMath.Ratio(Big("4000"))),
+      (err) => t.fail(`Failed to create TokenPriceUnits: ${err}`),
+    );
+
+    yield* Pool.createAndInitialize(expectedPrice, feeAmount);
+
+    const poolState = Option.getOrElse(yield* Pool.fetchState(WETH, USDC, feeAmount), () =>
+      t.fail("PoolState should be Some for existing pool"),
+    );
+
+    const actual = yield* Pool.fetchSlot0(poolState);
+
+    t.priceEqualsWithPrecision(errorTolerance)(
+      actual.price,
+      expectedPrice,
+      "Price should be equal",
     );
   });
 });
