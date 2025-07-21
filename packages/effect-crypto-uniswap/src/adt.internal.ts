@@ -2,9 +2,9 @@ import { Brand, Either, Option } from "effect";
 import { Arbitrary } from "fast-check";
 
 import { fc } from "@fast-check/ava";
+import { Token, TokenVolume } from "@liquidity_lab/effect-crypto";
 
 import type * as T from "./adt.js";
-import { Token, TokenVolume } from "@liquidity_lab/effect-crypto";
 
 /**
  * Fee amount in percents
@@ -73,9 +73,7 @@ export const amount0Gen = (constraints?: { min?: T.Amount0; max?: T.Amount0 }) =
 export type Amount1TypeId = "com/liquidity_lab/crypto/blockchain/uniswap#amount1";
 
 export const makeAmount1 = Brand.refined<T.Amount1>(verifyAmount, (rawAmount) => {
-  return Brand.error(
-    `Amount should be in range [0, ${MAX_UINT256}], but given[${rawAmount}]`,
-  );
+  return Brand.error(`Amount should be in range [0, ${MAX_UINT256}], but given[${rawAmount}]`);
 });
 
 /**
@@ -85,6 +83,16 @@ export function amount1FromTokenVolumeImpl(
   volume: TokenVolume.TokenVolume<Token.TokenType>,
 ): Either.Either<T.Amount1, Brand.Brand.BrandErrors> {
   return makeAmount1.either(TokenVolume.asUnscaled(volume));
+}
+
+/**
+ * @internal
+ */
+export function amount1ToTokenVolumeImpl<TokenT extends Token.TokenType>(
+  amount1: T.Amount1,
+  token1: Token.Token<TokenT>,
+): Option.Option<TokenVolume.TokenVolume<TokenT>> {
+  return TokenVolume.tokenVolumeFromUnscaled(token1, amount1);
 }
 
 export const MAX_AMOUNT_1: T.Amount1 = makeAmount1(MAX_UINT256);
