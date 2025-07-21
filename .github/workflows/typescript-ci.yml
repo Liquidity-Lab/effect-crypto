@@ -89,6 +89,9 @@ jobs:
       - name: Wait for Hardhat node to be ready
         run: sleep 10
 
+      - name: Run tests:types
+        run: npm run test:types --workspaces
+
       - name: Run tests
         env:
           HARDHAT_NETWORK: localhost

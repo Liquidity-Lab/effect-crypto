@@ -1,6 +1,7 @@
 import { BigDecimal } from "bigdecimal.js";
 import { Brand, Context, Effect, Layer, Option } from "effect";
 import { Contract } from "ethers";
+import type { Arbitrary } from "fast-check";
 import { Tagged } from "type-fest";
 
 import { Address, Chain, Error, FatalError, Token, Wallet } from "@liquidity_lab/effect-crypto";
@@ -46,6 +47,7 @@ export const Liquidity: Brand.Brand.Constructor<Liquidity> = internal.liquidityC
  * The current state of a pool's price and tick.
  * Used when price data is needed without the full slot0 data.
  *
+ *
  * @example
  * ```typescript
  * import { Token, TokenPrice } from "@liquidity_lab/effect-crypto"
@@ -60,6 +62,25 @@ export const Liquidity: Brand.Brand.Constructor<Liquidity> = internal.liquidityC
  */
 export interface Slot0Price {
   readonly price: Price.AnyTokenPrice;
+  /**
+   * In Uniswap V3, the current tick stored in slot0 is the tick that directly
+   * corresponds to the current price, calculated as log₁.₀₀₀₁(price). This tick
+   * can be any integer value and is NOT constrained by the pool's tick spacing.
+   *
+   * The tick spacing only constrains:
+   * - Where liquidity positions can be placed (must be multiples of tick spacing)
+   * - Which ticks can be "initialized" (have liquidity data stored)
+   * - Which ticks are tracked in the tick bitmap
+   *
+   * But the current tick itself moves continuously as trades occur and can land
+   * on any tick value. For example, in a pool with tick spacing 60:
+   * - Liquidity positions: only at ..., -120, -60, 0, 60, 120, ...
+   * - Current tick: can be any value like 23, 47, -17, etc.
+   *
+   * This distinction is important because the current tick determines the exact
+   * current price ratio between the two tokens, while tick spacing is purely
+   * a constraint on where concentrated liquidity can be deployed.
+   */
   readonly tick: Tick.Tick;
 }
 
@@ -81,8 +102,13 @@ export interface Slot0Price {
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3PoolState#slot0}
  */
 export interface Slot0 extends Slot0Price {
-  readonly observationIndex: string;
+  readonly _tag: "@liquidity_lab/effect-crypto-uniswap/pool#Slot0";
+
+  readonly observationIndex: bigint;
 }
+export const Slot0: {
+  (price: Price.AnyTokenPrice, tick: Tick.Tick, observationIndex: bigint): Slot0;
+} = internal.makeSlot0;
 
 /**
  * Represents a Uniswap V3 pool's basic state.
@@ -412,15 +438,15 @@ export const SwapRouterAddress = internal.swapRouterAddressConstructor;
  *
  * const poolState = yield* fetchState(WETH, USDC, FeeAmount.MEDIUM)
  * if (Option.isSome(poolState)) {
- *   const slot0Data = yield* slot0(poolState.value)
+ *   const slot0Data = yield* fetchSlot0(poolState.value)
  *   console.log("Current tick:", slot0Data.tick)
  * }
  * ```
  * @see {@link https://docs.uniswap.org/protocol/reference/core/interfaces/pool/IUniswapV3PoolState#slot0}
  */
-export const slot0: {
-  (pool: PoolState): Effect.Effect<Slot0, Error.BlockchainError, internal.PoolsTag>;
-} = null as any; // TODO: implement
+export const fetchSlot0: {
+  (pool: PoolState): Effect.Effect<Slot0, FatalError | Error.BlockchainError, Chain.Tag>;
+} = internal.fetchSlot0Impl; // TODO: implement
 
 export const liquidity: {
   (pool: PoolState): Effect.Effect<Liquidity, Error.BlockchainError, internal.PoolsTag>;
@@ -442,3 +468,44 @@ export const liquidity: {
 export interface PoolConfig {
   readonly factoryAddress: PoolFactoryAddress;
 } // TODO: remove?
+
+/**
+ * Generates arbitrary `PoolState` values for property-based testing.
+ * Ensures that token0 and token1 are ordered by address as per Uniswap conventions,
+ * and that the tokens generated are ERC20 tokens.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * fc.assert(fc.property(Pool.poolStateGen(), (poolState) => {
+ *   // Your test assertions here
+ *   console.log(poolState.fee);
+ *   console.log(poolState.token0.address < poolState.token1.address);
+ * }));
+ * ```
+ */
+export const poolStateGen: {
+  (): Arbitrary<PoolState>;
+} = internal.poolStateGenImpl;
+
+/**
+ * Generates arbitrary `Slot0` values for property-based testing.
+ *
+ * @example
+ * ```typescript
+ * import { fc } from "fast-check";
+ * import { Pool } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * fc.assert(fc.property(Pool.slot0Gen(), (slot0) => {
+ *   // Your test assertions here
+ *   console.log(slot0.price);
+ *   console.log(slot0.tick);
+ *   console.log(slot0.observationIndex);
+ * }));
+ * ```
+ */
+export const slot0Gen: {
+  (poolStateArb?: Arbitrary<PoolState>): Arbitrary<Slot0>;
+} = internal.slot0GenImpl;

@@ -1,6 +1,8 @@
 import { Brand, Effect, Either, Function, Layer, Option } from "effect";
 import { RuntimeException } from "effect/Cause";
 import { Interface, Log, LogDescription } from "ethers";
+import { Arbitrary } from "fast-check";
+import fc from "fast-check";
 
 import {
   Address,
@@ -8,8 +10,10 @@ import {
   Chain,
   Error,
   FatalError,
+  FatalErrorString,
   Token,
   Wallet,
+  addressGen,
   isZeroAddress,
   toHex,
 } from "@liquidity_lab/effect-crypto";
@@ -22,6 +26,7 @@ import * as Adt from "./adt.js";
 import type * as T from "./pool.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
+import { feeAmountGen } from "./adt.internal.js";
 import { Slot0Price } from "./pool.js";
 
 /** @internal */
@@ -71,6 +76,25 @@ export class PoolsTag extends Effect.Tag("com/liquidity_lab/crypto/blockchain/un
 /** @internal */
 export function makePoolsFromDescriptor(descriptor: T.PoolsDescriptor): Layer.Layer<PoolsTag> {
   return Layer.succeed(PoolsTag, descriptor);
+}
+
+class Slot0Live implements T.Slot0 {
+  readonly _tag = "@liquidity_lab/effect-crypto-uniswap/pool#Slot0" as const;
+
+  public constructor(
+    readonly price: Price.AnyTokenPrice,
+    readonly tick: Tick.Tick,
+    readonly observationIndex: bigint,
+  ) {}
+}
+
+/** @internal */
+export function makeSlot0(
+  price: Price.AnyTokenPrice,
+  tick: Tick.Tick,
+  observationIndex: bigint,
+): T.Slot0 {
+  return new Slot0Live(price, tick, observationIndex);
 }
 
 /** @internal */
@@ -168,7 +192,7 @@ function createAndInitializePoolIfNecessaryImpl(
             sqrtPriceX96,
           ).pipe(Either.mapLeft(Brand.error));
 
-          const actualTick = yield* Tick.Tick.either(tick);
+          const actualTick = yield* Tick.Tick.either(Number(tick));
 
           return Option.some({
             price: actualPrice,
@@ -209,5 +233,99 @@ export function fetchPoolStateImpl(
       fee,
       address: poolAddress,
     } as T.PoolState);
+  });
+}
+
+/** @internal */
+export function fetchSlot0Impl(
+  poolState: T.PoolState,
+): Effect.Effect<T.Slot0, FatalError | Error.BlockchainError, Chain.Tag> {
+  return Effect.gen(function* () {
+    const iUniswapV3Pool = new Interface(IUniswapV3Pool.abi);
+
+    const poolContract = (yield* Chain.contractInstance(poolState.address, iUniswapV3Pool))
+      .withOnChainRunner;
+
+    const [sqrtPriceX96Str, tickStr, observationIndexStr] = yield* Effect.promise(() => {
+      return poolContract.slot0.staticCall() as Promise<[string, string, string]>;
+    });
+
+    const price = yield* BigMath.Q64x96.either(BigInt(sqrtPriceX96Str)).pipe(
+      Either.mapLeft(
+        (errors) =>
+          `Unable to parse sqrtPriceX96 from slot0: ${BrandUtils.stringifyBrandErrors(errors)} given [${sqrtPriceX96Str}]`,
+      ),
+      Either.flatMap((sqrtPriceX96) =>
+        Price.makeFromSqrtQ64_96(poolState.token0, poolState.token1, sqrtPriceX96),
+      ),
+      Either.mapLeft((errorStr) => FatalErrorString(errorStr)),
+    );
+    const tick = yield* Either.mapLeft(Tick.Tick.either(Number(tickStr)), (errors) =>
+      FatalErrorString(
+        `Unable to parse tick from slot0: ${BrandUtils.stringifyBrandErrors(errors)} given [${tickStr}]`,
+      ),
+    );
+    const observationIndex = yield* Either.mapLeft(
+      Either.try(() => BigInt(observationIndexStr)),
+      (error) =>
+        FatalErrorString(
+          `Unable to parse observationIndex from slot0: ${error} given [${observationIndexStr}]`,
+        ),
+    );
+
+    return new Slot0Live(price, tick, observationIndex);
+  });
+}
+
+/** @internal */
+export function poolStateGenImpl(): Arbitrary<T.PoolState> {
+  // Token.tokenPairGen already returns tokens in Uniswap order (token0.address < token1.address)
+  return Token.tokenPairGen(Token.TokenType.ERC20).chain(([token0, token1]) => {
+    return fc.record({
+      token0: fc.constant(token0),
+      token1: fc.constant(token1),
+      fee: feeAmountGen,
+      address: addressGen(),
+    });
+  });
+}
+
+/** @internal */
+export function slot0GenImpl(
+  poolStateArb: Arbitrary<T.PoolState> = poolStateGenImpl(),
+): Arbitrary<T.Slot0> {
+  return poolStateArb.chain((poolState) => {
+    // Generate a price based on the tokens from the poolState
+    const priceArb = Price.tokenPriceGen(poolState.token0, poolState.token1);
+
+    return priceArb.chain((price) => {
+      // Calculate the tick from the generated price
+      //
+      // In Uniswap V3, the current tick stored in slot0 is the tick that directly
+      // corresponds to the current price, calculated as log₁.₀₀₀₁(price). This tick
+      // can be any integer value and is NOT constrained by the pool's tick spacing.
+      //
+      // The tick spacing only constrains:
+      // - Where liquidity positions can be placed (must be multiples of tick spacing)
+      // - Which ticks can be "initialized" (have liquidity data stored)
+      // - Which ticks are tracked in the tick bitmap
+      //
+      // But the current tick itself moves continuously as trades occur and can land
+      // on any tick value. For example, in a pool with tick spacing 60:
+      // - Liquidity positions: only at ..., -120, -60, 0, 60, 120, ...
+      // - Current tick: can be any value like 23, 47, -17, etc.
+      //
+      // This distinction is important because the current tick determines the exact
+      // current price ratio between the two tokens, while tick spacing is purely
+      // a constraint on where concentrated liquidity can be deployed.
+      const tick = Tick.getTickAtPrice(price);
+
+      // observationIndex can be generated independently for now
+      const observationIndexArb = fc.nat().map((n) => BigInt(n));
+
+      return observationIndexArb.map(
+        (observationIndex) => new Slot0Live(price, tick, observationIndex),
+      );
+    });
   });
 }
