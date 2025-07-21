@@ -6,7 +6,7 @@ import { Either, Option } from "effect";
 import * as uniswapSdkCore from "@uniswap/sdk-core";
 import * as uniswapV3Sdk from "@uniswap/v3-sdk";
 import { fc, testProp } from "@fast-check/ava";
-import { Address, BigMath, Token } from "@liquidity_lab/effect-crypto";
+import { Address, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
 import { AvaEffect } from "@liquidity_lab/effect-crypto/utils";
 import { jsbi } from "@liquidity_lab/jsbi-reimported";
 
@@ -396,7 +396,8 @@ function testPositionDraft(
     );
 
     const dbg = sdkImplementation(tickLower, tickUpper);
-    console.log(dbg);
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions, no-constant-binary-expression
+    false && console.log(dbg);
 
     const draft = internal.calculatePositionDraftFromLiquidity(
       poolState,
@@ -930,12 +931,108 @@ testProp(
   },
 );
 
+// TODO: FIX THIS TEST USING UNISWAP SKD
+testProp(
+  "setSizeFromSingleAmount should successfully set maxAmount0 or maxAmount1",
+  [fc.constant(123).chain(() => {
+    return poolStateAndSlot0Gen;
+  })],
+  (t, [poolState, slot0]) => {
+    const effectAssertions = AvaEffect.EffectAssertions(t);
+
+    const correctVolume0 = TokenVolume.tokenVolumeUnits(
+      poolState.token0,
+      BigMath.NonNegativeDecimal(Big("546.69"))
+    )
+
+    const draft = Position.draftBuilder(poolState, slot0).pipe(
+      Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
+      Position.setUpperTickBound((current) => Tick.addNTicks(current, 1)),
+      Position.setSizeFromSingleAmount(correctVolume0),
+      Position.finalizeDraft,
+    );
+
+    const [expectedAmount0, expectedAmount1] = unswapImplementation();
+
+    effectAssertions.assertOptionalEqualVia(
+      draft.pipe(
+        Either.map((draft) => draft.desiredAmount0),
+        Either.getRight,
+      ),
+      Option.some(expectedAmount0),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Builder: amount0 should match expected value",
+    );
+
+    effectAssertions.assertOptionalEqualVia(
+      draft.pipe(
+        Either.map((draft) => draft.desiredAmount1),
+        Either.getRight,
+      ),
+      Option.some(expectedAmount1),
+      BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
+      "Builder: amount1 should match expected value",
+    );
+
+    function unswapImplementation() {
+      const token0 = new uniswapSdkCore.Token(
+        1,
+        poolState.token0.address,
+        poolState.token0.decimals,
+        poolState.token0.symbol,
+        poolState.token0.name,
+      );
+      const token1 = new uniswapSdkCore.Token(
+        1,
+        poolState.token1.address,
+        poolState.token1.decimals,
+        poolState.token1.symbol,
+        poolState.token1.name,
+      );
+      const pool = new uniswapV3Sdk.Pool(
+        token0,
+        token1,
+        poolState.fee,
+        Option.getOrElse(
+          Price.asSqrtQ64_96(slot0.price),
+          () => t.fail("Canot construct Pool for uniswap: Price.asSqrtQ64_96 returned None"),
+        ).toString(),
+        1, // pool.liquidity is not used in the Position
+        slot0.tick,
+        [],
+      );
+      const currentTick = Tick.nearestUsableTick(slot0.tick, Tick.toTickSpacing(poolState.fee));
+      const positionData = {
+        pool,
+        tickLower: Option.getOrElse(
+          Tick.subtractNTicks(currentTick, 1),
+          () => t.fail("Canot construct Pool for uniswap: Tick.subtractNTicks returned None"),
+        ).unwrap,
+        tickUpper: Option.getOrElse(
+          Tick.addNTicks(currentTick, 1),
+          () => t.fail("Canot construct Pool for uniswap: Tick.addNTicks returned None"),
+        ).unwrap,
+        amount0: TokenVolume.asUnscaled(correctVolume0).toString(),
+        useFullPrecision: true,
+      }
+      const position = uniswapV3Sdk.Position.fromAmount0(positionData)
+
+      const amount0 = Adt.Amount0(Big(position.mintAmounts.amount0.toString()));
+      const amount1 = Adt.Amount1(Big(position.mintAmounts.amount1.toString()));
+
+      return [amount0, amount1];
+    }
+  },
+  { numRuns: 128 },
+);
+
 test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) => {
   const customErrorHandler = (aggError: Position.AggregateBuilderError): Error => {
     const handleError = Position.matchBuilderError({
       [Position.InvalidTickBoundsError.tag]: (error) => `Tick bounds error: ${error.message}`,
       [Position.InvalidUpperTickError.tag]: (error) => `Upper tick error: ${error.message}`,
       [Position.InvalidLowerTickError.tag]: (error) => `Lower tick error: ${error.message}`,
+      [Position.InvalidAmountError.tag]: (error) => `Amount error: ${error.message}`,
       [Position.InvalidSizeError.tag]: (error) => `Size error: ${error.message}`,
       [Position.InvalidPriceError.tag]: (error) => `Price error: ${error.message}`,
     });
@@ -944,7 +1041,7 @@ test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) 
     return new Error(`Position Draft Error:\\n${messages}`);
   };
 
-  const emptyState = newDraftBuilder(sqrtQ64x96Ratio).pipe(
+  const builder = newDraftBuilder(sqrtQ64x96Ratio).pipe(
     // Set lower tick bound to be higher than upper tick bound (invalid configuration)
     Position.setLowerTickBound((current) => Tick.subtractNTicks(current, 1)),
     Position.setUpperTickBound((current) => Tick.subtractNTicks(current, 2)),
@@ -953,7 +1050,7 @@ test("finalizeDraftOrThrow should throw an error on invalid builder state", (t) 
 
   const thrownError = t.throws(
     () => {
-      Position.finalizeDraftOrThrow(emptyState, customErrorHandler);
+      Position.finalizeDraftOrThrow(builder, customErrorHandler);
     },
     { instanceOf: Error },
   );

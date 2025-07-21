@@ -47,6 +47,7 @@ export const Liquidity: Brand.Brand.Constructor<Liquidity> = internal.liquidityC
  * The current state of a pool's price and tick.
  * Used when price data is needed without the full slot0 data.
  *
+ *
  * @example
  * ```typescript
  * import { Token, TokenPrice } from "@liquidity_lab/effect-crypto"
@@ -61,6 +62,25 @@ export const Liquidity: Brand.Brand.Constructor<Liquidity> = internal.liquidityC
  */
 export interface Slot0Price {
   readonly price: Price.AnyTokenPrice;
+  /**
+   * In Uniswap V3, the current tick stored in slot0 is the tick that directly
+   * corresponds to the current price, calculated as log₁.₀₀₀₁(price). This tick
+   * can be any integer value and is NOT constrained by the pool's tick spacing.
+   *
+   * The tick spacing only constrains:
+   * - Where liquidity positions can be placed (must be multiples of tick spacing)
+   * - Which ticks can be "initialized" (have liquidity data stored)
+   * - Which ticks are tracked in the tick bitmap
+   *
+   * But the current tick itself moves continuously as trades occur and can land
+   * on any tick value. For example, in a pool with tick spacing 60:
+   * - Liquidity positions: only at ..., -120, -60, 0, 60, 120, ...
+   * - Current tick: can be any value like 23, 47, -17, etc.
+   *
+   * This distinction is important because the current tick determines the exact
+   * current price ratio between the two tokens, while tick spacing is purely
+   * a constraint on where concentrated liquidity can be deployed.
+   */
   readonly tick: Tick.Tick;
 }
 

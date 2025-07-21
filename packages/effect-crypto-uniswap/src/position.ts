@@ -101,6 +101,12 @@ export type BuilderError = Data.TaggedEnum<{
   [internal.InvalidLowerTickErrorSymbol]: {
     readonly message: string;
   };
+  [internal.InvalidAmountErrorSymbol]: {
+    readonly token0: Token.AnyToken;
+    readonly token1: Token.AnyToken;
+    readonly given: Token.AnyToken;
+    readonly message: string;
+  };
   [internal.InvalidSizeErrorSymbol]: {
     readonly message: string;
   };
@@ -320,6 +326,58 @@ export const isInvalidSizeError: {
 } = BuilderError.$is(internal.InvalidSizeErrorSymbol);
 
 /**
+ * Represents an error that occurs when an invalid amount is provided for position sizing.
+ * This can happen when the provided token doesn't match the pool's tokens,
+ * or when the amount is invalid (e.g., negative or zero).
+ *
+ * @example
+ * ```typescript
+ * import { Either } from "effect";
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ * import { Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+ *
+ * declare const stateWithBounds: Position.EmptyState & Position.StateWithBounds;
+ * declare const btcToken: Token.Erc20Token; // Different token not in the pool
+ *
+ * // Using a token that's not in the pool will result in InvalidAmountError
+ * const wrongTokenVolume = TokenVolume.fromDecimal(btcToken, "1.0");
+ * const builder = Position.setSizeFromSingleAmount(stateWithBounds, wrongTokenVolume);
+ *
+ * const draft = Position.finalizeDraft(builder);
+ * // draft will be Either.Left with errors containing InvalidAmountError
+ * ```
+ */
+export const InvalidAmountError: CaseConstructorWithTag<typeof internal.InvalidAmountErrorSymbol> =
+  internal.InvalidAmountErrorConstructor;
+export type InvalidAmountError = Data.TaggedEnum.Value<
+  BuilderError,
+  typeof internal.InvalidAmountErrorSymbol
+>;
+
+/**
+ * Type guard function to check if an error is an InvalidAmountError.
+ *
+ * @param error - The error to check
+ * @returns True if the error is an InvalidAmountError, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { Position } from "@liquidity_lab/effect-crypto-uniswap";
+ *
+ * const handleError = (error: unknown) => {
+ *   if (Position.isInvalidAmountError(error)) {
+ *     console.log(`Invalid amount: ${error.message}`);
+ *     console.log(`Expected tokens: ${error.token0.symbol}/${error.token1.symbol}`);
+ *     console.log(`Given token: ${error.given.symbol}`);
+ *   }
+ * };
+ * ```
+ */
+export const isInvalidAmountError: {
+  (error: unknown): error is InvalidAmountError;
+} = BuilderError.$is(internal.InvalidAmountErrorSymbol);
+
+/**
  * Represents an error that occurs when an invalid price is provided.
  * This can happen when the price contains tokens that don't match the pool's tokens,
  * or when the price cannot be converted to a valid tick.
@@ -477,12 +535,12 @@ export interface PositionDraftBuilder extends Pipeable.Pipeable {
    * Stores the maximum desired amount of token0 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount0?: Either.Either<Adt.Amount0, never>;
+  readonly maxAmount0?: Either.Either<Adt.Amount0, Array.NonEmptyArray<InvalidAmountError>>;
   /**
    * Stores the maximum desired amount of token1 if provided by the user.
    * Used to calculate liquidity if `liquidity` field is not set directly.
    */
-  readonly maxAmount1?: Either.Either<Adt.Amount1, never>;
+  readonly maxAmount1?: Either.Either<Adt.Amount1, Array.NonEmptyArray<InvalidAmountError>>;
 
   /**
    * Helper flag to indicate which method was used to define the position size.
@@ -581,8 +639,11 @@ export type StateWithBounds = StateWithLowerBound & StateWithUpperBound;
  *   Position.setSizeFromLiquidity(stateWithBounds, Pool.Liquidity(BigInt(1000000)));
  * ```
  */
-export type StateWithSize = PositionDraftBuilder &
-  Pick<PositionDraftBuilder, "liquidity" | "maxAmount0" | "maxAmount1">;
+export type StateWithSize = PositionDraftBuilder & (
+  Required<Pick<PositionDraftBuilder, "liquidity">> |
+  Required<Pick<PositionDraftBuilder, "maxAmount0">> |
+  Required<Pick<PositionDraftBuilder, "maxAmount1">>
+);
 
 /**
  * Represents a builder state that is structurally ready for the final calculation into a `PositionDraft`.
@@ -860,6 +921,10 @@ export const setUpperPriceBound: {
  * Stores the provided amount as `Either.Right` or `Either.Left<BuilderError>` if validation fails (e.g., non-positive amount).
  * Sets the `_sizeDefinitionMethod` flag.
  *
+ * This function supports both data-first and data-last variants:
+ * - Data-first: `setSizeFromSingleAmount(builder, volume)`
+ * - Data-last: `setSizeFromSingleAmount(volume)(builder)` (for use with pipe)
+ *
  * @template S - The current state of the builder (must include pool and slot0).
  * @template T - The type of the token volume provided.
  * @param builder The current builder state.
@@ -877,16 +942,24 @@ export const setUpperPriceBound: {
  * // Create a token volume for 1 WETH
  * const wethVolume = TokenVolume.fromDecimal(wethToken, "1.0");
  *
- * // Define position size based on providing 1 WETH
+ * // Data-first usage
  * const builderWithSize = Position.setSizeFromSingleAmount(stateWithBounds, wethVolume);
+ *
+ * // Data-last usage with pipe
+ * const builderWithSizePiped = stateWithBounds.pipe(
+ *   Position.setSizeFromSingleAmount(wethVolume)
+ * );
  * ```
  */
 export const setSizeFromSingleAmount: {
+  <T extends Token.TokenType>(
+    volume: TokenVolume.TokenVolume<T>,
+  ): <S extends EmptyState>(builder: S) => S & StateWithSize;
   <S extends EmptyState, T extends Token.TokenType>(
     builder: S,
     volume: TokenVolume.TokenVolume<T>,
   ): S & StateWithSize;
-} = null as any; // TODO: Implement setSizeFromSingleAmountImpl
+} = Function.dual(2, internal.setSizeFromSingleAmountImpl);
 
 /**
  * Sets the desired position size using a specific liquidity amount.

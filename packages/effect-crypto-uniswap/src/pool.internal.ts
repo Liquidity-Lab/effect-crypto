@@ -239,17 +239,32 @@ export function slot0GenImpl(
 
     return priceArb.chain((price) => {
       // Calculate the tick from the generated price
-      const tick = Tick.nearestUsableTick(
-        Tick.getTickAtPrice(price),
-        Tick.toTickSpacing(poolState.fee),
-      );
+      // 
+      // In Uniswap V3, the current tick stored in slot0 is the tick that directly
+      // corresponds to the current price, calculated as log₁.₀₀₀₁(price). This tick
+      // can be any integer value and is NOT constrained by the pool's tick spacing.
+      //
+      // The tick spacing only constrains:
+      // - Where liquidity positions can be placed (must be multiples of tick spacing)
+      // - Which ticks can be "initialized" (have liquidity data stored)
+      // - Which ticks are tracked in the tick bitmap
+      //
+      // But the current tick itself moves continuously as trades occur and can land
+      // on any tick value. For example, in a pool with tick spacing 60:
+      // - Liquidity positions: only at ..., -120, -60, 0, 60, 120, ...
+      // - Current tick: can be any value like 23, 47, -17, etc.
+      //
+      // This distinction is important because the current tick determines the exact
+      // current price ratio between the two tokens, while tick spacing is purely
+      // a constraint on where concentrated liquidity can be deployed.
+      const tick = Tick.getTickAtPrice(price);
 
       // observationIndex can be generated independently for now
       const observationIndexArb = fc.nat().map((n) => n.toString());
 
       return observationIndexArb.map((observationIndex) => ({
         price,
-        tick: tick.unwrap,
+        tick,
         observationIndex,
       }));
     });

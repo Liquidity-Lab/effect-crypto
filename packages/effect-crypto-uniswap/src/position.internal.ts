@@ -1,7 +1,7 @@
-import { BigDecimal, MathContext } from "bigdecimal.js";
+import { Big, BigDecimal, MathContext } from "bigdecimal.js";
 import { Array, Data, Either, Option, Pipeable, identity } from "effect";
 
-import { BigMath } from "@liquidity_lab/effect-crypto";
+import { BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
 import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
@@ -31,6 +31,9 @@ export const InvalidPriceErrorSymbol = `${NAMESPACE}#BuilderError/InvalidPriceEr
 
 /** @internal */
 export const InvalidSizeErrorSymbol = `${NAMESPACE}#BuilderError/InvalidSizeError` as const;
+
+/** @internal */
+export const InvalidAmountErrorSymbol = `${NAMESPACE}#BuilderError/InvalidAmountError` as const;
 
 /** @internal */
 export const BuilderErrorLive: Data.TaggedEnum.Constructor<T.BuilderError> =
@@ -69,6 +72,11 @@ export const InvalidPriceErrorConstructor: T.CaseConstructorWithTag<
 export const InvalidSizeErrorConstructor: T.CaseConstructorWithTag<typeof InvalidSizeErrorSymbol> =
   Object.assign({ tag: InvalidSizeErrorSymbol }, BuilderErrorLive[InvalidSizeErrorSymbol]);
 
+/** @internal */
+export const InvalidAmountErrorConstructor: T.CaseConstructorWithTag<
+  typeof InvalidAmountErrorSymbol
+> = Object.assign({ tag: InvalidAmountErrorSymbol }, BuilderErrorLive[InvalidAmountErrorSymbol]);
+
 class PositionDraftLive implements T.PositionDraft {
   readonly _tag = `${NAMESPACE}#MintablePosition` as const;
 
@@ -81,7 +89,7 @@ class PositionDraftLive implements T.PositionDraft {
     readonly desiredAmount1: Adt.Amount1,
     readonly liquidity: Pool.Liquidity,
     readonly sqrtRatio: BigMath.Ratio,
-  ) {}
+  ) { }
 }
 
 export function calculatePositionDraftFromLiquidity(
@@ -444,7 +452,13 @@ export const setUpperTickBoundImpl = <S extends T.EmptyState>(
   return instance;
 };
 
-/** @internal */
+/**
+ * @internal
+ * Internal implementation for setting the position size using a specific liquidity amount.
+ *
+ * This function takes the current builder state and a pre-validated liquidity amount.
+ * It stores the provided liquidity as `Either.Right` or `Either.Left<BuilderError>` if validation fails (e.g., non-positive liquidity).
+ */
 export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
   builder: S,
   liquidity: Pool.Liquidity, // Assumed pre-validated by its brand
@@ -463,6 +477,76 @@ export const setSizeFromLiquidityImpl = <S extends T.EmptyState>(
   } as S & T.StateWithSize;
 
   return instance;
+};
+
+/** @internal */
+export function setSizeFromSingleAmountImpl<S extends T.EmptyState, T extends Token.TokenType>(
+  builder: S,
+  volume: TokenVolume.TokenVolume<T>,
+): S & T.StateWithSize {
+  const [maxAmount0, maxAmount1] = getAmounts();
+
+  const instance = {
+    ...builder,
+    liquidity: undefined,
+    maxAmount0,
+    maxAmount1,
+
+    pipe() {
+      // eslint-disable-next-line prefer-rest-params
+      return Pipeable.pipeArguments(instance, arguments);
+    },
+  } as S & T.StateWithSize;
+
+  return instance;
+
+  function getAmounts() {
+    switch (volume.token.address) {
+      case builder.pool.token0.address: {
+        const maxAmount0 = Either.mapLeft(
+          Adt.Amount0.either(Big(TokenVolume.asUnscaled(volume))), // TODO: I NEED TO USE IT AS UNSCALED
+          (errors) => {
+            return Array.make(
+              BuilderErrorLive[InvalidAmountErrorSymbol]({
+                token0: builder.pool.token0,
+                token1: builder.pool.token1,
+                given: volume.token,
+                message: `Cannot convert TokenVolume to Amount0 due to errors: ${errors.join(", ")}`,
+              }),
+            );
+          })
+
+        return [maxAmount0, undefined] as const;
+      }
+      case builder.pool.token1.address: {
+        const maxAmount1 = Either.mapLeft(
+          Adt.Amount1.either(Big(TokenVolume.asUnscaled(volume))), // TODO: I NEED TO USE IT AS UNSCALED
+          (errors) => {
+            return Array.make(
+              BuilderErrorLive[InvalidAmountErrorSymbol]({
+                token0: builder.pool.token0,
+                token1: builder.pool.token1,
+                given: volume.token,
+                message: `Cannot convert TokenVolume to Amount1 due to errors: ${errors.join(", ")}`,
+              }),
+            );
+          },
+        );
+
+        return [undefined, maxAmount1] as const;
+      }
+      default: {
+        const error = BuilderErrorLive[InvalidAmountErrorSymbol]({
+          token0: builder.pool.token0,
+          token1: builder.pool.token1,
+          given: volume.token,
+          message: `The provided token ${volume.token.symbol} is not in the pool`,
+        });
+
+        return [error, error] as const;
+      }
+    }
+  }
 };
 
 /**
@@ -623,7 +707,7 @@ export const setUpperPriceBoundImpl = <S extends T.EmptyState>(
 class AggregateBuilderErrorLive implements T.AggregateBuilderError {
   readonly _tag = "AggregateBuilderError";
 
-  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) {}
+  constructor(readonly errors: Array.NonEmptyArray<T.BuilderError>) { }
 
   static fromBuilderError(
     error: T.BuilderError | Array.NonEmptyArray<T.BuilderError>,
@@ -640,6 +724,14 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
     return EffectUtils.mapParN(
       [builder.liquidity, validateTickBounds(builder)],
       ([liquidity, bounds]) => fromLiquidity(liquidity, bounds),
+    ).pipe(Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError));
+  } else if (Either.isEither(builder.maxAmount0) || Either.isEither(builder.maxAmount1)) {
+    const maxAmount0 = builder.maxAmount0 || Either.right(Adt.Amount0.max);
+    const maxAmount1 = builder.maxAmount1 || Either.right(Adt.Amount1.max);
+
+    return EffectUtils.mapParN(
+      [maxAmount0, maxAmount1, validateTickBounds(builder)],
+      ([maxAmount0, maxAmount1, bounds]) => fromAmounts(maxAmount0, maxAmount1, bounds),
     ).pipe(Either.mapLeft(AggregateBuilderErrorLive.fromBuilderError));
   }
 
@@ -664,6 +756,23 @@ export function finalizeDraftImpl<S extends T.BuilderReady>(
       tickLower,
       tickUpper,
       builder.slot0.tick,
+    );
+
+    return draft;
+  }
+
+  function fromAmounts(
+    maxAmount0: Adt.Amount0,
+    maxAmount1: Adt.Amount1,
+    [tickLower, tickUpper]: [Tick.UsableTick, Tick.UsableTick],
+  ) {
+    const draft = calculatePositionDraftFromAmounts(
+      builder.pool,
+      builder.slot0,
+      maxAmount0,
+      maxAmount1,
+      tickLower,
+      tickUpper,
     );
 
     return draft;

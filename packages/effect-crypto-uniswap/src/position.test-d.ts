@@ -80,10 +80,62 @@ test("BuilderError should be matchable", () => {
     [Position.InvalidLowerTickError.tag]: (error) => `Invalid lower tick: ${error.message}`,
     [Position.InvalidSizeError.tag]: (error) => `Invalid size: ${error.message}`,
     [Position.InvalidPriceError.tag]: (error) => `Invalid price: ${error.message}`,
+    [Position.InvalidAmountError.tag]: (error) => `Invalid amount: ${error.message}`,
   });
 
   const someBuilderError: Position.BuilderError = null as any;
 
   expectTypeOf(handleError).returns.toEqualTypeOf<string>();
   expectTypeOf(handleError).toBeCallableWith(someBuilderError);
+});
+
+test("StateWithSize should not be assignable from builder states without size", () => {
+  const poolState: Pool.PoolState = null as any;
+  const slot0: Pool.Slot0 = null as any;
+  const liquidity: Pool.Liquidity = null as any;
+
+  // Helper function that only accepts StateWithSize
+  const testFunction: (state: Position.StateWithSize) => boolean = null as any;
+
+  // Create an empty state (only has pool and slot0)
+  const emptyState = Position.draftBuilder(poolState, slot0);
+  assertType<Position.EmptyState>(emptyState);
+
+  // @ts-expect-error - EmptyState is not assignable to StateWithSize
+  testFunction(emptyState);
+
+  // Create state with only lower bound set
+  const stateWithLowerBound = emptyState.pipe(
+    Position.setLowerTickBound((current) => Option.some(current)),
+  );
+  assertType<Position.EmptyState & Position.StateWithLowerBound>(stateWithLowerBound);
+
+  // @ts-expect-error - StateWithLowerBound alone is not assignable to StateWithSize
+  testFunction(stateWithLowerBound);
+
+  // Create state with only upper bound set
+  const stateWithUpperBound = emptyState.pipe(
+    Position.setUpperTickBound((current) => Option.some(current)),
+  );
+  assertType<Position.EmptyState & Position.StateWithUpperBound>(stateWithUpperBound);
+
+  // @ts-expect-error - StateWithUpperBound alone is not assignable to StateWithSize
+  testFunction(stateWithUpperBound);
+
+  // Create state with both bounds but no size
+  const stateWithBounds = emptyState.pipe(
+    Position.setLowerTickBound((current) => Option.some(current)),
+    Position.setUpperTickBound((current) => Option.some(current)),
+  );
+  assertType<Position.EmptyState & Position.StateWithBounds>(stateWithBounds);
+
+  // @ts-expect-error - StateWithBounds without size is not assignable to StateWithSize
+  testFunction(stateWithBounds);
+
+  // For comparison, show that a properly constructed state WITH size IS assignable
+  const stateWithSize = stateWithBounds.pipe(Position.setSizeFromLiquidity(liquidity));
+  assertType<Position.BuilderReady>(stateWithSize);
+
+  // This should work - BuilderReady includes StateWithSize
+  testFunction(stateWithSize);
 });
