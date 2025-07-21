@@ -8,8 +8,8 @@ import * as Adt from "./adt.js";
 const maxUnit256 = BigInt(MaxUint256.toString());
 
 test("Amount0, Amount1 unscaled values should be in range according to the uniswap-sdk implementation", (t) => {
-  const maxAmount0 = Adt.Amount0.max.unscaledValue();
-  const maxAmount1 = Adt.Amount1.max.unscaledValue();
+  const maxAmount0 = Adt.Amount0.max;
+  const maxAmount1 = Adt.Amount1.max;
 
   t.assert(
     maxAmount0 === maxUnit256,
@@ -26,8 +26,8 @@ testProp(
   "Amount0, Amount1 unscaled values should be in range [0, MaxUint256]",
   [Adt.Amount0.gen(), Adt.Amount1.gen()],
   (t, amount0, amount1) => {
-    const unscaledAmount0 = amount0.unscaledValue();
-    const unscaledAmount1 = amount1.unscaledValue();
+    const unscaledAmount0 = amount0;
+    const unscaledAmount1 = amount1;
 
     t.assert(
       unscaledAmount0 >= 0n && unscaledAmount0 <= maxUnit256,

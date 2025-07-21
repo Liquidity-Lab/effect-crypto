@@ -166,8 +166,8 @@ testProp(
   [
     Tick.Tick.gen,
     ticksGen,
-    Adt.Amount0.gen({ min: Adt.Amount0(Big(1n)) }),
-    Adt.Amount1.gen({ min: Adt.Amount1(Big(1n)) }),
+    Adt.Amount0.gen({ min: Adt.Amount0(1n) }),
+    Adt.Amount1.gen({ min: Adt.Amount1(1n) }),
   ],
   (t, tick, [tickA, tickB], amount0, amount1) => {
     const ratioCurrent = Tick.getRatio(tick);
@@ -178,8 +178,8 @@ testProp(
       BigMath.asNumeratorAndDenominator(ratioCurrent),
       BigMath.asNumeratorAndDenominator(ratioA),
       BigMath.asNumeratorAndDenominator(ratioB),
-      amount0.unscaledValue(),
-      amount1.unscaledValue(),
+      amount0,
+      amount1,
     )(t);
   },
   { numRuns: 2048 },
@@ -240,8 +240,8 @@ function testMaxLiquidityForAmounts(
     const sqrtRatioB = Big(bRatio[0])
       .divideWithMathContext(bRatio[1], mathContext)
       .sqrt(mathContext);
-    const amount0Big = Adt.Amount0(Big(amount0));
-    const amount1Big = Adt.Amount1(Big(amount1));
+    const amount0Big = Adt.Amount0(amount0);
+    const amount1Big = Adt.Amount1(amount1);
 
     const actual = internal.maxLiquidityForAmountsImpl(
       sqrtRatioCurrent,
@@ -266,8 +266,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     tickLower: (current) => Tick.addNTicks(current, 1),
     tickUpper: (current) => Tick.addNTicks(current, 2),
-    expectedAmount0: Adt.Amount0(Big("49949961958869841754182")),
-    expectedAmount1: Adt.Amount1(Big("0")),
+    expectedAmount0: Adt.Amount0(49949961958869841754182n),
+    expectedAmount1: Adt.Amount1(0n),
   }),
 );
 
@@ -277,8 +277,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     tickLower: (current) => Tick.subtractNTicks(current, 2),
     tickUpper: (current) => Tick.subtractNTicks(current, 1),
-    expectedAmount0: Adt.Amount0(Big("0")),
-    expectedAmount1: Adt.Amount1(Big("49970077053")),
+    expectedAmount0: Adt.Amount0(0n),
+    expectedAmount1: Adt.Amount1(49970077053n),
   }),
 );
 
@@ -288,8 +288,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     tickLower: (current) => Tick.subtractNTicks(current, 2),
     tickUpper: (current) => Tick.addNTicks(current, 2),
-    expectedAmount0: Adt.Amount0(Big("120054069145287995769397")),
-    expectedAmount1: Adt.Amount1(Big("79831926243")),
+    expectedAmount0: Adt.Amount0(120054069145287995769397n),
+    expectedAmount1: Adt.Amount1(79831926243n),
   }),
 );
 
@@ -343,8 +343,8 @@ function testPositionDraft(
       const { amount0, amount1 } = position.mintAmounts;
 
       return {
-        amount0: Adt.Amount0(Big(amount0.toString())),
-        amount1: Adt.Amount1(Big(amount1.toString())),
+        amount0: Adt.Amount0(BigInt(amount0.toString())),
+        amount1: Adt.Amount1(BigInt(amount1.toString())),
       };
     }
 
@@ -410,14 +410,14 @@ function testPositionDraft(
 
     // Assertions for amount0
     BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext).trimToExpectedScale(
-      draft.desiredAmount0,
+      Big(draft.desiredAmount0),
       Big(params.expectedAmount0),
       "amount0 should match expected value",
     );
 
     // Assertions for amount1
     BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext).trimToExpectedScale(
-      draft.desiredAmount1,
+      Big(draft.desiredAmount1),
       Big(params.expectedAmount1),
       "amount1 should match expected value",
     );
@@ -436,8 +436,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     getLowerTick: (current) => Tick.addNTicks(current, 1),
     getUpperTick: (current) => Tick.addNTicks(current, 2),
-    expectedAmount0: Adt.Amount0(Big(49949961958869841754182n)),
-    expectedAmount1: Adt.Amount1(Big(0n)),
+    expectedAmount0: Adt.Amount0(49949961958869841754182n),
+    expectedAmount1: Adt.Amount1(0n),
   }),
 );
 
@@ -448,8 +448,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     getLowerTick: (current) => Tick.subtractNTicks(current, 2),
     getUpperTick: (current) => Tick.subtractNTicks(current, 1),
-    expectedAmount0: Adt.Amount0(Big(0n)),
-    expectedAmount1: Adt.Amount1(Big(49970077053n)),
+    expectedAmount0: Adt.Amount0(0n),
+    expectedAmount1: Adt.Amount1(49970077053n),
   }),
 );
 
@@ -460,8 +460,8 @@ test(
     liquidity: Pool.Liquidity(Big(100e18)),
     getLowerTick: (current) => Tick.subtractNTicks(current, 2),
     getUpperTick: (current) => Tick.addNTicks(current, 2),
-    expectedAmount0: Adt.Amount0(Big(120054069145287995769397n)),
-    expectedAmount1: Adt.Amount1(Big(79831926243n)),
+    expectedAmount0: Adt.Amount0(120054069145287995769397n),
+    expectedAmount1: Adt.Amount1(79831926243n),
   }),
 );
 
@@ -545,20 +545,20 @@ function testPositionDraftBuilderUsingLiquidity({
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
-        Either.map((draft) => draft.desiredAmount0),
+        Either.map((draft) => Big(draft.desiredAmount0)),
         Either.getRight,
       ),
-      Option.some(expectedAmount0),
+      Option.some(Big(expectedAmount0)),
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
       "Builder: amount0 should match expected value",
     );
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
-        Either.map((draft) => draft.desiredAmount1),
+        Either.map((draft) => Big(draft.desiredAmount1)),
         Either.getRight,
       ),
-      Option.some(expectedAmount1),
+      Option.some(Big(expectedAmount1)),
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
       "Builder: amount1 should match expected value",
     );
@@ -958,20 +958,20 @@ testProp(
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
-        Either.map((draft) => draft.desiredAmount0),
+        Either.map((draft) => Big(draft.desiredAmount0)),
         Either.getRight,
       ),
-      Option.some(expectedAmount0),
+      Option.some(Big(expectedAmount0)),
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
       "Builder: amount0 should match expected value",
     );
 
     effectAssertions.assertOptionalEqualVia(
       draft.pipe(
-        Either.map((draft) => draft.desiredAmount1),
+        Either.map((draft) => Big(draft.desiredAmount1)),
         Either.getRight,
       ),
-      Option.some(expectedAmount1),
+      Option.some(Big(expectedAmount1)),
       BigMath.assertEqualWithPercentage(t, errorTolerance, mathContext),
       "Builder: amount1 should match expected value",
     );
@@ -1016,8 +1016,8 @@ testProp(
       };
       const position = uniswapV3Sdk.Position.fromAmount0(positionData);
 
-      const amount0 = Adt.Amount0(Big(position.mintAmounts.amount0.toString()));
-      const amount1 = Adt.Amount1(Big(position.mintAmounts.amount1.toString()));
+      const amount0 = Adt.Amount0(BigInt(position.mintAmounts.amount0.toString()));
+      const amount1 = Adt.Amount1(BigInt(position.mintAmounts.amount1.toString()));
 
       return [amount0, amount1];
     }

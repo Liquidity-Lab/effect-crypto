@@ -239,7 +239,7 @@ function maxLiquidityForAmount0Impl(
   amount0: Adt.Amount0,
   mc: MathContext,
 ): Pool.Liquidity {
-  const numerator = amount0.multiply(sqrtRatioA).multiply(sqrtRatioB);
+  const numerator = Big(amount0).multiply(sqrtRatioA).multiply(sqrtRatioB);
   const denominator = sqrtRatioB.subtract(sqrtRatioA);
 
   return Pool.Liquidity(numerator.divideWithMathContext(denominator, mc));
@@ -253,7 +253,7 @@ function maxLiquidityForAmount1Impl(
 ): Pool.Liquidity {
   const denominator = sqrtRatioB.subtract(sqrtRatioA);
 
-  return Pool.Liquidity(amount1.divideWithMathContext(denominator, mc));
+  return Pool.Liquidity(Big(amount1).divideWithMathContext(denominator, mc));
 }
 
 function mintAmountsImpl(
@@ -303,7 +303,8 @@ function getAmount0Delta(
     delta
       .multiply(liquidity)
       .divideWithMathContext(sqrtRatioB, Internal.mathContext)
-      .divideWithMathContext(sqrtRatioA, Internal.mathContext),
+      .divideWithMathContext(sqrtRatioA, Internal.mathContext)
+      .toBigInt(),
   );
 }
 
@@ -314,7 +315,7 @@ function getAmount1Delta(
 ): Adt.Amount1 {
   const delta = sqrtRatioB.subtract(sqrtRatioA);
 
-  return Adt.Amount1(liquidity.multiply(delta));
+  return Adt.Amount1(liquidity.multiply(delta).toBigInt());
 }
 
 export const draftBuilder: {
@@ -503,36 +504,30 @@ export function setSizeFromSingleAmountImpl<S extends T.EmptyState, T extends To
   function getAmounts() {
     switch (volume.token.address) {
       case builder.pool.token0.address: {
-        const maxAmount0 = Either.mapLeft(
-          Adt.Amount0.either(Big(TokenVolume.asUnscaled(volume))), // TODO: I NEED TO USE IT AS UNSCALED
-          (errors) => {
-            return Array.make(
-              BuilderErrorLive[InvalidAmountErrorSymbol]({
-                token0: builder.pool.token0,
-                token1: builder.pool.token1,
-                given: volume.token,
-                message: `Cannot convert TokenVolume to Amount0 due to errors: ${errors.join(", ")}`,
-              }),
-            );
-          },
-        );
+        const maxAmount0 = Either.mapLeft(Adt.Amount0.fromTokenVolume(volume), (errors) => {
+          return Array.make(
+            BuilderErrorLive[InvalidAmountErrorSymbol]({
+              token0: builder.pool.token0,
+              token1: builder.pool.token1,
+              given: volume.token,
+              message: `Cannot convert TokenVolume to Amount0 due to errors: ${errors.join(", ")}`,
+            }),
+          );
+        });
 
         return [maxAmount0, undefined] as const;
       }
       case builder.pool.token1.address: {
-        const maxAmount1 = Either.mapLeft(
-          Adt.Amount1.either(Big(TokenVolume.asUnscaled(volume))), // TODO: I NEED TO USE IT AS UNSCALED
-          (errors) => {
-            return Array.make(
-              BuilderErrorLive[InvalidAmountErrorSymbol]({
-                token0: builder.pool.token0,
-                token1: builder.pool.token1,
-                given: volume.token,
-                message: `Cannot convert TokenVolume to Amount1 due to errors: ${errors.join(", ")}`,
-              }),
-            );
-          },
-        );
+        const maxAmount1 = Either.mapLeft(Adt.Amount1.fromTokenVolume(volume), (errors) => {
+          return Array.make(
+            BuilderErrorLive[InvalidAmountErrorSymbol]({
+              token0: builder.pool.token0,
+              token1: builder.pool.token1,
+              given: volume.token,
+              message: `Cannot convert TokenVolume to Amount1 due to errors: ${errors.join(", ")}`,
+            }),
+          );
+        });
 
         return [undefined, maxAmount1] as const;
       }
