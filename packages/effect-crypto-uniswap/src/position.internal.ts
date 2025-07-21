@@ -1,7 +1,15 @@
 import { Big, BigDecimal, MathContext } from "bigdecimal.js";
-import { Array, Data, Either, Option, Pipeable, identity } from "effect";
+import { Array, Data, Effect, Either, Option, Pipeable, identity } from "effect";
 
-import { BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+import {
+  BigMath,
+  Chain,
+  Error,
+  FatalError,
+  FatalErrorString,
+  Token,
+  TokenVolume,
+} from "@liquidity_lab/effect-crypto";
 import { EffectUtils } from "@liquidity_lab/effect-crypto/utils";
 
 import * as Adt from "./adt.js";
@@ -334,6 +342,27 @@ export const draftBuilder: {
 
   return instance;
 };
+
+export function draftBuilderForTokens(
+  token0: Token.AnyToken,
+  token1: Token.AnyToken,
+  fee: Adt.FeeAmount,
+): Effect.Effect<T.EmptyState, FatalError | Error.BlockchainError, Pool.Tag | Chain.Tag> {
+  const prog = Effect.gen(function* () {
+    const poolState: Pool.PoolState = yield* yield* Pool.fetchState(token0, token1, fee);
+    const slot0: Pool.Slot0 = yield* Pool.fetchSlot0(poolState);
+
+    return draftBuilder(poolState, slot0);
+  });
+
+  return Effect.mapError(prog, (err) => {
+    if (err._tag === "NoSuchElementException") {
+      return FatalErrorString("Pool not found");
+    }
+
+    return err;
+  });
+}
 
 /**
  * @internal

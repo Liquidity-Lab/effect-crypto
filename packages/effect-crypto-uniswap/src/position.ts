@@ -1,7 +1,7 @@
 // packages/effect-crypto-uniswap/src/position.ts
-import { Array, Data, Either, Function, Option, Pipeable } from "effect";
+import { Array, Data, Effect, Either, Function, Option, Pipeable } from "effect";
 
-import { BigMath, Token } from "@liquidity_lab/effect-crypto";
+import { BigMath, Chain, Error, FatalError, Token } from "@liquidity_lab/effect-crypto";
 import { TokenVolume } from "@liquidity_lab/effect-crypto";
 
 import * as Adt from "./adt.js";
@@ -737,6 +737,14 @@ export type AggregateBuilderError = {
 export const draftBuilder: {
   (pool: Pool.PoolState, slot0: Pool.Slot0): EmptyState;
 } = internal.draftBuilder; // Point to the internal implementation
+
+export const draftBuilderForTokens: {
+  (
+    token0: Token.AnyToken,
+    token1: Token.AnyToken,
+    fee: Adt.FeeAmount,
+  ): Effect.Effect<EmptyState, FatalError | Error.BlockchainError, Pool.Tag | Chain.Tag>;
+} = internal.draftBuilderForTokens;
 
 /**
  * Sets the lower tick boundary based on a function relative to the nearest usable tick.

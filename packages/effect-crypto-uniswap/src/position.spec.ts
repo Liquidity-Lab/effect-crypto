@@ -1,26 +1,56 @@
 // packages/effect-crypto-uniswap/src/position.spec.ts
 import test, { ExecutionContext } from "ava";
 import { Big, MathContext, RoundingMode } from "bigdecimal.js";
-import { Either, Option } from "effect";
+import { Effect, Either, Layer, Option } from "effect";
 
 import * as uniswapSdkCore from "@uniswap/sdk-core";
 import * as uniswapV3Sdk from "@uniswap/v3-sdk";
 import { fc, testProp } from "@fast-check/ava";
-import { Address, BigMath, Token, TokenVolume } from "@liquidity_lab/effect-crypto";
+import {
+  Address,
+  AvaCrypto,
+  BigMath,
+  Chain,
+  TestEnv,
+  Token,
+  TokenVolume,
+  Wallet,
+} from "@liquidity_lab/effect-crypto";
 import { AvaEffect } from "@liquidity_lab/effect-crypto/utils";
 import { jsbi } from "@liquidity_lab/jsbi-reimported";
 
 import * as Adt from "./adt.js";
+import * as AvaUniswap from "./avaUniswap.js";
 import * as Pool from "./pool.js";
 import * as internal from "./position.internal.js";
 import * as Position from "./position.js";
 import * as Price from "./price.js";
 import * as Tick from "./tick.js";
+import * as UniswapTestEnv from "./uniswapTestEnv.js";
 
 const JSBI = jsbi.default;
 const MaxUint256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 const mathContext = new MathContext(192, RoundingMode.HALF_UP);
 const errorTolerance = Big("0.000003");
+
+type Services = Chain.Tag | Token.Tag | Pool.Tag | Wallet.Tag | TestEnv.Tag | UniswapTestEnv.Tag;
+
+const services = Layer.empty.pipe(
+  Layer.provideMerge(UniswapTestEnv.uniswapTestEnvLayer()),
+  Layer.provideMerge(TestEnv.tokensLayer()),
+  Layer.provideMerge(TestEnv.testEnvLayer()),
+  Layer.provideMerge(Chain.defaultLayer()),
+);
+
+const deps: Layer.Layer<Services> = Layer.empty.pipe(
+  Layer.provideMerge(UniswapTestEnv.poolDeployLayer()),
+  Layer.provideMerge(services),
+  Layer.orDie,
+);
+
+const testEffect = AvaUniswap.makeTestEffect(deps, (t) => ({
+  assertableEqual: AvaCrypto.AssertableEqualAssertion(t),
+}));
 
 // Helper generator for consistent PoolState and Slot0
 // Using fc.chain as an alternative to fc.let to potentially resolve linter issues.
@@ -423,6 +453,46 @@ function testPositionDraft(
     );
   };
 }
+
+testEffect("PositionDraftBuilder should be correcly initialized with tokens and fee data", (t) => {
+  const errorTolerance = Big("0.000003");
+
+  const prog = Effect.gen(function* () {
+    const WETH = yield* Token.get("WETH");
+    const USDC = yield* Token.get("USDC");
+
+    const feeAmount = Adt.FeeAmount.MEDIUM;
+    const expectedPrice = Either.getOrElse(
+      Price.makeTokenPriceFromRatio(WETH, USDC, BigMath.Ratio(Big("4000"))),
+      (err) => t.fail(`Failed to create TokenPriceUnits: ${err}`),
+    );
+    const expectedTick = Tick.getTickAtPrice(expectedPrice);
+
+    yield* Pool.createAndInitialize(expectedPrice, feeAmount);
+
+    const draft = yield* Position.draftBuilderForTokens(WETH, USDC, feeAmount);
+
+    t.assertableEqual(
+      draft.pool.token0,
+      expectedPrice.token0,
+      `Draft token0 should be ${expectedPrice.token0.symbol}`,
+    );
+    t.assertableEqual(
+      draft.pool.token1,
+      expectedPrice.token1,
+      `Draft token1 should be ${expectedPrice.token1.symbol}`,
+    );
+    t.deepEqual(draft.pool.fee, feeAmount, `Draft fee should be ${draft.pool.fee}`);
+    t.priceEqualsWithPrecision(errorTolerance)(
+      draft.slot0.price,
+      expectedPrice,
+      `Draft price should be ${Price.prettyPrint(expectedPrice)}`,
+    );
+    t.deepEqual(draft.slot0.tick, expectedTick, `Draft tick should be ${expectedTick}`);
+  });
+
+  return prog;
+});
 
 const sqrtQ64x96Ratio = Option.getOrThrowWith(
   BigMath.convertToQ64x96(Big(100e6).divideWithMathContext(100e18, mathContext).sqrt(mathContext)),
